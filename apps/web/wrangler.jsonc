@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tanstack-start-app",
+  "compatibility_date": "2025-09-24",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "vars": {
+    "MY_VAR": "Hello from Cloudflare",
+  },
+  "services": [
+    {
+      "binding": "RESOLVER",
+      "service": "resolver",
+    },
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "POSTS_CACHE",
+      "id": "2faa8539d8334ddfb507c2f9191b52a0",
+    },
+  ],
+}

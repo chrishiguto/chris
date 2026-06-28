@@ -1,0 +1,41 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bundler",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-05-23",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true,
+  },
+  "kv_namespaces": [
+    {
+      "binding": "POSTS_CACHE",
+      "id": "2faa8539d8334ddfb507c2f9191b52a0",
+    },
+  ],
+  "containers": [
+    {
+      "class_name": "BundlerContainer",
+      "image": "./container/Dockerfile",
+      "max_instances": 3,
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "BundlerContainer",
+        "name": "BUNDLER_CONTAINER",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "new_sqlite_classes": ["BundlerContainer"],
+      "tag": "v1",
+    },
+  ],
+}

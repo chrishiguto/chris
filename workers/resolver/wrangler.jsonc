@@ -1,0 +1,30 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "resolver",
+	"main": "src/index.ts",
+	"compatibility_flags": ["nodejs_compat", "nodejs_compat_do_not_populate_process_env"],
+	"compatibility_date": "2025-09-24",
+	"observability": {
+		"enabled": true,
+	},
+	"kv_namespaces": [
+		{
+			"binding": "POSTS_CACHE",
+			"id": "2faa8539d8334ddfb507c2f9191b52a0",
+		},
+	],
+	"services": [
+		{
+			"binding": "BUNDLER",
+			"service": "bundler",
+		},
+	],
+	"vars": {
+		"GITHUB_OWNER": "chrisgonzgonz",
+		"GITHUB_REPO": "chris",
+	},
+}
