@@ -76,6 +76,24 @@ content/
   blog/{slug}/index.mdx [+ components.rs]
 ```
 
+## running it
+
+prereqs: [rust](https://rustup.rs), node (wrangler is a node cli — the only node here),
+and [`just`](https://github.com/casey/just) (`cargo install just`). then:
+
+```sh
+just setup     # once: wasm target, cargo-leptos, worker-build
+just dev       # build everything and serve at http://localhost:8787
+just deploy    # ship to workers.dev
+just size      # gzipped wasm sizes (the workers plan limit cares)
+```
+
+`just` plays the role package.json scripts play in js-land: a plain command runner, recipes
+in the [justfile](justfile). the build pipeline is defined exactly once — `just build`
+compiles the frontend islands + tailwind via cargo-leptos and the ssr worker via
+worker-build — and `wrangler.toml` calls that same recipe on dev and deploy, so there's no
+second copy of the build to drift.
+
 ## docs, and how this is built
 
 this project is spec-driven and built in collaboration with ai (claude code, mostly). the flow

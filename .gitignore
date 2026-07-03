@@ -1,0 +1,4 @@
+/target
+/workers/site/build
+.wrangler/
+node_modules/

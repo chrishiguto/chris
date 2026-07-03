@@ -1,0 +1,11 @@
+name = "chris-site"
+main = "workers/site/build/index.js"
+compatibility_date = "2026-07-03"
+
+[build]
+# The pipeline lives in the justfile so dev, deploy, and ci share one definition.
+command = "just build"
+
+# Anything under target/site (including /pkg/*) is served without invoking the worker.
+[assets]
+directory = "./target/site"

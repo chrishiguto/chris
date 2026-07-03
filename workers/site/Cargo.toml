@@ -1,0 +1,30 @@
+[package]
+name = "site"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+app = { workspace = true, features = ["ssr"], optional = true }
+axum = { workspace = true, optional = true }
+getrandom = { workspace = true }
+getrandom03 = { workspace = true }
+leptos = { workspace = true, optional = true }
+leptos_axum = { workspace = true, optional = true }
+tower-service = { workspace = true, optional = true }
+worker = { workspace = true, optional = true }
+
+# Gated behind `ssr` so a host-side `cargo check --workspace` compiles this
+# crate to an empty lib instead of building wasm-only deps for native.
+[features]
+ssr = [
+  "dep:app",
+  "dep:axum",
+  "dep:leptos",
+  "dep:leptos_axum",
+  "dep:tower-service",
+  "dep:worker",
+  "leptos/ssr",
+]
