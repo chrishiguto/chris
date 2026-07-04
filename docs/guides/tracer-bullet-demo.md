@@ -45,3 +45,11 @@ component name that is not registered renders a visible
 `class="component-error"` span (publish validation normally rejects it long
 before KV). An unknown slug (`/posts/nope`) is a plain 404 — a KV miss never
 triggers any rebuild (ADR-0001).
+
+## Theme QA (Slice 11)
+
+`content/blog/kitchen-sink/index.mdx` is the theme's QA page: every AST node
+type and every `Callout` kind in one long post. Seed it as `post:kitchen-sink`
+and read it top to bottom in both color schemes (dark follows
+`prefers-color-scheme`) after any theme change; it is also the page to run
+Lighthouse against (PRD target: performance ≥ 95).

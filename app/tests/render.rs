@@ -389,3 +389,44 @@ fn render_document_wraps_body_in_article_with_header() {
     assert!(html.contains("2026-07-04"), "date missing: {html}");
     assert!(html.contains("<p>body text</p>"), "body missing: {html}");
 }
+
+fn doc_with_tags(tags: Vec<String>) -> Document {
+    Document {
+        schema_version: SCHEMA_VERSION,
+        frontmatter: Frontmatter {
+            title: "Tagged".into(),
+            date: "2026-07-04".into(),
+            tags,
+            draft: false,
+        },
+        ast: vec![],
+    }
+}
+
+#[test]
+fn post_header_renders_frontmatter_tags() {
+    let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
+    let html = strip_markers(render_document(&doc).to_html());
+    assert!(
+        html.contains("<ul class=\"post-tags\">"),
+        "tag list missing: {html}"
+    );
+    assert!(
+        html.contains("<li class=\"tag\">rust</li>"),
+        "tag missing: {html}"
+    );
+    assert!(
+        html.contains("<li class=\"tag\">wasm</li>"),
+        "tag missing: {html}"
+    );
+}
+
+#[test]
+fn post_header_omits_empty_tag_list() {
+    let doc = doc_with_tags(vec![]);
+    let html = strip_markers(render_document(&doc).to_html());
+    assert!(
+        !html.contains("post-tags"),
+        "untagged post must not render an empty list: {html}"
+    );
+}

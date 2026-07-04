@@ -40,13 +40,23 @@ fn post_not_found() -> impl IntoView {
     }
 }
 
-/// Renders a full post document: header (title, date) plus body.
+/// Renders a full post document: header (title, date, tags) plus body.
 pub fn render_document(doc: &Document) -> impl IntoView {
+    let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
+        let tags: Vec<_> = doc
+            .frontmatter
+            .tags
+            .iter()
+            .map(|tag| view! { <li class="tag">{tag.clone()}</li> })
+            .collect();
+        view! { <ul class="post-tags">{tags}</ul> }
+    });
     view! {
         <article class="post">
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
                 <p class="post-date">{doc.frontmatter.date.clone()}</p>
+                {tags}
             </header>
             {render_nodes(&doc.ast)}
         </article>

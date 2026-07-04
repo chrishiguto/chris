@@ -8,6 +8,15 @@ use leptos_router::{
 use crate::components::counter::Counter;
 use crate::post::PostPage;
 
+/// Critical faces (body, headings, code) preloaded so they reliably beat the
+/// first paint — with `font-display: optional` (main.css) a face that misses
+/// it is skipped for the page's whole life, never swapped in.
+pub const PRELOADED_FONTS: [&str; 3] = [
+    "/fonts/lora-latin-400-normal.woff2",
+    "/fonts/libre-baskerville-latin-700-normal.woff2",
+    "/fonts/ibm-plex-mono-latin-400-normal.woff2",
+];
+
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // id="leptos" on the link below is what cargo-leptos targets for CSS hot-reload.
     let css_href = format!("/pkg/{}.css", options.output_name);
@@ -17,6 +26,19 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
+                {PRELOADED_FONTS
+                    .map(|href| {
+                        view! {
+                            <link
+                                rel="preload"
+                                href=href
+                                r#as="font"
+                                type="font/woff2"
+                                crossorigin="anonymous"
+                            />
+                        }
+                    })
+                    .collect_view()}
                 <link rel="stylesheet" id="leptos" href=css_href />
                 <AutoReload options=options.clone() />
                 <HydrationScripts options islands=true />
@@ -37,8 +59,9 @@ pub fn App() -> impl IntoView {
         <Title text="chris" />
 
         <Router>
+            <SiteHeader />
             <main>
-                <Routes fallback=|| "Page not found.".into_view()>
+                <Routes fallback=NotFound>
                     <Route path=StaticSegment("") view=HomePage />
                     <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
                 </Routes>
@@ -48,15 +71,48 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
+fn SiteHeader() -> impl IntoView {
+    view! {
+        <header class="border-b border-line">
+            <div class="mx-auto flex max-w-2xl items-baseline justify-between px-6 py-4">
+                <a href="/" class="font-heading text-lg font-bold">
+                    "chris"
+                </a>
+                <nav>
+                    <a href="/" class="font-mono text-sm text-ink-muted hover:text-accent">
+                        "posts"
+                    </a>
+                </nav>
+            </div>
+        </header>
+    }
+}
+
+#[component]
 fn HomePage() -> impl IntoView {
     view! {
-        <div class="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-6 p-8">
-            <h1 class="text-3xl font-bold">"chris"</h1>
-            <p class="text-neutral-600">
-                "leptos ssr on cloudflare workers. the counter below is an island — "
-                "the only thing on this page that hydrates."
+        <section class="mx-auto max-w-2xl px-6 py-16">
+            <h1 class="font-heading text-3xl font-bold">"chris"</h1>
+            <p class="mt-6 leading-relaxed text-ink-muted">
+                "Engineering notes — Rust end-to-end: Leptos SSR on Cloudflare Workers. "
+                "The counter below is an island, the only thing on this page that hydrates."
             </p>
-            <Counter initial=0 />
-        </div>
+            <div class="mt-10">
+                <Counter initial=0 />
+            </div>
+        </section>
+    }
+}
+
+#[component]
+fn NotFound() -> impl IntoView {
+    view! {
+        <section class="mx-auto max-w-2xl px-6 py-16">
+            <h1 class="font-heading text-3xl font-bold">"404"</h1>
+            <p class="mt-6 text-ink-muted">"This page does not exist."</p>
+            <a href="/" class="mt-4 inline-block text-accent underline">
+                "back home"
+            </a>
+        </section>
     }
 }
