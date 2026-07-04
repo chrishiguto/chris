@@ -122,23 +122,18 @@ impl Converter {
         &mut self,
         children: Vec<mdast::Node>,
     ) -> (Option<Frontmatter>, Vec<mdast::Node>) {
-        let mut iter = children.into_iter().peekable();
-        let frontmatter = match iter.peek() {
-            Some(mdast::Node::Yaml(_)) => {
-                let Some(mdast::Node::Yaml(yaml)) = iter.next() else {
-                    unreachable!();
-                };
-                self.frontmatter(&yaml)
-            }
+        let mut iter = children.into_iter();
+        match iter.next() {
+            Some(mdast::Node::Yaml(yaml)) => (self.frontmatter(&yaml), iter.collect()),
             Some(mdast::Node::Toml(toml)) => {
                 self.error(
                     "frontmatter must be YAML (`---` fences), not TOML",
                     toml.position.as_ref(),
                 );
-                iter.next();
-                None
+                (None, iter.collect())
             }
-            _ => {
+            // Missing frontmatter: keep the first node in the body.
+            first => {
                 self.diags.push(Diagnostic {
                     message: "missing frontmatter: posts must start with `---` YAML frontmatter \
                          declaring at least `title` and `date`"
@@ -147,10 +142,9 @@ impl Converter {
                     line: Some(1),
                     column: Some(1),
                 });
-                None
+                (None, first.into_iter().chain(iter).collect())
             }
-        };
-        (frontmatter, iter.collect())
+        }
     }
 
     fn frontmatter(&mut self, yaml: &mdast::Yaml) -> Option<Frontmatter> {
