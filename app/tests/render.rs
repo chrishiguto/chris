@@ -201,7 +201,7 @@ fn html_passthrough_renders_tag_attrs_and_markdown_children() {
 }
 
 #[test]
-fn component_renders_placeholder_with_name_and_children() {
+fn callout_dispatches_through_registry_with_markdown_children() {
     let html = html_of(vec![Node::Component {
         name: "Callout".into(),
         props: BTreeMap::from([("kind".to_string(), PropValue::String("warning".into()))]),
@@ -210,13 +210,120 @@ fn component_renders_placeholder_with_name_and_children() {
         }],
     }]);
     assert!(
-        html.contains("data-component=\"Callout\""),
-        "placeholder must carry the component name: {html}"
+        html.contains("class=\"callout callout-warning\""),
+        "kind prop must reach the component: {html}"
     );
-    assert!(html.contains("Callout"), "name must be visible: {html}");
     assert!(
         html.contains("<p>still readable</p>"),
-        "children must not be lost: {html}"
+        "markdown children must render inside: {html}"
+    );
+    assert!(
+        !html.contains("callout-title"),
+        "omitted optional title must render nothing: {html}"
+    );
+}
+
+#[test]
+fn callout_renders_optional_title_when_given() {
+    let html = html_of(vec![Node::Component {
+        name: "Callout".into(),
+        props: BTreeMap::from([
+            ("kind".to_string(), PropValue::String("note".into())),
+            ("title".to_string(), PropValue::String("Psst".into())),
+        ]),
+        children: vec![text("body")],
+    }]);
+    assert!(
+        html.contains("<p class=\"callout-title\">Psst</p>"),
+        "title missing: {html}"
+    );
+}
+
+#[test]
+fn counter_island_ssrs_with_initial_value() {
+    let html = html_of(vec![Node::Component {
+        name: "Counter".into(),
+        props: BTreeMap::from([("initial".to_string(), PropValue::Number(5.0))]),
+        children: vec![],
+    }]);
+    assert!(
+        html.contains("<leptos-island"),
+        "island wrapper missing — hydration would never attach: {html}"
+    );
+    assert!(html.contains(">5<"), "initial value not SSR'd: {html}");
+}
+
+#[test]
+fn unknown_component_renders_loud_error() {
+    let html = html_of(vec![Node::Component {
+        name: "OrbitSimulatr".into(),
+        props: BTreeMap::new(),
+        children: vec![],
+    }]);
+    assert!(
+        html.contains("class=\"component-error\""),
+        "must fail visibly, not silently: {html}"
+    );
+    assert!(
+        html.contains("data-component=\"OrbitSimulatr\""),
+        "error must carry the component name: {html}"
+    );
+}
+
+#[test]
+fn dispatch_error_renders_loud_error() {
+    // `kind` is required; content like this can only reach KV by skipping
+    // publish validation, and must still fail visibly.
+    let html = html_of(vec![Node::Component {
+        name: "Callout".into(),
+        props: BTreeMap::new(),
+        children: vec![text("x")],
+    }]);
+    assert!(
+        html.contains("class=\"component-error\""),
+        "must fail visibly: {html}"
+    );
+    assert!(
+        html.contains("missing required prop"),
+        "error must say what is wrong: {html}"
+    );
+}
+
+#[test]
+fn manifest_contains_the_v1_vocabulary() {
+    let manifest = registry::manifest();
+    let callout = manifest.get("Callout").expect("Callout registered");
+    assert!(callout.accepts_children);
+    assert!(callout.prop("kind").is_some_and(|p| p.required));
+    assert!(callout.prop("title").is_some_and(|p| !p.required));
+    let counter = manifest.get("Counter").expect("Counter registered");
+    assert!(!counter.accepts_children);
+    assert!(counter.prop("initial").is_some_and(|p| p.required));
+}
+
+// The full Slice 3 flow minus KV transport: the fixture post parses under
+// the real manifest and renders through real registry dispatch.
+#[test]
+fn fixture_post_renders_end_to_end() {
+    let source = include_str!("../../content/blog/components-demo/index.mdx");
+    let doc = content_parser::parse_validated(source, &registry::manifest())
+        .expect("fixture post must validate against the live manifest");
+    let html = strip_markers(render_document(&doc).to_html());
+    assert!(
+        html.contains("class=\"callout callout-warning\""),
+        "Callout missing: {html}"
+    );
+    assert!(
+        html.contains("parsed recursively"),
+        "Callout markdown children missing: {html}"
+    );
+    assert!(
+        html.contains("<leptos-island"),
+        "Counter island missing: {html}"
+    );
+    assert!(
+        !html.contains("component-error"),
+        "no component may fail dispatch: {html}"
     );
 }
 

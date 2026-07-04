@@ -13,8 +13,12 @@ getrandom03 = { workspace = true }
 leptos = { workspace = true }
 leptos_meta = { workspace = true }
 leptos_router = { workspace = true }
+registry = { workspace = true, features = ["dispatch"] }
 serde = { workspace = true }
 wasm-bindgen = { workspace = true }
+
+[dev-dependencies]
+content-parser = { workspace = true }
 
 [features]
 hydrate = ["leptos/hydrate"]

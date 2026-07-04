@@ -7,7 +7,7 @@ Slice 3 read-path demo: fixture `.mdx` → AST JSON → KV → `/posts/{slug}`.
 
 ```sh
 cargo run -p content-parser --example mdx2json -- \
-  crates/content-parser/fixtures/valid/components.mdx > /tmp/post.json
+  content/blog/components-demo/index.mdx > /tmp/post.json
 ```
 
 Any `.mdx` with `title:` and `date:` frontmatter works; diagnostics go to
@@ -39,6 +39,9 @@ curl http://localhost:8787/posts/hello
 
 View-source shows the full article HTML (SSR — readable without JS):
 frontmatter drives `<title>`, prose nodes render as HTML, and component tags
-render as visible `[Name component placeholder]` spans until the registry
-lands (Slice 4). An unknown slug (`/posts/nope`) is a plain 404 — a KV miss
-never triggers any rebuild (ADR-0001).
+dispatch through the registry (Slice 4) — `<Callout>` renders server-side,
+`<Counter>` SSRs inside a `<leptos-island>` and hydrates in the browser. A
+component name that is not registered renders a visible
+`class="component-error"` span (publish validation normally rejects it long
+before KV). An unknown slug (`/posts/nope`) is a plain 404 — a KV miss never
+triggers any rebuild (ADR-0001).

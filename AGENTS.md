@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repository.
 
 ## What this is
 
-Personal blog, Rust end-to-end: Leptos 0.8 (islands mode) SSR compiled to wasm, running in Cloudflare Workers. Cargo workspace with `app` (Leptos UI, `hydrate`/`ssr` features) and `workers/site` (SSR worker). Further crates (`content-ast`, `content-parser`, `registry`, `blog-cli`, `workers/pipeline`) are specced in the PRD but not yet built.
+Personal blog, Rust end-to-end: Leptos 0.8 (islands mode) SSR compiled to wasm, running in Cloudflare Workers. Cargo workspace with `app` (Leptos UI, `hydrate`/`ssr` features), `workers/site` (SSR worker), `content-ast` (versioned AST IR), `content-parser` (MDX-subset parsing + manifest validation), and `registry`/`registry-macro` (`#[post_component]` dispatch + manifest; leptos only under its `dispatch` feature — keep it that way so parser-side consumers stay lean). Remaining crates (`blog-cli`, `workers/pipeline`) are specced in the PRD but not yet built. The authoring format contract is `CONTENT.md`.
 
 ## Specs are authoritative
 

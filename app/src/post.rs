@@ -58,6 +58,15 @@ pub fn render_nodes(nodes: &[Node]) -> Vec<AnyView> {
     nodes.iter().map(render_node).collect()
 }
 
+fn component_error(name: &str, message: String) -> AnyView {
+    view! {
+        <span class="component-error" data-component=name.to_string()>
+            {message}
+        </span>
+    }
+    .into_any()
+}
+
 fn render_node(node: &Node) -> AnyView {
     match node {
         Node::Heading { level, children } => {
@@ -137,17 +146,22 @@ fn render_node(node: &Node) -> AnyView {
                     .into_any()
             })
         }
-        // Registry dispatch arrives in Slice 4; until then components render
-        // a visible placeholder and their children stay readable.
-        Node::Component { name, children, .. } => {
-            let label = format!("[{name} component placeholder]");
-            view! {
-                <span class="component-placeholder" data-component=name.clone()>
-                    {label}
-                </span>
-                {render_nodes(children)}
+        // Publish-time validation makes both error arms unreachable for
+        // content that went through the pipeline; if bad data lands in KV
+        // anyway it must fail visibly, never silently (ADR-0001).
+        Node::Component {
+            name,
+            props,
+            children,
+        } => match registry::lookup(name) {
+            None => component_error(name, format!("unknown component <{name}>")),
+            Some(component) => {
+                let children = render_nodes(children).into_any();
+                match (component.render)(props, children) {
+                    Ok(view) => view,
+                    Err(err) => component_error(name, format!("<{name}>: {err}")),
+                }
             }
-            .into_any()
-        }
+        },
     }
 }

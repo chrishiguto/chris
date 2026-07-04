@@ -50,6 +50,10 @@ summary, key topics.
 
 ## Other
 
+- `CONTENT.md` (repo root) — Spec — the authoring format contract: MDX-syntax subset,
+  frontmatter fields, prop literal rules, rejected constructs with reasons, the current
+  component vocabulary, and how to add a `#[post_component]`. Topics: authoring, mdx subset,
+  components, props, validation.
 - `README.md` (repo root) — project introduction in the author's voice: the publish-flow
   diagram, the core principle (KV stores meaning / deployed code owns presentation / caches
   are purged), and the target workspace layout tree. Not a spec — the PRD and ADRs above are
