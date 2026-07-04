@@ -1,0 +1,4 @@
+# shared leptosfmt settings — rust-analyzer's leptosfmt integration and
+# `just fmt` / the claude format hook all read this file.
+max_width = 100
+tab_spaces = 4

@@ -14,15 +14,15 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
         <!DOCTYPE html>
         <html lang="en">
             <head>
-                <meta charset="utf-8"/>
-                <meta name="viewport" content="width=device-width, initial-scale=1"/>
-                <link rel="stylesheet" id="leptos" href=css_href/>
+                <meta charset="utf-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <link rel="stylesheet" id="leptos" href=css_href />
                 <AutoReload options=options.clone() />
-                <HydrationScripts options islands=true/>
-                <MetaTags/>
+                <HydrationScripts options islands=true />
+                <MetaTags />
             </head>
             <body>
-                <App/>
+                <App />
             </body>
         </html>
     }
@@ -33,12 +33,12 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Title text="chris"/>
+        <Title text="chris" />
 
         <Router>
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
-                    <Route path=StaticSegment("") view=HomePage/>
+                    <Route path=StaticSegment("") view=HomePage />
                 </Routes>
             </main>
         </Router>
@@ -54,7 +54,7 @@ fn HomePage() -> impl IntoView {
                 "leptos ssr on cloudflare workers. the counter below is an island — "
                 "the only thing on this page that hydrates."
             </p>
-            <Counter initial=0/>
+            <Counter initial=0 />
         </div>
     }
 }

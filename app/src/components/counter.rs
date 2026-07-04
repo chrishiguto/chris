@@ -12,9 +12,7 @@ pub fn Counter(initial: i32) -> impl IntoView {
             >
                 "−"
             </button>
-            <span class="min-w-12 text-center text-2xl tabular-nums">
-                {move || count.get()}
-            </span>
+            <span class="min-w-12 text-center text-2xl tabular-nums">{move || count.get()}</span>
             <button
                 class="h-10 w-10 rounded bg-neutral-900 text-lg text-white"
                 on:click=move |_| count.update(|n| *n += 1)

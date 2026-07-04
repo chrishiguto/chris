@@ -35,8 +35,9 @@ summary, key topics.
   binary size.
 - `docs/adrs/adr-0007-publish-orchestration.md` — ADR (Accepted) — one publish operation, two
   invokers (webhook fast path; CI callback after deploy for code pushes); CI sequencing replaces
-  a distributed state machine; GitHub Check Runs as the publish receipt for both paths. Topics:
-  orchestration, ci, github checks, ordering, pending retries.
+  a distributed state machine; GitHub commit statuses as the publish receipt for both paths
+  (amended from Check Runs — Checks API write is GitHub-App-only). Topics:
+  orchestration, ci, commit statuses, ordering, pending retries.
 - `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — Cache API full-response caching
   (per-colo) with REST purge-by-URL on publish and purge_everything on deploy (hydration
   correctness); all dynamism in islands. Topics: caching, purge, cache api, deploys, islands.

@@ -27,6 +27,17 @@ size:
     @echo "server worker: $(gzip -9 -c workers/site/build/index_bg.wasm | wc -c) bytes gzipped"
     @echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
 
+# format everything (leptosfmt handles view! macros, rustfmt the rest)
+fmt:
+    leptosfmt app workers
+    cargo fmt --all
+
+# fmt-check + clippy (native target; ssr deps are feature-gated so this compiles)
+check:
+    leptosfmt --check app workers
+    cargo fmt --all --check
+    cargo clippy --workspace -- -D warnings
+
 # one-time toolchain setup (rust + node assumed)
 setup:
     rustup target add wasm32-unknown-unknown

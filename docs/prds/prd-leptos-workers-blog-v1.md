@@ -32,7 +32,7 @@ A Rust workspace deployed as two Cloudflare Workers:
 - **`pipeline`** — receives GitHub push webhooks, decides content-vs-code by inspecting changed
   paths, and owns the single **publish operation**: fetch changed `.mdx` from GitHub, parse
   (markdown-rs MDX mode) into the AST, validate against the component manifest, write KV, purge
-  affected URLs, and report a **GitHub Check Run** on the commit. Pushes containing Rust code
+  affected URLs, and report a **GitHub commit status** on the commit. Pushes containing Rust code
   instead trigger the CI workflow, which deploys and then calls the same publish operation —
   ordering by CI sequentiality, no distributed state machine.
 
@@ -51,8 +51,9 @@ Objects, no queues.
   purged-and-servable).
 - Code-path publish: push with new component → live, **≤ 10 min p95** (CI build + deploy +
   publish callback).
-- Publish outcome visible as a Check Run on the commit within the same window, including
-  actionable validation errors (file, line, component name).
+- Publish outcome visible as a commit status on the commit within the same window, with a
+  concise error summary (statuses cap at ~140 chars; full file/line diagnostics via
+  `blog check`).
 - `blog check` locally validates the entire content tree in **≤ 2 s**.
 
 **Technical:**
@@ -95,7 +96,7 @@ Objects, no queues.
 11. As an author, I want `draft: true` frontmatter to keep a published post out of the index,
     feeds, and tag pages while remaining reachable by slug, so that I can preview on real
     devices before listing it.
-12. As an author, I want a green/red Check Run on my commit stating exactly which posts went
+12. As an author, I want a green/red commit status on my commit stating exactly which posts went
     live or why publishing failed, so that I never wonder whether a publish worked.
 13. As an author, I want a typo'd component name (`<OrbitSimulatr>`) to fail the publish with a
     "did you mean" error on the commit — not render a broken page, so that errors surface at
@@ -163,7 +164,7 @@ Objects, no queues.
 | `registry` | `#[post_component]` proc macro: prop conversion codegen, `inventory` registration, manifest emission; runtime dispatch `render(name, props, children) -> AnyView` | Macro + `lookup(name)` + `manifest()` |
 | `app` | Leptos UI: routes, layout, AST renderer (node → view mapping), shared components (v1: `Callout` + one demo island), Tailwind v4 theme (CSS-first oklch design tokens, light/dark, Libre Baskerville / Lora / IBM Plex Mono) | `render_document(doc) -> impl IntoView` + route tree |
 | `workers/site` | Worker entry: axum router, Cache API front, KV reads, RSS/sitemap/tag rendering from the index | HTTP |
-| `workers/pipeline` | Webhook handling, path-based routing decision, publish op, GitHub content fetch, Check Runs, purge, pending stash | HTTP (webhook + authenticated `/publish`) |
+| `workers/pipeline` | Webhook handling, path-based routing decision, publish op, GitHub content fetch, commit statuses, purge, pending stash | HTTP (webhook + authenticated `/publish`) |
 | `blog-cli` | `blog check` (parse+validate content tree), `blog publish --local`/`--all` | CLI over the same crates |
 
 **KV schema** (single namespace):
@@ -174,8 +175,8 @@ Objects, no queues.
 
 **Publish operation contract** (one implementation, two invokers):
 input = commit SHA + changed/removed content paths; behavior = fetch → parse → validate →
-write/delete `post:*` → rewrite `index` → purge URLs → post Check Run (`blog/publish`) on the
-SHA. Invoked by the webhook handler directly (content-only pushes) or via the authenticated
+write/delete `post:*` → rewrite `index` → purge URLs → post commit status (`blog/publish`) on
+the SHA (Commit Status API — Checks API write is GitHub-App-only; see ADR-0007 amendment). Invoked by the webhook handler directly (content-only pushes) or via the authenticated
 `/publish` endpoint as CI's final step (code pushes). Single-writer assumption (personal blog):
 `index` rewrites are last-write-wins; accepted.
 
@@ -190,7 +191,7 @@ build → size check → `wrangler deploy` (site, pipeline as needed) → `purge
 call `/publish` for the triggering commit. Secrets: Cloudflare API token in CI;
 `GITHUB_WEBHOOK_SECRET` + `GITHUB_TOKEN` + publish shared secret in the pipeline worker only.
 
-**External integrations:** GitHub (push webhooks in; contents API + Checks API + Actions
+**External integrations:** GitHub (push webhooks in; contents API + commit status API + Actions
 `workflow_dispatch` out), Cloudflare (KV, Cache API, REST purge, Workers Assets).
 
 **Base scaffold:** `cargo generate cloudflare/workers-rs templates/leptos`, restructured into
@@ -264,7 +265,7 @@ Full ADRs in `docs/adrs/`; summaries:
 **Key Drivers**: fast path must stay ~2 s; ordering correctness without a distributed state machine; observability for both paths.
 **Considered Options**: 1. Worker decides + worker-managed pending/deploy tracking. 2. CI decides everything (every publish pays Actions latency). 3. No pipeline worker — CLI in CI writes KV directly.
 **Chosen Option**: Hybrid of 1+2 — worker routes, CI sequences the code path and calls back, because it keeps instant content publishes while CI's step ordering replaces the state machine; the residual cross-commit race reduces to a pending-retry list. The CLI (option 3) ships anyway as break-glass and fallback posture.
-**Trade-offs**: Good: both paths report to one place (Check Runs on the commit). Good: graceful degradation path to CLI-only. Bad: `GITHUB_TOKEN` must live in the pipeline worker for the fast path (webhooks carry paths, not contents).
+**Trade-offs**: Good: both paths report to one place (the `blog/publish` commit status on the commit). Good: graceful degradation path to CLI-only. Bad: `GITHUB_TOKEN` must live in the pipeline worker for the fast path (webhooks carry paths, not contents).
 **See also**: `docs/adrs/adr-0007-publish-orchestration.md`
 
 ### Cache API with targeted purge; deploys purge everything
@@ -325,10 +326,12 @@ Full ADRs in `docs/adrs/`; summaries:
   workers-rs Leptos template, SSR + hydration working under `wrangler dev` and deployed once;
   (2) `content-ast` + `content-parser` with the fixture corpus; (3) AST renderer in `app` with
   a hand-wired component before the macro exists; (4) macro + manifest; (5) pipeline worker +
-  publish op + Check Runs; (6) CI workflow + purge; (7) RSS/sitemap/tags; (8) visual theme.
+  publish op + commit statuses; (6) CI workflow + purge; (7) RSS/sitemap/tags; (8) visual theme.
 - **Dependencies**: Cloudflare Workers Paid plan ($5/mo — 10 MB limit accepted as the budget);
-  a GitHub token with contents:read + checks:write + actions:write scopes; webhook + publish
-  shared secrets provisioned via `wrangler secret`.
+  a fine-grained GitHub PAT with contents:read + commit-statuses:write + actions:write
+  permissions (checks:write is unusable — the Checks API is GitHub-App-only, hence commit
+  statuses; see ADR-0007 amendment); webhook + publish shared secrets provisioned via
+  `wrangler secret`.
 - **Ecosystem risk, accepted**: Leptos is feature-complete but "lightly maintained" (May 2026
   maintainer statement); pinned to 0.8.x with no expectation of 0.9.
 - **Importing existing content**: posts already written in the `content/blog/{slug}/index.mdx`
