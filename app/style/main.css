@@ -289,18 +289,21 @@
   }
 
   /* Frontmatter tags — shared by the post header and (Slice 5) listing and
-     tag pages. */
+     tag pages. Element-qualified (`ul`/`li`) so they outrank the `.post ul`
+     and `.post li` prose rules above when the tag list sits in a post header;
+     margins are set in full to neutralize the inherited `margin-block`. */
 
-  .post-tags {
+  ul.post-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 0.75rem;
+    margin: 0.75rem 0 0;
     padding: 0;
     list-style: none;
   }
 
-  .tag {
+  li.tag {
+    margin: 0;
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--color-ink-muted);
