@@ -167,22 +167,37 @@ async fn run_publish(
     let parsed = publish_core::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
 
     let kv = env.kv(KV_BINDING).map_err(|err| infra(&err))?;
+    apply_plan(&kv, &parsed, &set.removed)
+        .await
+        .map_err(PublishError::Infra)?;
+    Ok(())
+}
+
+/// Merge one publish plan into the stored index and apply it to KV: post +
+/// index writes, then removed-post deletes, then purge. Shared by the
+/// webhook fast path and the `/publish` drain so the two can't drift on
+/// index-merge or KV ordering.
+async fn apply_plan(
+    kv: &worker::kv::KvStore,
+    published: &[ParsedPost],
+    removed: &[String],
+) -> std::result::Result<(), String> {
     let prev: Vec<IndexEntry> = kv
         .get(INDEX_KEY)
         .json()
         .await
-        .map_err(|err| infra(&err))?
+        .map_err(|err| err.to_string())?
         .unwrap_or_default();
-    let plan = publish_core::plan(prev, &parsed, &set.removed).map_err(|err| infra(&err))?;
+    let plan = publish_core::plan(prev, published, removed).map_err(|err| err.to_string())?;
     for write in &plan.writes {
         kv.put(&write.key, write.value.as_str())
-            .map_err(|err| infra(&err))?
+            .map_err(|err| err.to_string())?
             .execute()
             .await
-            .map_err(|err| infra(&err))?;
+            .map_err(|err| err.to_string())?;
     }
     for key in &plan.deletes {
-        kv.delete(key).await.map_err(|err| infra(&err))?;
+        kv.delete(key).await.map_err(|err| err.to_string())?;
     }
     purge(&plan.purge);
     Ok(())
@@ -271,24 +286,7 @@ async fn drain(
     }
 
     let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
-    let prev: Vec<IndexEntry> = kv
-        .get(INDEX_KEY)
-        .json()
-        .await
-        .map_err(|err| err.to_string())?
-        .unwrap_or_default();
-    let plan = publish_core::plan(prev, &published, &removed).map_err(|err| err.to_string())?;
-    for write in &plan.writes {
-        kv.put(&write.key, write.value.as_str())
-            .map_err(|err| err.to_string())?
-            .execute()
-            .await
-            .map_err(|err| err.to_string())?;
-    }
-    for key in &plan.deletes {
-        kv.delete(key).await.map_err(|err| err.to_string())?;
-    }
-    purge(&plan.purge);
+    apply_plan(&kv, &published, &removed).await?;
 
     let report = DrainReport { outcomes };
     let retries = report.retries();
