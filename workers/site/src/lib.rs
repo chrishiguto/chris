@@ -103,14 +103,8 @@ mod server {
         };
         let not_found = post.is_none();
 
-        let render = leptos_axum::render_app_async_with_context(
-            move || provide_context(PostData(post.clone())),
-            {
-                let options = state.options.clone();
-                move || shell(options.clone())
-            },
-        );
-        let mut response = render(req).await;
+        let mut response =
+            render_page(&state, req, move || provide_context(PostData(post.clone()))).await;
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
@@ -131,13 +125,22 @@ mod server {
             }
         };
 
-        let render = leptos_axum::render_app_async_with_context(
-            move || provide_context(IndexData(index.clone())),
-            {
-                let options = state.options.clone();
-                move || shell(options.clone())
-            },
-        );
+        render_page(&state, req, move || {
+            provide_context(IndexData(index.clone()))
+        })
+        .await
+    }
+
+    /// SSRs the full shell for a page; handlers differ only by the per-request
+    /// context they inject, so that is all this takes.
+    async fn render_page(
+        state: &AppState,
+        req: Request<Body>,
+        provide: impl Fn() + Clone + Send + Sync + 'static,
+    ) -> Response<Body> {
+        let options = state.options.clone();
+        let render =
+            leptos_axum::render_app_async_with_context(provide, move || shell(options.clone()));
         render(req).await
     }
 
