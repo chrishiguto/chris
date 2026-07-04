@@ -1,5 +1,6 @@
 /target
 /workers/site/build
+/workers/site/target
 .wrangler/
 node_modules/
 .secrets/

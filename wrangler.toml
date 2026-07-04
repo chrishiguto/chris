@@ -9,3 +9,11 @@ command = "just build"
 # Anything under target/site (including /pkg/*) is served without invoking the worker.
 [assets]
 directory = "./target/site"
+
+# The single content namespace (PRD "KV schema"): `post:{slug}`, `index`, `pending`.
+# `wrangler dev` uses a local simulator and ignores the id. Before the first
+# production deploy, run `npx wrangler kv namespace create BLOG` and paste the
+# real id here — deploys fail loudly on the placeholder by design.
+[[kv_namespaces]]
+binding = "BLOG"
+id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"

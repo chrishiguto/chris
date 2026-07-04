@@ -7,6 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+content-ast = { workspace = true }
 getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true }

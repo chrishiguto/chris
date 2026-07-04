@@ -2,10 +2,11 @@ use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
-    StaticSegment,
+    ParamSegment, StaticSegment,
 };
 
 use crate::components::counter::Counter;
+use crate::post::PostPage;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // id="leptos" on the link below is what cargo-leptos targets for CSS hot-reload.
@@ -39,6 +40,7 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage />
+                    <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
                 </Routes>
             </main>
         </Router>

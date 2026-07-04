@@ -42,6 +42,12 @@ summary, key topics.
   (per-colo) with REST purge-by-URL on publish and purge_everything on deploy (hydration
   correctness); all dynamism in islands. Topics: caching, purge, cache api, deploys, islands.
 
+## Guides
+
+- `docs/guides/tracer-bullet-demo.md` — Guide — hand-publish a post end-to-end before the
+  pipeline worker exists: mdx2json example bin → `wrangler kv key put` → `/posts/{slug}`.
+  Topics: demo, kv seeding, read path, tracer bullet.
+
 ## Other
 
 - `README.md` (repo root) — project introduction in the author's voice: the publish-flow

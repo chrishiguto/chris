@@ -1,0 +1,44 @@
+# Demo: hand-publish a post end-to-end (tracer bullet)
+
+Until the pipeline worker lands (Slice 6), KV is seeded by hand. This is the
+Slice 3 read-path demo: fixture `.mdx` → AST JSON → KV → `/posts/{slug}`.
+
+## 1. Parse a fixture into AST JSON
+
+```sh
+cargo run -p content-parser --example mdx2json -- \
+  crates/content-parser/fixtures/valid/components.mdx > /tmp/post.json
+```
+
+Any `.mdx` with `title:` and `date:` frontmatter works; diagnostics go to
+stderr and exit non-zero on invalid input.
+
+## 2. Seed KV
+
+Post keys are `post:{slug}`. For local dev (`wrangler dev` simulates KV; the
+namespace id in `wrangler.toml` is not used):
+
+```sh
+npx wrangler kv key put --binding BLOG --local "post:hello" --path /tmp/post.json
+```
+
+For production, first create the namespace once and paste its id into
+`wrangler.toml`, then drop `--local` and add `--remote`:
+
+```sh
+npx wrangler kv namespace create BLOG   # once; copy the id into wrangler.toml
+npx wrangler kv key put --binding BLOG --remote "post:hello" --path /tmp/post.json
+```
+
+## 3. Load the page
+
+```sh
+just dev
+curl http://localhost:8787/posts/hello
+```
+
+View-source shows the full article HTML (SSR — readable without JS):
+frontmatter drives `<title>`, prose nodes render as HTML, and component tags
+render as visible `[Name component placeholder]` spans until the registry
+lands (Slice 4). An unknown slug (`/posts/nope`) is a plain 404 — a KV miss
+never triggers any rebuild (ADR-0001).
