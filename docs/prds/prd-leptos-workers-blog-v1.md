@@ -189,7 +189,10 @@ the SHA (Commit Status API — Checks API write is GitHub-App-only; see ADR-0007
 - `site`: `cache.match` first; miss → render → `cache.put` with `Cache-Control: max-age=604800`.
 - Publish purge set (REST purge-by-URL, all colos): changed post URLs, `/`, `/posts`,
   `/rss.xml`, `/sitemap.xml`, and `/tags/{t}` for each tag on the changed posts (+ `/tags`).
-- Deploy: `purge_everything` as the CI step after `wrangler deploy` (hydration correctness).
+- Deploy: `purge_everything` as the CI step after `wrangler deploy` (hydration correctness)
+  *(amended in Slice 7: the step is gated on a `CLOUDFLARE_ZONE_ID` repo variable —
+  `purge_everything` needs a zone and `*.workers.dev` has none (the Cache API is equally inert
+  there), so it stays skipped until a custom domain lands)*.
 
 **CI (single workflow):** triggered by `workflow_dispatch` from the pipeline worker; steps:
 build → size check → `wrangler deploy` (site, pipeline as needed) → `purge_everything` →

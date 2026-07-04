@@ -3,9 +3,11 @@
 //! status building are plain functions — the wasm shim stays thin).
 
 use pipeline::{
-    classify, contents_url, failure_description, merge_pending, pending_description, post_path,
-    post_slug, status_payload, statuses_url, success_description, verify_signature, PendingEntry,
-    PublishSet, PushClass, PushCommit, PushEvent, StatusState, PENDING_KEY, STATUS_CONTEXT,
+    classify, contents_url, dispatch_payload, dispatch_url, failure_description, merge_pending,
+    pending_description, post_path, post_slug, status_payload, statuses_url, success_description,
+    verify_publish_auth, verify_signature, DrainEntryOutcome, DrainReport, PendingEntry,
+    PublishRequest, PublishSet, PushClass, PushCommit, PushEvent, StatusState, PENDING_KEY,
+    STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -385,6 +387,122 @@ fn github_urls_pin_repo_path_and_sha() {
         statuses_url("chrishiguto/chris", "abc123"),
         "https://api.github.com/repos/chrishiguto/chris/statuses/abc123"
     );
+}
+
+// --- workflow dispatch (Slice 7: the ADR-0007 code path) ---
+
+#[test]
+fn dispatch_url_targets_the_publish_workflow() {
+    assert_eq!(
+        dispatch_url("chrishiguto/chris"),
+        "https://api.github.com/repos/chrishiguto/chris/actions/workflows/publish.yml/dispatches"
+    );
+    assert_eq!(WORKFLOW_FILE, "publish.yml");
+}
+
+#[test]
+fn dispatch_payload_carries_branch_ref_and_commit_sha() {
+    let json: serde_json::Value =
+        serde_json::from_str(&dispatch_payload("main", "abc123")).expect("valid json");
+    assert_eq!(json["ref"], "main");
+    assert_eq!(json["inputs"]["sha"], "abc123");
+}
+
+// --- /publish auth (user story 35) ---
+
+#[test]
+fn matching_bearer_token_authenticates() {
+    assert!(verify_publish_auth("s3cret", Some("Bearer s3cret")));
+}
+
+#[test]
+fn missing_or_wrong_tokens_are_rejected() {
+    assert!(!verify_publish_auth("s3cret", None));
+    assert!(!verify_publish_auth("s3cret", Some("")));
+    assert!(!verify_publish_auth("s3cret", Some("s3cret")));
+    assert!(!verify_publish_auth("s3cret", Some("Bearer wrong")));
+    assert!(!verify_publish_auth("s3cret", Some("Bearer s3cret extra")));
+    // only CI calls this endpoint; the exact scheme it sends is the contract
+    assert!(!verify_publish_auth("s3cret", Some("bearer s3cret")));
+}
+
+#[test]
+fn publish_request_carries_sha_and_repository() {
+    let request: PublishRequest =
+        serde_json::from_str(r#"{"sha":"abc123","repository":"chrishiguto/chris"}"#)
+            .expect("valid request");
+    assert_eq!(request.sha, "abc123");
+    assert_eq!(request.repository, "chrishiguto/chris");
+}
+
+// --- drain report (user story 32: the cross-commit retry) ---
+
+fn drain_report() -> DrainReport {
+    let diag = content_parser::Diagnostic {
+        message: "unknown component <OrbitSimulatr>".to_string(),
+        file: Some("content/blog/broken/index.mdx".to_string()),
+        line: Some(3),
+        column: None,
+    };
+    DrainReport {
+        outcomes: vec![
+            (entry("hello", "sha-a", false), DrainEntryOutcome::Published),
+            (entry("gone", "sha-a", true), DrainEntryOutcome::Removed),
+            (
+                entry("broken", "sha-b", false),
+                DrainEntryOutcome::Failed(vec![diag]),
+            ),
+        ],
+    }
+}
+
+#[test]
+fn failed_entries_stay_parked_for_the_next_callback() {
+    assert_eq!(
+        drain_report().retries(),
+        vec![entry("broken", "sha-b", false)]
+    );
+}
+
+#[test]
+fn a_fully_drained_report_parks_nothing() {
+    let report = DrainReport {
+        outcomes: vec![(entry("hello", "sha-a", false), DrainEntryOutcome::Published)],
+    };
+    assert_eq!(report.retries(), vec![]);
+}
+
+#[test]
+fn statuses_report_each_pushed_sha_with_its_own_outcome() {
+    let statuses = drain_report().statuses();
+    assert_eq!(
+        statuses,
+        vec![
+            (
+                "sha-a".to_string(),
+                StatusState::Success,
+                "published hello; removed gone".to_string()
+            ),
+            (
+                "sha-b".to_string(),
+                StatusState::Failure,
+                "content/blog/broken/index.mdx: unknown component <OrbitSimulatr>; parked for retry"
+                    .to_string()
+            ),
+        ]
+    );
+}
+
+#[test]
+fn summary_counts_what_landed_and_what_stayed_parked() {
+    assert_eq!(
+        drain_report().summary(),
+        "published hello; removed gone; 1 parked for retry"
+    );
+    let clean = DrainReport {
+        outcomes: vec![(entry("hello", "sha-a", false), DrainEntryOutcome::Published)],
+    };
+    assert_eq!(clean.summary(), "published hello");
 }
 
 // --- manifest (pins the inventory linkage anchor, like blog-cli) ---

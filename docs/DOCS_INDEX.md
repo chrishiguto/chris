@@ -45,9 +45,10 @@ summary, key topics.
 ## Guides
 
 - `docs/guides/pipeline-deploy.md` — Guide — deploy the pipeline worker, provision its
-  secrets, create the GitHub push webhook, and verify the instant-publish fast path (content
-  push → commit status → live post). Topics: pipeline worker, webhook, hmac, commit status,
-  deploy, secrets.
+  secrets, create the GitHub push webhook, and verify both publish paths: the instant fast
+  path (content push → commit status → live post) and the CI code path (workflow_dispatch →
+  build → size gate → deploy → authenticated `/publish` drain). Topics: pipeline worker,
+  webhook, hmac, commit status, deploy, secrets, ci, workflow_dispatch, size budget.
 - `docs/guides/publishing.md` — Guide — the `blog` CLI: `check` (validate the content tree
   against the compiled component vocabulary) and `publish --local` (break-glass publish via
   the Cloudflare KV API), including the scoped-token setup. Topics: cli, publish, kv, api

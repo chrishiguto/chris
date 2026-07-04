@@ -35,14 +35,16 @@ size:
     @echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
     @echo "pipeline worker: $(gzip -9 -c workers/pipeline/build/index_bg.wasm | wc -c) bytes gzipped"
 
-# format everything (leptosfmt handles view! macros, rustfmt the rest)
+# format everything (leptosfmt handles view! macros, rustfmt the rest;
+# content/ holds co-located per-post components — rustfmt can't see them
+# through the build.rs include!, so leptosfmt covers them here)
 fmt:
-    leptosfmt app workers
+    leptosfmt app workers content
     cargo fmt --all
 
 # fmt-check + clippy (native target; ssr deps are feature-gated so this compiles)
 check:
-    leptosfmt --check app workers
+    leptosfmt --check app workers content
     cargo fmt --all --check
     cargo clippy --workspace -- -D warnings
 

@@ -10,7 +10,8 @@ what is described here.
 ## Where posts live
 
 ```
-content/blog/{slug}/index.mdx
+content/blog/{slug}/index.mdx        # the post (required)
+content/blog/{slug}/components.rs    # co-located components (optional)
 ```
 
 The directory name is the slug: `content/blog/components-demo/index.mdx` is
@@ -115,6 +116,25 @@ v1 prop types: `String`, `f64`, `i64`, `bool`, or `Option` of one of these
 wraps markdown. Anything richer is rejected at compile time (ADR-0005's
 bounded scope).
 
-Co-located per-post components (`content/blog/{slug}/components.rs`,
-ADR-0004) are specced but not wired up yet; discovery via `build.rs` lands
-with the CI code path (Slice 7).
+## Co-located per-post components
+
+A one-off component belongs next to the post that owns it, not in the shared
+vocabulary: put it in `content/blog/{slug}/components.rs` (ADR-0004). The
+file is real workspace Rust — `app`'s `build.rs` discovers it as a module of
+`app::components`, so rust-analyzer, `#[post_component]`, and `#[island]`
+all work exactly as they do in `app/src/components/`:
+
+```rust
+use leptos::prelude::*;
+use registry::post_component;
+
+#[post_component]
+#[island]
+pub fn DeployStages(total: i64) -> impl IntoView { … }
+```
+
+Because the component is code, the push rides the deploy path: the pipeline
+worker parks the post as pending, CI builds and deploys, and the post
+publishes only after the component is live (ADR-0007). A content-only edit
+to the same post later flows through the instant path as usual. See
+`content/blog/ci-code-path/` for a working example.

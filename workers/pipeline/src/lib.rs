@@ -18,6 +18,8 @@ mod server;
 pub const STATUS_CONTEXT: &str = "blog/publish";
 /// KV key of the parked publish list awaiting a CI callback (PRD KV schema).
 pub const PENDING_KEY: &str = "pending";
+/// The workflow the code path dispatches; its last step calls `/publish`.
+pub const WORKFLOW_FILE: &str = "publish.yml";
 /// The Commit Status API rejects descriptions longer than 140 characters.
 const DESCRIPTION_LIMIT: usize = 140;
 
@@ -226,6 +228,120 @@ pub fn merge_pending(prev: Vec<PendingEntry>, set: &PublishSet, sha: &str) -> Ve
         .collect()
 }
 
+// --- /publish auth (user story 35) ---
+
+/// CI's callback body: which commit triggered the workflow, on which repo
+/// (pending entries carry slugs and SHAs, but not the repo).
+#[derive(Debug, Deserialize)]
+pub struct PublishRequest {
+    pub sha: String,
+    /// `owner/repo`, as GitHub API paths want it.
+    pub repository: String,
+}
+
+/// Only CI may drain `pending`: exact `Bearer <secret>` match. Both sides go
+/// through HMAC under a fixed key so `verify_slice`'s constant-time equality
+/// compares length-normalized tags — no timing oracle on content or length.
+pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
+    let Some(token) = header.and_then(|value| value.strip_prefix("Bearer ")) else {
+        return false;
+    };
+    let Ok(mac) = Hmac::<Sha256>::new_from_slice(b"publish-auth") else {
+        return false;
+    };
+    let expected = mac.clone().chain_update(secret.as_bytes()).finalize();
+    mac.chain_update(token.as_bytes())
+        .verify_slice(&expected.into_bytes())
+        .is_ok()
+}
+
+// --- drain report (user story 32: the cross-commit retry) ---
+
+/// What draining did with one parked entry.
+#[derive(Debug, PartialEq)]
+pub enum DrainEntryOutcome {
+    Published,
+    Removed,
+    /// Validation failed — the entry stays parked and retries on the next
+    /// CI callback (the cross-commit race, ADR-0007).
+    Failed(Vec<Diagnostic>),
+}
+
+/// Per-entry outcomes of one `/publish` drain, in pending order.
+#[derive(Debug)]
+pub struct DrainReport {
+    pub outcomes: Vec<(PendingEntry, DrainEntryOutcome)>,
+}
+
+impl DrainReport {
+    /// Entries to park again — validation failures only (infra failures
+    /// abort the drain before any report exists, leaving `pending` intact).
+    pub fn retries(&self) -> Vec<PendingEntry> {
+        self.outcomes
+            .iter()
+            .filter(|(_, outcome)| matches!(outcome, DrainEntryOutcome::Failed(_)))
+            .map(|(entry, _)| entry.clone())
+            .collect()
+    }
+
+    /// One `blog/publish` status per pushed SHA, so every parked commit's
+    /// page reflects its own content's fate — not just the CI trigger's.
+    pub fn statuses(&self) -> Vec<(String, StatusState, String)> {
+        let by_sha = self.outcomes.iter().fold(
+            BTreeMap::<&str, (PublishSet, Vec<Diagnostic>)>::new(),
+            |mut by_sha, (entry, outcome)| {
+                let (set, diags) = by_sha.entry(&entry.sha).or_default();
+                match outcome {
+                    DrainEntryOutcome::Published => set.changed.push(entry.slug.clone()),
+                    DrainEntryOutcome::Removed => set.removed.push(entry.slug.clone()),
+                    DrainEntryOutcome::Failed(errs) => diags.extend(errs.iter().cloned()),
+                }
+                by_sha
+            },
+        );
+        by_sha
+            .into_iter()
+            .map(|(sha, (set, diags))| match diags.is_empty() {
+                true => (
+                    sha.to_string(),
+                    StatusState::Success,
+                    success_description(&set),
+                ),
+                false => (
+                    sha.to_string(),
+                    StatusState::Failure,
+                    format!("{}; parked for retry", failure_description(&diags)),
+                ),
+            })
+            .collect()
+    }
+
+    /// The HTTP response body: what landed and what stayed parked.
+    pub fn summary(&self) -> String {
+        let landed = PublishSet {
+            changed: self.slugs_with(|o| matches!(o, DrainEntryOutcome::Published)),
+            removed: self.slugs_with(|o| matches!(o, DrainEntryOutcome::Removed)),
+        };
+        let parked = self.retries().len();
+        [
+            (!landed.is_empty()).then(|| success_description(&landed)),
+            (parked > 0).then(|| format!("{parked} parked for retry")),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("; ")
+    }
+
+    fn slugs_with(&self, wanted: fn(&DrainEntryOutcome) -> bool) -> Vec<String> {
+        self.outcomes
+            .iter()
+            .filter(|(_, outcome)| wanted(outcome))
+            .map(|(entry, _)| entry.slug.clone())
+            .collect()
+    }
+}
+
 // --- commit status building (user story 12; ADR-0007 amendment) ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -308,6 +424,16 @@ pub fn contents_url(repo: &str, slug: &str, sha: &str) -> String {
 
 pub fn statuses_url(repo: &str, sha: &str) -> String {
     format!("https://api.github.com/repos/{repo}/statuses/{sha}")
+}
+
+pub fn dispatch_url(repo: &str) -> String {
+    format!("https://api.github.com/repos/{repo}/actions/workflows/{WORKFLOW_FILE}/dispatches")
+}
+
+/// `workflow_dispatch` body: run on the pushed branch, carrying the commit
+/// SHA so CI can report back on it (`/publish` callback + statuses).
+pub fn dispatch_payload(branch: &str, sha: &str) -> String {
+    serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
 
 // --- manifest ---

@@ -20,3 +20,4 @@ id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
 # user story 23). Provision per docs/guides/pipeline-deploy.md:
 #   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
 #   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml
+#   wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml

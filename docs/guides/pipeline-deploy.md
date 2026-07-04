@@ -1,7 +1,7 @@
 # Deploying the pipeline worker
 
 How to deploy `workers/pipeline` (the write-path worker, ADR-0006), wire it to
-GitHub, and verify the webhook fast path end-to-end. One-time setup; afterwards
+GitHub, and verify both publish paths end-to-end. One-time setup; afterwards
 the worker just runs.
 
 ## What it does
@@ -18,15 +18,48 @@ the worker just runs.
      posts.
    - **code-bearing** (any `.rs`, `app/`, `crates/`, `workers/`, `Cargo.*`,
      `justfile`, `wrangler.toml`, or workflow change) → parks the publish set
-     under the KV `pending` key and stops; the CI callback drains it after
-     deploy (Slice 7).
+     under the KV `pending` key and fires the `publish.yml` workflow via
+     `workflow_dispatch` with the pushed SHA; a failed dispatch is a 500, so
+     GitHub webhook redelivery is the retry path.
    - **neither** → no-op.
 3. Posts a `blog/publish` commit status on the pushed SHA: `success` with the
    published slugs, `failure` with a concise error (the Commit Status API caps
    descriptions at 140 chars — full diagnostics via `blog check`), `pending`
    for parked code pushes.
 
-Cache purge is a stub until Slice 8; the site's TTL bounds staleness.
+`POST /publish` is CI's post-deploy callback (ADR-0007's ordering guarantee):
+
+1. Authenticates the `Authorization: Bearer` token against
+   `PUBLISH_SHARED_SECRET` (401 otherwise; user story 35). The body carries
+   `{"sha", "repository"}` from the workflow run.
+2. Drains the KV `pending` list: each changed entry's source is fetched at
+   its *own* pushed SHA and validated individually; removals become KV
+   deletes. One merged plan rewrites `post:*` keys and `index`.
+3. Entries that fail validation stay parked and retry on the next callback —
+   this is the cross-commit race resolution (user story 32). A source that
+   404s at its SHA (force-push) parks the same way instead of wedging the
+   rest; any later push touching that slug supersedes it.
+4. Posts a `blog/publish` status per pushed SHA in the drained set, so every
+   parked commit's page reflects its own content's fate.
+
+The CI half lives in `.github/workflows/publish.yml`: build both workers →
+enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy site +
+pipeline → cache purge → call `/publish`. The purge step only runs when the
+`CLOUDFLARE_ZONE_ID` repo variable is set: `purge_everything` needs a zone,
+and on `*.workers.dev` there is none (the Cache API is inert there too), so
+until a custom domain lands the step is skipped by design. The pipeline
+worker's per-URL purge is a stub until Slice 8; the site's TTL bounds
+staleness.
+
+## Repo Actions configuration (CI code path)
+
+- Secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit + Workers KV
+  Storage: Edit) and `PUBLISH_SHARED_SECRET` (same value as the worker
+  secret below).
+- Variables: `CLOUDFLARE_ACCOUNT_ID` (required); `CLOUDFLARE_ZONE_ID` and
+  `PIPELINE_URL` (both optional, for the custom-domain future — without
+  `PIPELINE_URL` the workflow derives the `chris-pipeline.<subdomain>
+  .workers.dev` URL from the account's workers.dev subdomain).
 
 ## Prerequisites
 
@@ -35,7 +68,9 @@ Cache purge is a stub until Slice 8; the site's TTL bounds staleness.
 - Local secret files (gitignored, see `.secrets/`):
   - `.secrets/github_webhook_secret` — shared with the GitHub webhook config.
   - `.secrets/github_pipeline_token` — fine-grained PAT: Commit statuses RW,
-    Contents RO (Slice 7 additionally needs Actions RW on the same PAT).
+    Contents RO, and Actions RW (the `workflow_dispatch` trigger needs it).
+  - `.secrets/publish_shared_secret` — shared with the `PUBLISH_SHARED_SECRET`
+    Actions secret; authenticates CI's `/publish` callback.
 
 ## Deploy
 
@@ -43,6 +78,7 @@ Cache purge is a stub until Slice 8; the site's TTL bounds staleness.
 just deploy-pipeline
 wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml < .secrets/github_webhook_secret
 wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml < .secrets/github_pipeline_token
+wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml < .secrets/publish_shared_secret
 ```
 
 Secrets live **only** in this worker (user story 23); the site worker stays
@@ -75,3 +111,22 @@ delivery in the hook's "Recent Deliveries" confirms the signature wiring).
 
 Deliveries (payload + response) are replayable from the webhook's "Recent
 Deliveries" tab, which is the fastest debugging loop.
+
+## Verify the CI code path
+
+1. Push a mixed commit: a new post plus its co-located
+   `content/blog/{slug}/components.rs` island (see
+   `content/blog/ci-code-path/` and CONTENT.md). The commit immediately gets
+   a yellow `pending` status ("parked for CI publish") and a `publish`
+   workflow run appears on it.
+2. The run builds, gates the size, deploys both workers, and calls
+   `/publish`; the status flips to `success` and the post is live with its
+   island hydrating. The PRD's p95 budget is ≤ 10 min push-to-live; both the
+   Actions check and the `blog/publish` status sit on the same commit.
+3. Cross-commit race drill: push a post referencing a component whose deploy
+   is still in flight from a previous commit — its validation fails, the
+   entry stays parked (`failure` status, "parked for retry"), and the next
+   callback (that deploy's own workflow run) publishes it.
+4. A run can be re-fired by hand from the Actions tab (`workflow_dispatch`
+   takes the SHA), which re-drains whatever is pending — the break-glass for
+   a missed callback.
