@@ -23,8 +23,9 @@ fn parses_frontmatter_and_prose() {
 
 #[test]
 fn parses_full_frontmatter() {
-    let source = "---\ntitle: T\ndate: 2026-01-01\ntags: [rust, leptos]\ndraft: true\n---\n\nx\n";
+    let source = "---\ntitle: T\ndate: 2026-01-01\ndescription: A summary.\ntags: [rust, leptos]\ndraft: true\n---\n\nx\n";
     let doc = parse(source).unwrap();
+    assert_eq!(doc.frontmatter.description.as_deref(), Some("A summary."));
     assert_eq!(doc.frontmatter.tags, vec!["rust", "leptos"]);
     assert!(doc.frontmatter.draft);
 }

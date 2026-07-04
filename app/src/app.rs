@@ -5,7 +5,7 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 
-use crate::listing::{HomePage, PostsPage};
+use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
 
 /// Critical faces (body, headings, code) preloaded so they reliably beat the
@@ -40,6 +40,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                     })
                     .collect_view()}
                 <link rel="stylesheet" id="leptos" href=css_href />
+                <link rel="alternate" type="application/atom+xml" title="chris" href="/rss.xml" />
                 <AutoReload options=options.clone() />
                 <HydrationScripts options islands=true />
                 <MetaTags />
@@ -65,6 +66,8 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("") view=HomePage />
                     <Route path=StaticSegment("posts") view=PostsPage />
                     <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
+                    <Route path=StaticSegment("tags") view=TagsPage />
+                    <Route path=(StaticSegment("tags"), ParamSegment("tag")) view=TagPage />
                 </Routes>
             </main>
         </Router>
@@ -79,9 +82,12 @@ fn SiteHeader() -> impl IntoView {
                 <a href="/" class="font-heading text-lg font-bold">
                     "chris"
                 </a>
-                <nav>
+                <nav class="flex gap-4">
                     <a href="/" class="font-mono text-sm text-ink-muted hover:text-accent">
                         "posts"
+                    </a>
+                    <a href="/tags" class="font-mono text-sm text-ink-muted hover:text-accent">
+                        "tags"
                     </a>
                 </nav>
             </div>

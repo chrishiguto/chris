@@ -89,6 +89,10 @@ pub struct Frontmatter {
     pub title: String,
     /// Publication date as an ISO `YYYY-MM-DD` string; listings sort on it.
     pub date: String,
+    /// One-line summary for feeds. Optional and skipped when absent, so
+    /// pre-description payloads round-trip unchanged (no schema bump).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     /// Tags for tag pages and feeds; empty when omitted.
     #[serde(default)]
     pub tags: Vec<String>,
@@ -106,6 +110,9 @@ pub struct IndexEntry {
     pub title: String,
     /// ISO `YYYY-MM-DD`; the index is ordered newest-first on this.
     pub date: String,
+    /// One-line summary for feeds; skipped when absent (see [`Frontmatter`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -118,6 +125,7 @@ impl IndexEntry {
             slug: slug.to_string(),
             title: frontmatter.title.clone(),
             date: frontmatter.date.clone(),
+            description: frontmatter.description.clone(),
             tags: frontmatter.tags.clone(),
             draft: frontmatter.draft,
         }

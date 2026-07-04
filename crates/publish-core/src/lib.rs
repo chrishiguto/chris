@@ -45,10 +45,24 @@ pub struct PublishPlan {
     pub deletes: Vec<String>,
     /// The rewritten index, newest-first; what `writes` serializes last.
     pub index: Vec<IndexEntry>,
+    /// URL paths whose cache entries this publish invalidates (ADR-0008):
+    /// listings, feeds, the touched posts, and every tag page whose listing
+    /// changed — tags on the new frontmatter *and* tags the previous index
+    /// had on the touched posts (a dropped tag's page loses an entry too).
+    /// Sorted, deduplicated; callers prefix their origin (Slice 8 purges).
+    pub purge: Vec<String>,
 }
 
 fn post_key(slug: &str) -> String {
     format!("post:{slug}")
+}
+
+fn post_path_url(slug: &str) -> String {
+    format!("/posts/{slug}")
+}
+
+fn tag_path(tag: &str) -> String {
+    format!("/tags/{tag}")
 }
 
 /// Parses and validates every source against the manifest, collecting
@@ -64,6 +78,7 @@ pub fn check(
         match content_parser::parse_validated_named(&post.source, &post.file, manifest) {
             Ok(document) => {
                 diags.extend(check_date(&document, &post.file));
+                diags.extend(check_tags(&document, &post.file));
                 parsed.push(ParsedPost {
                     slug: post.slug.clone(),
                     document,
@@ -99,6 +114,29 @@ fn check_date(document: &Document, file: &str) -> Option<Diagnostic> {
     })
 }
 
+/// Each tag names a `/tags/{tag}` URL verbatim (pages, feeds, purge set), so
+/// tags must be lowercase slugs — no escaping layer exists or is wanted.
+fn check_tags<'a>(document: &'a Document, file: &'a str) -> impl Iterator<Item = Diagnostic> + 'a {
+    document
+        .frontmatter
+        .tags
+        .iter()
+        .filter(|tag| {
+            tag.is_empty()
+                || !tag
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        })
+        .map(move |tag| Diagnostic {
+            message: format!(
+                "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it becomes the /tags/{{tag}} URL"
+            ),
+            file: Some(file.to_string()),
+            line: None,
+            column: None,
+        })
+}
+
 /// Merges changed and removed posts into the previous index and lays out the
 /// KV writes. Last-write-wins on the whole index (single-writer, per PRD).
 pub fn plan(
@@ -108,6 +146,7 @@ pub fn plan(
 ) -> Result<PublishPlan, AstError> {
     let replaced =
         |slug: &str| removed.iter().any(|r| r == slug) || changed.iter().any(|p| p.slug == slug);
+    let purge = purge_paths(&prev_index, changed, removed, &replaced);
 
     let mut index: Vec<IndexEntry> = prev_index
         .into_iter()
@@ -139,5 +178,35 @@ pub fn plan(
         writes,
         deletes: removed.iter().map(|slug| post_key(slug)).collect(),
         index,
+        purge,
     })
+}
+
+/// The enumerated invalidation set of ADR-0008: listings and feeds always
+/// change (dates, counts, order), touched posts change or vanish, and a tag
+/// page changes iff a touched post carries the tag now or carried it before.
+fn purge_paths(
+    prev_index: &[IndexEntry],
+    changed: &[ParsedPost],
+    removed: &[String],
+    replaced: &impl Fn(&str) -> bool,
+) -> Vec<String> {
+    let touched_tags = prev_index
+        .iter()
+        .filter(|entry| replaced(&entry.slug))
+        .flat_map(|entry| entry.tags.iter())
+        .chain(
+            changed
+                .iter()
+                .flat_map(|post| post.document.frontmatter.tags.iter()),
+        );
+    ["/", "/posts", "/rss.xml", "/sitemap.xml", "/tags"]
+        .into_iter()
+        .map(String::from)
+        .chain(touched_tags.map(|tag| tag_path(tag)))
+        .chain(changed.iter().map(|post| post_path_url(&post.slug)))
+        .chain(removed.iter().map(|slug| post_path_url(slug)))
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }

@@ -6,6 +6,7 @@ fn sample_document() -> Document {
         frontmatter: Frontmatter {
             title: "Hello".into(),
             date: "2026-07-04".into(),
+            description: None,
             tags: vec!["rust".into(), "leptos".into()],
             draft: false,
         },
@@ -123,6 +124,7 @@ fn index_entry_matches_kv_index_shape() {
         &Frontmatter {
             title: "Hello".into(),
             date: "2026-07-04".into(),
+            description: None,
             tags: vec!["rust".into()],
             draft: true,
         },
@@ -152,4 +154,25 @@ fn index_entry_defaults_tags_and_draft() {
     .unwrap();
     assert!(entry.tags.is_empty());
     assert!(!entry.draft);
+    assert!(entry.description.is_none());
+}
+
+#[test]
+fn description_round_trips_and_stays_absent_when_unset() {
+    let mut frontmatter = Frontmatter {
+        title: "Hello".into(),
+        date: "2026-07-04".into(),
+        description: Some("A summary for feeds.".into()),
+        tags: vec![],
+        draft: false,
+    };
+    let entry = content_ast::IndexEntry::new("hello", &frontmatter);
+    let json = serde_json::to_value(&entry).unwrap();
+    assert_eq!(json["description"], "A summary for feeds.");
+
+    // Unset descriptions must not appear in the serialized form at all, so
+    // pre-description KV payloads and new ones stay byte-identical.
+    frontmatter.description = None;
+    let json = serde_json::to_value(content_ast::IndexEntry::new("hello", &frontmatter)).unwrap();
+    assert!(json.as_object().unwrap().get("description").is_none());
 }

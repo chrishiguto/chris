@@ -3,7 +3,7 @@
 //! time (PRD "KV schema"). Run with `cargo test -p app --features ssr`.
 #![cfg(feature = "ssr")]
 
-use app::listing::{HomePage, IndexData, PostsPage, RECENT_POSTS};
+use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
 use content_ast::IndexEntry;
 use leptos::prelude::RenderHtml;
 
@@ -12,9 +12,16 @@ fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
         slug: slug.into(),
         title: title.into(),
         date: date.into(),
+        description: None,
         tags: vec![],
         draft: false,
     }
+}
+
+fn tagged(slug: &str, title: &str, date: &str, tags: &[&str]) -> IndexEntry {
+    let mut entry = entry(slug, title, date);
+    entry.tags = tags.iter().map(|t| t.to_string()).collect();
+    entry
 }
 
 fn strip_markers(html: String) -> String {
@@ -108,6 +115,86 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
         html.contains("href=\"/posts\""),
         "missing all-posts link: {html}"
     );
+}
+
+fn tags_html(index: Vec<IndexEntry>) -> String {
+    page_html(
+        || leptos::prelude::IntoAny::into_any(leptos::view! { <TagsPage /> }),
+        index,
+    )
+}
+
+fn tag_html(tag: &str, index: Vec<IndexEntry>) -> String {
+    let tag = tag.to_string();
+    page_html(
+        move || leptos::prelude::IntoAny::into_any(leptos::view! { <TagListing tag=tag /> }),
+        index,
+    )
+}
+
+#[test]
+fn tags_page_lists_tags_with_counts_linking_to_tag_pages() {
+    let html = tags_html(vec![
+        tagged("a", "A", "2026-03-01", &["rust", "wasm"]),
+        tagged("b", "B", "2026-01-01", &["rust"]),
+    ]);
+    assert!(html.contains("<ul class=\"post-tags"), "{html}");
+    assert!(html.contains("<a href=\"/tags/rust\">"), "{html}");
+    assert!(html.contains("<a href=\"/tags/wasm\">"), "{html}");
+    let rust = &html[html.find("/tags/rust").unwrap()..];
+    assert!(
+        rust.starts_with("/tags/rust\">rust</a> ×2"),
+        "rust must show its post count: {html}"
+    );
+}
+
+#[test]
+fn tags_page_ignores_draft_only_tags() {
+    let mut draft = tagged("wip", "Not yet", "2026-05-01", &["secret", "rust"]);
+    draft.draft = true;
+    let html = tags_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
+    assert!(!html.contains("secret"), "{html}");
+    let rust = &html[html.find("/tags/rust").unwrap()..];
+    assert!(
+        rust.starts_with("/tags/rust\">rust</a> ×1"),
+        "drafts must not count: {html}"
+    );
+}
+
+#[test]
+fn tags_page_with_no_tags_says_so() {
+    let html = tags_html(vec![entry("untagged", "No tags here", "2026-01-01")]);
+    assert!(html.contains("Nothing is tagged yet"), "{html}");
+}
+
+#[test]
+fn tag_listing_shows_only_matching_posts() {
+    let html = tag_html(
+        "rust",
+        vec![
+            tagged("match", "Matches", "2026-03-01", &["rust"]),
+            tagged("other", "Other", "2026-02-01", &["wasm"]),
+        ],
+    );
+    assert!(html.contains("<ul class=\"post-list\">"), "{html}");
+    assert!(html.contains("/posts/match"), "{html}");
+    assert!(!html.contains("/posts/other"), "{html}");
+}
+
+#[test]
+fn tag_listing_excludes_drafts() {
+    let mut draft = tagged("wip", "Not yet", "2026-05-01", &["rust"]);
+    draft.draft = true;
+    let html = tag_html("rust", vec![draft]);
+    assert!(!html.contains("/posts/wip"), "{html}");
+}
+
+#[test]
+fn tag_listing_for_unknown_tag_renders_a_readable_state() {
+    // The worker sets the 404 status (acceptance: unknown tag → 404); the
+    // body still needs to read as a page.
+    let html = tag_html("nope", vec![tagged("a", "A", "2026-01-01", &["rust"])]);
+    assert!(html.contains("Nothing is tagged"), "{html}");
 }
 
 #[test]

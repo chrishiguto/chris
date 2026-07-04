@@ -97,6 +97,7 @@ fn plan_merges_into_previous_index_and_removes() {
             slug: "gone".into(),
             title: "Gone".into(),
             date: "2026-04-01".into(),
+            description: None,
             tags: vec![],
             draft: false,
         },
@@ -104,6 +105,7 @@ fn plan_merges_into_previous_index_and_removes() {
             slug: "kept".into(),
             title: "Kept".into(),
             date: "2026-02-01".into(),
+            description: None,
             tags: vec![],
             draft: false,
         },
@@ -111,6 +113,7 @@ fn plan_merges_into_previous_index_and_removes() {
             slug: "updated".into(),
             title: "Old title".into(),
             date: "2026-01-01".into(),
+            description: None,
             tags: vec![],
             draft: false,
         },
@@ -141,6 +144,79 @@ fn plan_keeps_drafts_in_the_index() {
     let parsed = check(&[source], &manifest()).unwrap();
     let plan = plan(Vec::new(), &parsed, &[]).unwrap();
     assert!(plan.index[0].draft, "drafts are stored, filtered at render");
+}
+
+#[test]
+fn check_rejects_a_non_slug_tag() {
+    let source = PostSource {
+        slug: "a".into(),
+        file: "content/blog/a/index.mdx".into(),
+        source: "---\ntitle: A\ndate: 2026-01-01\ntags: [ok-tag, \"Not A Slug\"]\n---\n\nx\n"
+            .into(),
+    };
+    let diags = check(&[source], &manifest()).unwrap_err();
+    assert_eq!(diags.len(), 1);
+    assert!(diags[0].message.contains("Not A Slug"), "{}", diags[0]);
+    assert!(diags[0].message.contains("lowercase"), "{}", diags[0]);
+}
+
+#[test]
+fn plan_purges_listings_feeds_and_touched_tag_pages() {
+    // "updated" drops the old-tag it had in the previous index and gains
+    // new-tag; "gone" is removed and had gone-tag. All three tag pages (and
+    // both post URLs) must purge, alongside the fixed listing/feed set.
+    let prev = vec![
+        IndexEntry {
+            slug: "updated".into(),
+            title: "Old".into(),
+            date: "2026-01-01".into(),
+            description: None,
+            tags: vec!["old-tag".into()],
+            draft: false,
+        },
+        IndexEntry {
+            slug: "gone".into(),
+            title: "Gone".into(),
+            date: "2026-02-01".into(),
+            description: None,
+            tags: vec!["gone-tag".into()],
+            draft: false,
+        },
+        IndexEntry {
+            slug: "untouched".into(),
+            title: "Untouched".into(),
+            date: "2026-03-01".into(),
+            description: None,
+            tags: vec!["quiet-tag".into()],
+            draft: false,
+        },
+    ];
+    let source = PostSource {
+        slug: "updated".into(),
+        file: "content/blog/updated/index.mdx".into(),
+        source: "---\ntitle: New\ndate: 2026-05-01\ntags: [new-tag]\n---\n\nx\n".into(),
+    };
+    let parsed = check(&[source], &manifest()).unwrap();
+    let plan = plan(prev, &parsed, &["gone".into()]).unwrap();
+
+    let expected = [
+        "/",
+        "/posts",
+        "/posts/gone",
+        "/posts/updated",
+        "/rss.xml",
+        "/sitemap.xml",
+        "/tags",
+        "/tags/gone-tag",
+        "/tags/new-tag",
+        "/tags/old-tag",
+    ];
+    assert_eq!(plan.purge, expected);
+    assert!(
+        !plan.purge.iter().any(|p| p.contains("quiet-tag")),
+        "untouched posts' tag pages must not purge (ADR-0008): {:?}",
+        plan.purge
+    );
 }
 
 #[test]

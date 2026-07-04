@@ -140,13 +140,14 @@ async fn run_publish(
     for key in &plan.deletes {
         kv.delete(key).await.map_err(|err| infra(&err))?;
     }
-    purge(set);
+    purge(&plan.purge);
     Ok(())
 }
 
 /// Cache purge lands in Slice 8 (ADR-0008); publish correctness does not
-/// depend on it — the 7-day TTL backstop bounds staleness meanwhile.
-fn purge(_set: &PublishSet) {}
+/// depend on it — the 7-day TTL backstop bounds staleness meanwhile. The
+/// URL paths to invalidate are already computed (`PublishPlan::purge`).
+fn purge(_paths: &[String]) {}
 
 /// Raw post source at the pushed SHA via the contents API.
 async fn fetch_content(

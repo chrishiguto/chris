@@ -170,7 +170,9 @@ Objects, no queues.
 
 **KV schema** (single namespace):
 - `post:{slug}` → `{ schema_version, frontmatter, ast }`
-- `index` → ordered `[{slug, title, date, tags, draft}]`; drafts stored but filtered out of all
+- `index` → ordered `[{slug, title, date, tags, draft, description?}]` *(amended in Slice 10:
+  optional `description`, the post's feed summary — absent entries serialize unchanged)*;
+  drafts stored but filtered out of all
   listings/feeds at render time
 - `pending` → list of `{slug, sha, removed}` awaiting a CI callback *(amended in Slice 6:
   `removed` marks a parked deletion, so a code push that removes a post dir drains as a KV

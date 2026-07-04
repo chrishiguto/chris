@@ -24,12 +24,17 @@ Every post starts with a YAML frontmatter block fenced by `---`:
 ---
 title: The v1 component vocabulary   # required
 date: 2026-07-04                     # required, YYYY-MM-DD
-tags: [meta, rust]                   # optional
+description: One line for the feed.  # optional; the post's feed summary
+tags: [meta, rust]                   # optional; lowercase slugs (a-z, 0-9, -)
 draft: true                          # optional; keeps the post out of listings
 ---
 ```
 
 TOML frontmatter (`+++`) and posts without frontmatter are rejected.
+
+Each tag names its `/tags/{tag}` page verbatim, so tags must be lowercase
+slugs — letters, digits, and hyphens only; `blog check` enforces this. Posts
+without a `description` fall back to their title in the feed.
 
 ## Markdown
 

@@ -1,7 +1,11 @@
 //! Thin worker shim per the PRD's testing decisions: routing and KV I/O only.
-//! All rendering logic lives in `app`, testable natively with `cargo test`.
+//! HTML rendering lives in `app` and feed/sitemap rendering in [`feeds`],
+//! both testable natively with `cargo test`.
+pub mod feeds;
+
 #[cfg(feature = "ssr")]
 mod server {
+    use crate::feeds;
     use app::{
         app::{shell, App},
         listing::IndexData,
@@ -10,7 +14,7 @@ mod server {
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
-        http::{Request, Response, StatusCode},
+        http::{header::CONTENT_TYPE, Request, Response, StatusCode},
         response::IntoResponse,
         routing::get,
         Router,
@@ -26,9 +30,11 @@ mod server {
     /// Handled by custom axum routes (they need the per-request `Env` for
     /// KV reads), so they are excluded from the leptos-generated route list.
     const POST_ROUTE: &str = "/posts/{slug}";
-    /// Listing routes render from the KV `index`; one handler serves both —
-    /// the leptos Router picks the page from the request URL.
-    const LISTING_ROUTES: [&str; 2] = ["/", "/posts"];
+    /// Listing routes render from the KV `index`; one handler serves them
+    /// all — the leptos Router picks the page from the request URL.
+    const LISTING_ROUTES: [&str; 3] = ["/", "/posts", "/tags"];
+    /// Like [`POST_ROUTE`], but 404s on tags no published post carries.
+    const TAG_ROUTE: &str = "/tags/{tag}";
 
     #[derive(Clone)]
     struct AppState {
@@ -57,7 +63,8 @@ mod server {
                 let routes = generate_route_list_with_exclusions(
                     App,
                     Some(
-                        std::iter::once(POST_ROUTE)
+                        [POST_ROUTE, TAG_ROUTE]
+                            .into_iter()
                             .chain(LISTING_ROUTES)
                             .map(String::from)
                             .collect(),
@@ -75,7 +82,11 @@ mod server {
         let mut router = LISTING_ROUTES
             .iter()
             .fold(
-                Router::new().route(POST_ROUTE, get(post_page)),
+                Router::new()
+                    .route(POST_ROUTE, get(post_page))
+                    .route(TAG_ROUTE, get(tag_page))
+                    .route("/rss.xml", get(feed_xml))
+                    .route("/sitemap.xml", get(sitemap_xml)),
                 |r, path| r.route(path, get(listing_page)),
             )
             .leptos_routes(&state, routes, move || shell(options.clone()))
@@ -129,6 +140,100 @@ mod server {
             provide_context(IndexData(index.clone()))
         })
         .await
+    }
+
+    /// Unknown tags 404 (no published post carries them); the page body is
+    /// the app's readable empty state either way.
+    #[worker::send]
+    async fn tag_page(
+        State(state): State<AppState>,
+        Path(tag): Path<String>,
+        req: Request<Body>,
+    ) -> Response<Body> {
+        let index = match load_index(&state.env).await {
+            Ok(index) => index,
+            Err(err) => {
+                console_error!("failed to load index: {err}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "the post index could not be loaded",
+                )
+                    .into_response();
+            }
+        };
+        let known = index
+            .iter()
+            .any(|entry| !entry.draft && entry.tags.contains(&tag));
+
+        let mut response = render_page(&state, req, move || {
+            provide_context(IndexData(index.clone()))
+        })
+        .await;
+        if !known {
+            *response.status_mut() = StatusCode::NOT_FOUND;
+        }
+        response
+    }
+
+    #[worker::send]
+    async fn feed_xml(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        index_xml(
+            &state,
+            &req,
+            feeds::atom,
+            "application/atom+xml; charset=utf-8",
+        )
+        .await
+    }
+
+    #[worker::send]
+    async fn sitemap_xml(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        index_xml(
+            &state,
+            &req,
+            feeds::sitemap,
+            "application/xml; charset=utf-8",
+        )
+        .await
+    }
+
+    /// Renders one of the pure XML builders over the KV index, with absolute
+    /// URLs rooted at the requesting origin.
+    async fn index_xml(
+        state: &AppState,
+        req: &Request<Body>,
+        build: fn(&str, &[IndexEntry]) -> String,
+        content_type: &'static str,
+    ) -> Response<Body> {
+        let index = match load_index(&state.env).await {
+            Ok(index) => index,
+            Err(err) => {
+                console_error!("failed to load index: {err}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "the post index could not be loaded",
+                )
+                    .into_response();
+            }
+        };
+        ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response()
+    }
+
+    /// Scheme + host of the request, no trailing slash. Workers hand axum an
+    /// absolute request URI; the Host header is the dev-server fallback.
+    fn origin(req: &Request<Body>) -> String {
+        let uri = req.uri();
+        match (uri.scheme_str(), uri.authority()) {
+            (Some(scheme), Some(authority)) => format!("{scheme}://{authority}"),
+            _ => {
+                let host = req
+                    .headers()
+                    .get("host")
+                    .and_then(|host| host.to_str().ok())
+                    .unwrap_or("localhost");
+                format!("https://{host}")
+            }
+        }
     }
 
     /// SSRs the full shell for a page; handlers differ only by the per-request

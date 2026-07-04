@@ -355,6 +355,7 @@ fn post_page_with_post_renders_article() {
         frontmatter: Frontmatter {
             title: "Hello, KV".into(),
             date: "2026-07-04".into(),
+            description: None,
             tags: vec![],
             draft: false,
         },
@@ -373,6 +374,7 @@ fn render_document_wraps_body_in_article_with_header() {
         frontmatter: Frontmatter {
             title: "Hello, KV".into(),
             date: "2026-07-04".into(),
+            description: None,
             tags: vec!["rust".into()],
             draft: false,
         },
@@ -396,6 +398,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
         frontmatter: Frontmatter {
             title: "Tagged".into(),
             date: "2026-07-04".into(),
+            description: None,
             tags,
             draft: false,
         },

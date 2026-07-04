@@ -3,13 +3,17 @@ name = "site"
 version = "0.1.0"
 edition = "2021"
 
+# rlib alongside cdylib so the native test harness (tests/feeds.rs) can link
+# the pure feed/sitemap module; worker-build keeps targeting the cdylib.
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 app = { workspace = true, features = ["ssr"], optional = true }
 axum = { workspace = true, optional = true }
-content-ast = { workspace = true, optional = true }
+# Ungated: the feeds module renders from `IndexEntry` natively (content-ast
+# is pure serde types, fine on the host target).
+content-ast = { workspace = true }
 getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true, optional = true }
@@ -24,7 +28,6 @@ worker = { workspace = true, optional = true }
 ssr = [
   "dep:app",
   "dep:axum",
-  "dep:content-ast",
   "dep:leptos",
   "dep:leptos_axum",
   "dep:serde_json",

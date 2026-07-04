@@ -313,6 +313,16 @@
     padding: 0.125rem 0.625rem;
   }
 
+  /* On /tags the pills are links; keep the pill look, signal on hover. */
+  li.tag a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  li.tag a:hover {
+    color: var(--color-accent);
+  }
+
   /* Listing pages (Slice 5) only need this markup shape:
      <ul class="post-list"><li><a><h2>title</h2><p class="post-date">…</p></a></li>… */
 
