@@ -147,7 +147,6 @@ async fn run_publish(
     event: &PushEvent,
     set: &PublishSet,
 ) -> std::result::Result<(), PublishError> {
-    let infra = |err: &dyn std::fmt::Display| PublishError::Infra(err.to_string());
     let repo = &event.repository.full_name;
 
     let mut sources = Vec::new();
@@ -166,7 +165,9 @@ async fn run_publish(
     }
     let parsed = publish_core::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
 
-    let kv = env.kv(KV_BINDING).map_err(|err| infra(&err))?;
+    let kv = env
+        .kv(KV_BINDING)
+        .map_err(|err| PublishError::Infra(err.to_string()))?;
     apply_plan(&kv, &parsed, &set.removed)
         .await
         .map_err(PublishError::Infra)?;
