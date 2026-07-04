@@ -124,16 +124,9 @@ mod server {
 
     #[worker::send]
     async fn listing_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
-        let index = match load_index(&state.env).await {
+        let index = match load_index_or_500(&state.env).await {
             Ok(index) => index,
-            Err(err) => {
-                console_error!("failed to load index: {err}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "the post index could not be loaded",
-                )
-                    .into_response();
-            }
+            Err(response) => return response,
         };
 
         render_page(&state, req, move || {
@@ -150,16 +143,9 @@ mod server {
         Path(tag): Path<String>,
         req: Request<Body>,
     ) -> Response<Body> {
-        let index = match load_index(&state.env).await {
+        let index = match load_index_or_500(&state.env).await {
             Ok(index) => index,
-            Err(err) => {
-                console_error!("failed to load index: {err}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "the post index could not be loaded",
-                )
-                    .into_response();
-            }
+            Err(response) => return response,
         };
         let known = index
             .iter()
@@ -205,16 +191,9 @@ mod server {
         build: fn(&str, &[IndexEntry]) -> String,
         content_type: &'static str,
     ) -> Response<Body> {
-        let index = match load_index(&state.env).await {
+        let index = match load_index_or_500(&state.env).await {
             Ok(index) => index,
-            Err(err) => {
-                console_error!("failed to load index: {err}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "the post index could not be loaded",
-                )
-                    .into_response();
-            }
+            Err(response) => return response,
         };
         ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response()
     }
@@ -247,6 +226,19 @@ mod server {
         let render =
             leptos_axum::render_app_async_with_context(provide, move || shell(options.clone()));
         render(req).await
+    }
+
+    /// The KV index or the shared 500 response — the three index-backed
+    /// handlers (listings, tag pages, feeds) load it under one error contract.
+    async fn load_index_or_500(env: &Env) -> Result<Vec<IndexEntry>, Response<Body>> {
+        load_index(env).await.map_err(|err| {
+            console_error!("failed to load index: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "the post index could not be loaded",
+            )
+                .into_response()
+        })
     }
 
     /// A missing `index` key just means nothing has been published yet —
