@@ -146,6 +146,49 @@ fn plan_keeps_drafts_in_the_index() {
     assert!(plan.index[0].draft, "drafts are stored, filtered at render");
 }
 
+// Slice 9's publish half of the draft flip: pushing `draft: true → false`
+// must rewrite the index entry as published AND purge the listing surfaces
+// the post now appears on (plus its own URL and tag pages), so stale cached
+// listings cannot keep hiding it for the TTL.
+#[test]
+fn plan_publishes_a_draft_flip_and_purges_listings() {
+    let prev = vec![IndexEntry {
+        slug: "wip".into(),
+        title: "WIP".into(),
+        date: "2026-06-01".into(),
+        description: None,
+        tags: vec!["rust".into()],
+        draft: true,
+    }];
+    let source = PostSource {
+        slug: "wip".into(),
+        file: "content/blog/wip/index.mdx".into(),
+        source: "---\ntitle: WIP\ndate: 2026-06-01\ntags: [rust]\n---\n\nDone.\n".into(),
+    };
+    let parsed = check(&[source], &manifest()).unwrap();
+    let plan = plan(prev, &parsed, &[]).unwrap();
+
+    assert!(
+        !plan.index[0].draft,
+        "the flipped post must be listed: {:?}",
+        plan.index
+    );
+    assert!(
+        plan.writes.iter().any(|w| w.key == "post:wip"),
+        "the flipped post must be rewritten"
+    );
+    let expected = [
+        "/",
+        "/posts",
+        "/posts/wip",
+        "/rss.xml",
+        "/sitemap.xml",
+        "/tags",
+        "/tags/rust",
+    ];
+    assert_eq!(plan.purge, expected);
+}
+
 #[test]
 fn check_rejects_a_non_slug_tag() {
     let source = PostSource {

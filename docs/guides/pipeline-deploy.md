@@ -146,6 +146,31 @@ delivery in the hook's "Recent Deliveries" confirms the signature wiring).
 Deliveries (payload + response) are replayable from the webhook's "Recent
 Deliveries" tab, which is the fastest debugging loop.
 
+## Verify the draft workflow
+
+The two draft mechanisms (CONTENT.md "Drafts") and their purge composition:
+
+1. **Branch = unpublished.** Author a post on a branch, push, open a PR: no
+   webhook publish fires (the worker acknowledges and ignores non-default-
+   branch pushes — check the delivery log), the post 404s, and listings are
+   unchanged. Merge the PR: the push to `main` publishes it within seconds.
+2. **`draft: true` = unlisted.** Publish a post with `draft: true`: it
+   renders at `/posts/{slug}` (with `x-blog-cache: miss` on every request —
+   drafts are never cached), and is absent from `/`, `/posts`, `/rss.xml`,
+   `/sitemap.xml`, and its tag pages.
+3. **The flip.** Warm the listing caches (`curl` until `x-blog-cache: hit`),
+   then push `draft: true → false`: the post appears on the listings, feed,
+   sitemap, and its tag pages immediately — the publish purged exactly those
+   URLs plus `/posts/{slug}`.
+4. **Deletion purge (Slice 8 composition).** Warm `/posts/{slug}` and the
+   listings, then delete the post directory and push: the post's URL 404s
+   and the listings drop it without waiting out the 7-day TTL.
+
+Steps 3–4 exercise real purging only behind a custom domain with
+`CLOUDFLARE_ZONE_ID`/`SITE_ORIGIN`/`CLOUDFLARE_PURGE_TOKEN` configured (see
+"Cache purge"); on workers.dev the Cache API is inert and every response is
+a `miss`, so freshness holds trivially.
+
 ## Verify the CI code path
 
 1. Push a mixed commit: a new post plus its co-located

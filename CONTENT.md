@@ -37,6 +37,20 @@ Each tag names its `/tags/{tag}` page verbatim, so tags must be lowercase
 slugs — letters, digits, and hyphens only; `blog check` enforces this. Posts
 without a `description` fall back to their title in the feed.
 
+## Drafts
+
+Two mechanisms, layered (user stories 10–11):
+
+- **Branches are drafts.** The pipeline only publishes pushes to the default
+  branch, so a post authored on a branch does not exist on the site until
+  its PR merges — merge to `main` *is* the publish button.
+- **`draft: true` is a published-but-unlisted post.** It is stored in KV and
+  renders at `/posts/{slug}` — share the URL to proof-read on a real device
+  — but stays out of `/`, `/posts`, the feed, the sitemap, and tag pages,
+  and is never edge-cached (an unpublish must not linger for the cache TTL).
+  Flip it to `false` (or delete the line) and push: the post appears in
+  listings, and the publish purges them so the change is visible instantly.
+
 ## Markdown
 
 Standard markdown works as usual: headings, paragraphs, emphasis/strong,

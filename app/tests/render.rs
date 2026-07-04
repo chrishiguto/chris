@@ -367,6 +367,32 @@ fn post_page_with_post_renders_article() {
     assert!(html.contains("<p>body text</p>"), "missing body: {html}");
 }
 
+// Slice 9: drafts stay reachable by slug (device testing / sharing the URL)
+// — the page renders the article like any published post; only listings,
+// feeds, and the cache treat drafts specially.
+#[test]
+fn post_page_renders_a_draft_document() {
+    let html = page_html(Some(Document {
+        schema_version: SCHEMA_VERSION,
+        frontmatter: Frontmatter {
+            title: "Not yet".into(),
+            date: "2026-07-04".into(),
+            description: None,
+            tags: vec![],
+            draft: true,
+        },
+        ast: vec![Node::Paragraph {
+            children: vec![text("draft body")],
+        }],
+    }));
+    assert!(html.contains("<article"), "missing article: {html}");
+    assert!(html.contains("<p>draft body</p>"), "missing body: {html}");
+    assert!(
+        !html.contains("404"),
+        "a draft is not a missing post: {html}"
+    );
+}
+
 #[test]
 fn render_document_wraps_body_in_article_with_header() {
     let doc = Document {

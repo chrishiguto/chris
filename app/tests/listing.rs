@@ -91,6 +91,17 @@ fn posts_page_with_empty_index_says_so() {
     );
 }
 
+// Slice 9: the home page shares the draft filter — a draft must not leak
+// onto `/` even when it is the newest entry (and thus inside RECENT_POSTS).
+#[test]
+fn home_page_filters_drafts() {
+    let mut draft = entry("wip", "Not yet", "2026-05-01");
+    draft.draft = true;
+    let html = home_html(vec![draft, entry("live", "Live", "2026-04-01")]);
+    assert!(!html.contains("wip"), "drafts must not be listed: {html}");
+    assert!(html.contains("/posts/live"), "{html}");
+}
+
 #[test]
 fn home_page_shows_only_recent_posts_and_links_to_all() {
     let index: Vec<_> = (0..RECENT_POSTS + 2)
