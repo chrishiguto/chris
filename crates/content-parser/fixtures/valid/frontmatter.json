@@ -1,0 +1,23 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Frontmatter drives listings, tag pages, and feeds."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": true,
+    "tags": [
+      "rust",
+      "leptos"
+    ],
+    "title": "Full frontmatter"
+  },
+  "schema_version": 1
+}

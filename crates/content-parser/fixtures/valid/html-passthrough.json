@@ -1,0 +1,96 @@
+{
+  "ast": [
+    {
+      "attrs": {
+        "class": "note"
+      },
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Lowercase tags pass through as "
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "HTML"
+                }
+              ],
+              "type": "emphasis"
+            },
+            {
+              "type": "text",
+              "value": ", children still markdown."
+            }
+          ],
+          "type": "paragraph"
+        }
+      ],
+      "tag": "aside",
+      "type": "html"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Press "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "ctrl"
+            }
+          ],
+          "tag": "kbd",
+          "type": "html"
+        },
+        {
+          "type": "text",
+          "value": "+"
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "c"
+            }
+          ],
+          "tag": "kbd",
+          "type": "html"
+        },
+        {
+          "type": "text",
+          "value": " or hover this "
+        },
+        {
+          "attrs": {
+            "title": "HyperText Markup Language"
+          },
+          "children": [
+            {
+              "type": "text",
+              "value": "HTML"
+            }
+          ],
+          "tag": "abbr",
+          "type": "html"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "HTML passthrough"
+  },
+  "schema_version": 1
+}

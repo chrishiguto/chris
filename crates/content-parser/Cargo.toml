@@ -1,0 +1,11 @@
+[package]
+name = "content-parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+content-ast = { workspace = true }
+markdown = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }

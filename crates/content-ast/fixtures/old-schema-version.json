@@ -1,0 +1,15 @@
+{
+  "schema_version": 0,
+  "frontmatter": {
+    "title": "Written under schema 0",
+    "date": "2025-01-01",
+    "tags": [],
+    "draft": false
+  },
+  "ast": [
+    {
+      "type": "paragraph",
+      "children": [{ "type": "text", "value": "stale KV entry" }]
+    }
+  ]
+}

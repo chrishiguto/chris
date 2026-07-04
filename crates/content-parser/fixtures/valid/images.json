@@ -1,0 +1,32 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "alt": "A diagram",
+          "type": "image",
+          "url": "https://example.com/diagram.png"
+        }
+      ],
+      "type": "paragraph"
+    },
+    {
+      "children": [
+        {
+          "alt": "A titled diagram",
+          "title": "System overview",
+          "type": "image",
+          "url": "https://example.com/diagram.png"
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Images"
+  },
+  "schema_version": 1
+}

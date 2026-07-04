@@ -1,0 +1,20 @@
+{
+  "ast": [
+    {
+      "lang": "rust",
+      "text": "fn main() {\n    println!(\"stored as raw text + lang\");\n}",
+      "type": "code_block"
+    },
+    {
+      "text": "no language tag here",
+      "type": "code_block"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Code fences"
+  },
+  "schema_version": 1
+}

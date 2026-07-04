@@ -1,0 +1,72 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "A "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "plain link"
+            }
+          ],
+          "type": "link",
+          "url": "https://example.com"
+        },
+        {
+          "type": "text",
+          "value": ", a "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "titled link"
+            }
+          ],
+          "title": "The docs",
+          "type": "link",
+          "url": "https://example.com/docs"
+        },
+        {
+          "type": "text",
+          "value": ",\nand a "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "link with "
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "emphasis"
+                }
+              ],
+              "type": "emphasis"
+            }
+          ],
+          "type": "link",
+          "url": "https://example.com/em"
+        },
+        {
+          "type": "text",
+          "value": "."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Links"
+  },
+  "schema_version": 1
+}

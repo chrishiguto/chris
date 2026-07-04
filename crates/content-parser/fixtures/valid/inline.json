@@ -1,0 +1,54 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Some "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "emphasis"
+            }
+          ],
+          "type": "emphasis"
+        },
+        {
+          "type": "text",
+          "value": ", some "
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "strong"
+            }
+          ],
+          "type": "strong"
+        },
+        {
+          "type": "text",
+          "value": ", and some "
+        },
+        {
+          "type": "inline_code",
+          "value": "inline_code()"
+        },
+        {
+          "type": "text",
+          "value": " in one line."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Inline markup"
+  },
+  "schema_version": 1
+}

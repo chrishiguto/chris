@@ -1,0 +1,36 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "First paragraph of plain prose."
+        }
+      ],
+      "type": "paragraph"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Second paragraph with a hard"
+        },
+        {
+          "type": "break"
+        },
+        {
+          "type": "text",
+          "value": "break in the middle."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Paragraphs"
+  },
+  "schema_version": 1
+}
