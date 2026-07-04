@@ -2,3 +2,4 @@
 /workers/site/build
 .wrangler/
 node_modules/
+.secrets/

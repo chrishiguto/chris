@@ -1,6 +1,6 @@
 # ADR-0007: Single publish operation, two invokers; CI provides ordering
 
-**Status**: Accepted (2026-07-03)
+**Status**: Accepted (2026-07-03); amended 2026-07-04 — Check Runs replaced by commit statuses (see note in Decision)
 **Related**: PRD `docs/prds/prd-leptos-workers-blog-v1.md`; depends on ADR-0004, ADR-0006
 
 ## Context
@@ -14,7 +14,7 @@ Also: publishes need observability regardless of path.
 
 The **pipeline worker decides**, by inspecting the webhook payload's `added/modified/removed`
 paths (no SHAs, no CI involvement in the decision). One **publish operation** (fetch → parse →
-validate → KV → purge → Check Run) with two invokers:
+validate → KV → purge → commit status) with two invokers:
 
 - **Content-only push** → webhook fast path: the worker publishes directly. Live in ~2 s;
   CI never runs.
@@ -25,8 +25,17 @@ validate → KV → purge → Check Run) with two invokers:
 
 Residual cross-commit race (post referencing a component whose deploy from an *earlier* commit
 is still in flight) is caught by publish-time validation → parked in `pending` → retried on the
-next CI callback. Observability: the worker posts a **GitHub Check Run** (`blog/publish`) on the
-pushed SHA for *both* paths — the commit page is the publish dashboard.
+next CI callback. Observability: the worker posts a **GitHub commit status** (context
+`blog/publish`) on the pushed SHA for *both* paths — the commit page is the publish dashboard.
+
+> **Amendment (2026-07-04)**: originally specified as a GitHub **Check Run**, but write access
+> to the Checks API is GitHub-App-only — no PAT of any kind can create one. Rather than run a
+> GitHub App (app registration, private-key storage, JWT/installation-token code in the
+> worker), v1 uses the **Commit Status API**, which works with a fine-grained PAT
+> (commit statuses: read/write). Trade-off: a status carries only a ~140-char description and
+> a target URL — no rich markdown output panel — so the status holds a concise summary and
+> full file/line diagnostics remain the job of `blog check`. Revisit as a GitHub App if v2
+> wants inline annotations.
 
 A `blog publish --local` CLI ships as break-glass; if the webhook path is ever retired, the
 CLI-in-CI posture (option 3 below) is reachable without redesign.
@@ -44,7 +53,8 @@ CLI-in-CI posture (option 3 below) is reachable without redesign.
 ## Consequences
 
 - Good: content publishes stay instant; ordering correctness costs a two-line pending list.
-- Good: one publish implementation; both paths converge on Check Runs for observability.
+- Good: one publish implementation; both paths converge on the `blog/publish` commit status
+  for observability.
 - Bad: `GITHUB_TOKEN` must live in the pipeline worker (webhook payloads carry paths, not file
   contents, so the worker must fetch content itself).
 - Bad: the code path depends on GitHub Actions availability (accepted; break-glass CLI exists).

@@ -18,7 +18,7 @@ Two workers, split along the real fault line — read vs write:
   directly, Cache API in front. Carries the AST renderer, registry, and components — nothing
   else. Holds **no secrets**.
 - **`pipeline`**: webhook validation, diff-based routing, GitHub content fetch, parse,
-  validate, KV writes, cache purge, Check Run reporting. Holds `GITHUB_WEBHOOK_SECRET`,
+  validate, KV writes, cache purge, commit-status reporting. Holds `GITHUB_WEBHOOK_SECRET`,
   `GITHUB_TOKEN`, and the publish shared secret.
 
 There is deliberately no separate read-API worker ("read KV, validate, fallback" is a

@@ -30,7 +30,7 @@ that widget is live — drag the slider. it's a leptos island, hydrated on the c
 ```
 
 when i push, a worker picks up the webhook, parses the post into a typed ast, writes it to kv,
-purges the urls that changed and reports back as a check run on the commit. the post is live a
+purges the urls that changed and reports back as a commit status on the commit. the post is live a
 couple of seconds later, and since publishing only ever touches what changed, there's no site
 rebuild involved — publishing post number 200 costs the same as publishing post number 2.
 
@@ -53,7 +53,7 @@ content doesn't even know something changed.
 git push → webhook → pipeline worker
 │
 ├─ only content/**/*.mdx changed
-│    → fast path: fetch → parse → validate → kv → purge → check run.  live in ~2s.
+│    → fast path: fetch → parse → validate → kv → purge → commit status.  live in ~2s.
 │
 └─ any .rs / app code changed
      → ci: build → deploy workers → purge everything → publish the pending posts.
