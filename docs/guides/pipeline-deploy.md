@@ -47,9 +47,43 @@ enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy site +
 pipeline → cache purge → call `/publish`. The purge step only runs when the
 `CLOUDFLARE_ZONE_ID` repo variable is set: `purge_everything` needs a zone,
 and on `*.workers.dev` there is none (the Cache API is inert there too), so
-until a custom domain lands the step is skipped by design. The pipeline
-worker's per-URL purge is a stub until Slice 8; the site's TTL bounds
-staleness.
+until a custom domain lands the step is skipped by design.
+
+## Cache purge (ADR-0008)
+
+Two purge layers, different scopes, deliberately ordered:
+
+- **Deploy** (`publish.yml`, above): `purge_everything` right after
+  `wrangler deploy` — cached HTML embeds hashed `/pkg/*` URLs and hydration
+  markup coupled to the deployed binary, so a deploy invalidates all of it.
+  On the CI code path this runs *before* the `/publish` callback, so the
+  callback's targeted purge is never undone by the nuke.
+- **Publish** (this worker): after every applied KV plan, REST purge-by-URL
+  of exactly the plan's enumerated set (`publish_core::PublishPlan::purge`):
+  `/`, `/posts`, `/rss.xml`, `/sitemap.xml`, `/tags`, the touched posts'
+  URLs, and the tag pages they appear on (old and new tags). Publishing
+  post N never evicts post M. Requests are chunked to the API's 30-files
+  cap; failures log loudly but never fail the already-applied publish — the
+  site's 7-day TTL backstops a missed purge.
+
+Publish purge configuration (all in `workers/pipeline/wrangler.toml` /
+worker secrets; empty = purge skipped with a log line, correct for
+workers.dev where the Cache API is inert):
+
+- `CLOUDFLARE_ZONE_ID` var — the custom domain's zone.
+- `SITE_ORIGIN` var — the site's absolute origin (e.g.
+  `https://blog.example.com`); purge-by-URL matches full URLs exactly, and
+  the site keys its cache entries on the same bare `origin + path` shape
+  (query strings are stripped at `cache.put` time).
+- `CLOUDFLARE_PURGE_TOKEN` secret — API token scoped to Zone → Cache
+  Purge → Purge for that zone.
+
+Per-colo caveat for verification: `cache.put` is per-colo, purge is global.
+A page is only *cached* in colos that have served it, so "post-purge serves
+fresh content" should be spot-checked from ≥ 2 regions (or accept the
+single-colo check: a purged URL re-renders on its next request anywhere).
+The `x-blog-cache: hit|miss` response header the site sets makes this
+observable with `curl -sI`.
 
 ## Repo Actions configuration (CI code path)
 

@@ -9,10 +9,10 @@ use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, R
 
 use crate::{
     classify, contents_url, dispatch_payload, dispatch_url, failure_description, manifest,
-    merge_pending, pending_description, post_path, status_payload, statuses_url,
-    success_description, verify_publish_auth, verify_signature, DrainEntryOutcome, DrainReport,
-    PendingEntry, PublishRequest, PublishSet, PushClass, PushEvent, StatusState, PENDING_KEY,
-    STATUS_CONTEXT,
+    merge_pending, pending_description, post_path, purge_payloads, purge_url, status_payload,
+    statuses_url, success_description, verify_publish_auth, verify_signature, DrainEntryOutcome,
+    DrainReport, PendingEntry, PublishRequest, PublishSet, PushClass, PushEvent, StatusState,
+    PENDING_KEY, STATUS_CONTEXT,
 };
 
 /// Same namespace the site worker reads (wrangler.toml in this directory).
@@ -21,6 +21,15 @@ const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
 const GITHUB_TOKEN: &str = "GITHUB_TOKEN";
 /// Shared with CI (an Actions secret): authenticates `/publish` callbacks.
 const PUBLISH_SECRET: &str = "PUBLISH_SHARED_SECRET";
+/// Zone of the site's custom domain (wrangler.toml var); empty until one
+/// exists — workers.dev has no zone and its Cache API is inert anyway.
+const ZONE_ID_VAR: &str = "CLOUDFLARE_ZONE_ID";
+/// Absolute origin the site serves on, e.g. `https://blog.example.com`
+/// (wrangler.toml var) — purge-by-URL needs full URLs, not paths.
+const SITE_ORIGIN_VAR: &str = "SITE_ORIGIN";
+/// API token scoped to Zone → Cache Purge → Purge (ADR-0008's extra
+/// credential; a secret like the GitHub ones).
+const PURGE_TOKEN: &str = "CLOUDFLARE_PURGE_TOKEN";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
 
@@ -165,10 +174,7 @@ async fn run_publish(
     }
     let parsed = publish_core::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
 
-    let kv = env
-        .kv(KV_BINDING)
-        .map_err(|err| PublishError::Infra(err.to_string()))?;
-    apply_plan(&kv, &parsed, &set.removed)
+    apply_plan(env, &parsed, &set.removed)
         .await
         .map_err(PublishError::Infra)?;
     Ok(())
@@ -179,10 +185,11 @@ async fn run_publish(
 /// webhook fast path and the `/publish` drain so the two can't drift on
 /// index-merge or KV ordering.
 async fn apply_plan(
-    kv: &worker::kv::KvStore,
+    env: &Env,
     published: &[ParsedPost],
     removed: &[String],
 ) -> std::result::Result<(), String> {
+    let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
     let prev: Vec<IndexEntry> = kv
         .get(INDEX_KEY)
         .json()
@@ -200,14 +207,61 @@ async fn apply_plan(
     for key in &plan.deletes {
         kv.delete(key).await.map_err(|err| err.to_string())?;
     }
-    purge(&plan.purge);
+    purge(env, &plan.purge).await;
     Ok(())
 }
 
-/// Cache purge lands in Slice 8 (ADR-0008); publish correctness does not
-/// depend on it — the 7-day TTL backstop bounds staleness meanwhile. The
-/// URL paths to invalidate are already computed (`PublishPlan::purge`).
-fn purge(_paths: &[String]) {}
+/// REST purge-by-URL of the plan's enumerated set, all colos (ADR-0008).
+/// Best-effort by design: the publish is already applied, KV is the truth,
+/// and the site's 7-day TTL backstops a missed purge — so failures log
+/// loudly instead of failing the publish. Skips (with a log line) until a
+/// custom domain's zone and origin are configured.
+async fn purge(env: &Env, paths: &[String]) {
+    let var = |name: &str| {
+        env.var(name)
+            .ok()
+            .map(|value| value.to_string())
+            .filter(|value| !value.is_empty())
+    };
+    let (Some(zone), Some(origin)) = (var(ZONE_ID_VAR), var(SITE_ORIGIN_VAR)) else {
+        worker::console_log!(
+            "cache purge skipped: {ZONE_ID_VAR}/{SITE_ORIGIN_VAR} not configured (no custom domain yet)"
+        );
+        return;
+    };
+    let Ok(token) = env.secret(PURGE_TOKEN) else {
+        console_error!(
+            "cache purge skipped: {PURGE_TOKEN} secret missing while a zone is configured"
+        );
+        return;
+    };
+    let url = purge_url(&zone);
+    for body in purge_payloads(&origin, paths) {
+        if let Err(err) = purge_request(&url, &token.to_string(), body).await {
+            console_error!("cache purge failed (TTL backstop applies): {err}");
+        }
+    }
+}
+
+async fn purge_request(url: &str, token: &str, body: String) -> std::result::Result<(), String> {
+    let headers = Headers::new();
+    let set = |k: &str, v: &str| headers.set(k, v).map_err(|err| err.to_string());
+    set("authorization", &format!("Bearer {token}"))?;
+    set("content-type", "application/json")?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post)
+        .with_headers(headers)
+        .with_body(Some(body.into()));
+    let request = Request::new_with_init(url, &init).map_err(|err| err.to_string())?;
+    let response = Fetch::Request(request)
+        .send()
+        .await
+        .map_err(|err| err.to_string())?;
+    match response.status_code() {
+        200 => Ok(()),
+        status => Err(format!("purge request returned {status}")),
+    }
+}
 
 /// CI's post-deploy callback (ADR-0007): authenticate, drain `pending`,
 /// park validation failures for the next callback, report per pushed SHA.
@@ -286,8 +340,9 @@ async fn drain(
         outcomes.push((entry, outcome));
     }
 
+    apply_plan(env, &published, &removed).await?;
+
     let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
-    apply_plan(&kv, &published, &removed).await?;
 
     let report = DrainReport { outcomes };
     let retries = report.retries();

@@ -21,3 +21,14 @@ id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
 #   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
 #   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml
 #   wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml
+#   wrangler secret put CLOUDFLARE_PURGE_TOKEN --config workers/pipeline/wrangler.toml
+
+# Publish-time cache purge (ADR-0008, Slice 8). Empty = skipped, by design:
+# purge-by-URL needs a zone and *.workers.dev has none (its Cache API is
+# inert anyway). Once a custom domain fronts the site, set the zone id and
+# the site's absolute origin here, provision CLOUDFLARE_PURGE_TOKEN (Zone →
+# Cache Purge → Purge), and set the CLOUDFLARE_ZONE_ID repo variable so the
+# CI deploy nuke runs too.
+[vars]
+CLOUDFLARE_ZONE_ID = ""
+SITE_ORIGIN = ""

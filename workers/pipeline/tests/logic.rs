@@ -4,10 +4,10 @@
 
 use pipeline::{
     classify, contents_url, dispatch_payload, dispatch_url, failure_description, merge_pending,
-    pending_description, post_path, post_slug, status_payload, statuses_url, success_description,
-    verify_publish_auth, verify_signature, DrainEntryOutcome, DrainReport, PendingEntry,
-    PublishRequest, PublishSet, PushClass, PushCommit, PushEvent, StatusState, PENDING_KEY,
-    STATUS_CONTEXT, WORKFLOW_FILE,
+    pending_description, post_path, post_slug, purge_payloads, purge_url, status_payload,
+    statuses_url, success_description, verify_publish_auth, verify_signature, DrainEntryOutcome,
+    DrainReport, PendingEntry, PublishRequest, PublishSet, PushClass, PushCommit, PushEvent,
+    StatusState, PENDING_KEY, PURGE_FILES_LIMIT, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -515,4 +515,58 @@ fn manifest_exposes_the_real_app_vocabulary() {
         names.contains(&"Callout") && names.contains(&"Counter"),
         "expected the app vocabulary, got {names:?}"
     );
+}
+
+// --- cache purge requests (ADR-0008, Slice 8) ---
+
+#[test]
+fn purge_url_targets_the_zone_purge_endpoint() {
+    assert_eq!(
+        purge_url("zone123"),
+        "https://api.cloudflare.com/client/v4/zones/zone123/purge_cache"
+    );
+}
+
+#[test]
+fn purge_payloads_prefix_the_site_origin_onto_each_path() {
+    let paths = vec!["/".to_string(), "/posts/hello".to_string()];
+    assert_eq!(
+        purge_payloads("https://blog.example.com", &paths),
+        vec![r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#]
+    );
+}
+
+/// A configured `SITE_ORIGIN` with a trailing slash must not produce
+/// `https://host//posts/…` — purge-by-URL matches URLs exactly.
+#[test]
+fn purge_payloads_normalize_a_trailing_slash_origin() {
+    let paths = vec!["/posts/hello".to_string()];
+    assert_eq!(
+        purge_payloads("https://blog.example.com/", &paths),
+        vec![r#"{"files":["https://blog.example.com/posts/hello"]}"#]
+    );
+}
+
+/// The purge-by-URL API caps each request at 30 files; a bigger publish
+/// (many tags) must split into several requests, not silently truncate.
+#[test]
+fn purge_payloads_chunk_to_the_api_file_limit() {
+    let paths: Vec<String> = (0..PURGE_FILES_LIMIT + 1)
+        .map(|n| format!("/posts/p{n}"))
+        .collect();
+    let payloads = purge_payloads("https://blog.example.com", &paths);
+    assert_eq!(payloads.len(), 2);
+    let files = |payload: &str| {
+        serde_json::from_str::<serde_json::Value>(payload).unwrap()["files"]
+            .as_array()
+            .unwrap()
+            .len()
+    };
+    assert_eq!(files(&payloads[0]), PURGE_FILES_LIMIT);
+    assert_eq!(files(&payloads[1]), 1);
+}
+
+#[test]
+fn no_paths_means_no_purge_requests() {
+    assert!(purge_payloads("https://blog.example.com", &[]).is_empty());
 }

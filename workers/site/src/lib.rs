@@ -1,11 +1,13 @@
-//! Thin worker shim per the PRD's testing decisions: routing and KV I/O only.
-//! HTML rendering lives in `app` and feed/sitemap rendering in [`feeds`],
-//! both testable natively with `cargo test`.
+//! Thin worker shim per the PRD's testing decisions: routing, KV I/O, and
+//! the Cache API front only. HTML rendering lives in `app`, feed/sitemap
+//! rendering in [`feeds`], and the cache policy in [`cache`] — all testable
+//! natively with `cargo test`.
+pub mod cache;
 pub mod feeds;
 
 #[cfg(feature = "ssr")]
 mod server {
-    use crate::feeds;
+    use crate::{cache, feeds};
     use app::{
         app::{shell, App},
         listing::IndexData,
@@ -14,7 +16,10 @@ mod server {
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
-        http::{header::CONTENT_TYPE, Request, Response, StatusCode},
+        http::{
+            header::{CACHE_CONTROL, CONTENT_TYPE},
+            HeaderValue, Method, Request, Response, StatusCode,
+        },
         response::IntoResponse,
         routing::get,
         Router,
@@ -23,7 +28,7 @@ mod server {
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
     use tower_service::Service;
-    use worker::{console_error, Env};
+    use worker::{console_error, Cache, Env};
 
     /// KV namespace holding `post:{slug}` documents (see wrangler.toml).
     const KV_BINDING: &str = "BLOG";
@@ -79,6 +84,17 @@ mod server {
             env,
         };
 
+        // Cache front (ADR-0008): a hit returns before any KV read or render.
+        let key = (req.method() == Method::GET)
+            .then(|| cache::cache_key(&req.uri().to_string()))
+            .flatten();
+        let cache = Cache::default();
+        if let Some(key) = &key {
+            if let Some(hit) = cached(&cache, key).await {
+                return Ok(hit);
+            }
+        }
+
         let mut router = LISTING_ROUTES
             .iter()
             .fold(
@@ -92,7 +108,89 @@ mod server {
             .leptos_routes(&state, routes, move || shell(options.clone()))
             .with_state(state);
 
-        Ok(router.call(req).await?)
+        let response = router.call(req).await?;
+        let cache_control = response
+            .headers()
+            .get(CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok());
+        match key {
+            Some(key) if cache::should_cache(response.status().as_u16(), cache_control) => {
+                Ok(store(&cache, key, response).await)
+            }
+            _ => Ok(response),
+        }
+    }
+
+    /// Cache lookups are best-effort: an error is a loud miss, never a 500 —
+    /// KV still holds the truth and the render path works without the cache.
+    async fn cached(cache: &Cache, key: &str) -> Option<Response<Body>> {
+        let hit = match cache.get(key, false).await {
+            Ok(hit) => hit?,
+            Err(err) => {
+                console_error!("cache lookup for {key} failed: {err}");
+                return None;
+            }
+        };
+        match worker::HttpResponse::try_from(hit) {
+            Ok(response) => {
+                let mut response = response.map(Body::new);
+                mark_cache_state(&mut response, "hit");
+                Some(response)
+            }
+            Err(err) => {
+                console_error!("cached response for {key} unusable: {err}");
+                None
+            }
+        }
+    }
+
+    /// Buffers the rendered body so one copy goes to the cache and one to
+    /// the client. A failed put logs loudly but never fails a good render
+    /// (the next request just renders again).
+    async fn store(cache: &Cache, key: String, response: Response<Body>) -> Response<Body> {
+        let (parts, body) = response.into_parts();
+        let bytes = match axum::body::to_bytes(body, usize::MAX).await {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                console_error!("buffering {key} for the cache failed: {err}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "the rendered page could not be buffered",
+                )
+                    .into_response();
+            }
+        };
+        let copy = Response::from_parts(parts.clone(), Body::from(bytes.clone()));
+        match worker::Response::try_from(copy) {
+            Ok(copy) => {
+                if let Err(err) = cache.put(&key, copy).await {
+                    console_error!("cache put for {key} failed: {err}");
+                }
+            }
+            Err(err) => console_error!("cache copy of {key} unusable: {err}"),
+        }
+        let mut response = Response::from_parts(parts, Body::from(bytes));
+        mark_cache_state(&mut response, "miss");
+        response
+    }
+
+    /// `x-blog-cache: hit|miss` — sent to the client only, never stored, so
+    /// the hit-vs-miss path is verifiable from response headers alone.
+    fn mark_cache_state(response: &mut Response<Body>, state: &'static str) {
+        response
+            .headers_mut()
+            .insert("x-blog-cache", HeaderValue::from_static(state));
+    }
+
+    /// Opts a response into the cache front: the exact `Cache-Control` the
+    /// shim's [`cache::should_cache`] gate looks for. Only handlers call
+    /// this, and only for pages the publish purge set covers — never for
+    /// drafts, 404s, or errors.
+    fn mark_cacheable(response: &mut Response<Body>) {
+        response.headers_mut().insert(
+            CACHE_CONTROL,
+            HeaderValue::from_static(cache::CACHE_CONTROL),
+        );
     }
 
     #[worker::send]
@@ -113,11 +211,18 @@ mod server {
             }
         };
         let not_found = post.is_none();
+        // Drafts render (shareable by URL, Slice 9) but must never be
+        // cached: an unpublish would leave them served for the full TTL.
+        let cacheable = post
+            .as_ref()
+            .is_some_and(|document| !document.frontmatter.draft);
 
         let mut response =
             render_page(&state, req, move || provide_context(PostData(post.clone()))).await;
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
+        } else if cacheable {
+            mark_cacheable(&mut response);
         }
         response
     }
@@ -129,10 +234,12 @@ mod server {
             Err(response) => return response,
         };
 
-        render_page(&state, req, move || {
+        let mut response = render_page(&state, req, move || {
             provide_context(IndexData(index.clone()))
         })
-        .await
+        .await;
+        mark_cacheable(&mut response);
+        response
     }
 
     /// Unknown tags 404 (no published post carries them); the page body is
@@ -155,7 +262,9 @@ mod server {
             provide_context(IndexData(index.clone()))
         })
         .await;
-        if !known {
+        if known {
+            mark_cacheable(&mut response);
+        } else {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
         response
@@ -195,7 +304,14 @@ mod server {
             Ok(index) => index,
             Err(response) => return response,
         };
-        ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response()
+        (
+            [
+                (CONTENT_TYPE, content_type),
+                (CACHE_CONTROL, cache::CACHE_CONTROL),
+            ],
+            build(&origin(req), &index),
+        )
+            .into_response()
     }
 
     /// Scheme + host of the request, no trailing slash. Workers hand axum an

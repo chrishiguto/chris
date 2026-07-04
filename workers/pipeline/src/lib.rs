@@ -436,6 +436,30 @@ pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
 
+// --- cache purge requests (ADR-0008, Slice 8) ---
+
+/// The purge-by-URL API caps each request at 30 files (non-Enterprise).
+pub const PURGE_FILES_LIMIT: usize = 30;
+
+pub fn purge_url(zone: &str) -> String {
+    format!("https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache")
+}
+
+/// Purge-by-URL request bodies for one publish: the plan's URL paths made
+/// absolute under the site's origin (purge matches URLs exactly, so this
+/// must mirror how the site keys its cache entries), chunked to the API's
+/// per-request file cap.
+pub fn purge_payloads(origin: &str, paths: &[String]) -> Vec<String> {
+    let origin = origin.trim_end_matches('/');
+    paths
+        .chunks(PURGE_FILES_LIMIT)
+        .map(|chunk| {
+            let files: Vec<String> = chunk.iter().map(|path| format!("{origin}{path}")).collect();
+            serde_json::json!({ "files": files }).to_string()
+        })
+        .collect()
+}
+
 // --- manifest ---
 
 /// The deployed component vocabulary, collected from `app`'s inventory
