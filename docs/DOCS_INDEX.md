@@ -44,6 +44,10 @@ summary, key topics.
 
 ## Guides
 
+- `docs/guides/pipeline-deploy.md` — Guide — deploy the pipeline worker, provision its
+  secrets, create the GitHub push webhook, and verify the instant-publish fast path (content
+  push → commit status → live post). Topics: pipeline worker, webhook, hmac, commit status,
+  deploy, secrets.
 - `docs/guides/publishing.md` — Guide — the `blog` CLI: `check` (validate the content tree
   against the compiled component vocabulary) and `publish --local` (break-glass publish via
   the Cloudflare KV API), including the scoped-token setup. Topics: cli, publish, kv, api

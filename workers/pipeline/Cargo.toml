@@ -1,0 +1,26 @@
+[package]
+name = "pipeline"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Linked for its inventory registrations (same as blog-cli): publish
+# validation runs against the real deployed vocabulary.
+app = { workspace = true }
+content-ast = { workspace = true }
+content-parser = { workspace = true }
+hmac = { workspace = true }
+publish-core = { workspace = true }
+registry = { workspace = true, features = ["dispatch"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+worker = { workspace = true, optional = true }
+
+# The shim is wasm-only; native builds and tests (`cargo test -p pipeline`)
+# compile the pure decision logic without it.
+[features]
+worker = ["dep:worker"]

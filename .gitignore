@@ -1,6 +1,9 @@
 /target
+/workers/pipeline/build
+/workers/pipeline/target
 /workers/site/build
 /workers/site/target
 .wrangler/
+.dev.vars
 node_modules/
 .secrets/

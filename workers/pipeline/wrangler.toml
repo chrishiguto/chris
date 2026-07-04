@@ -1,0 +1,22 @@
+# The write-path worker (ADR-0006): webhook in, KV + GitHub API out.
+# Deploys independently of the site: `just deploy-pipeline`.
+name = "chris-pipeline"
+main = "build/index.js"
+compatibility_date = "2026-07-03"
+
+[build]
+# Same policy as the site: the pipeline lives in the justfile (just walks up
+# to the repo-root justfile), so dev, deploy, and ci share one definition.
+command = "just build-pipeline"
+
+# Must be the SAME namespace the site worker binds (root wrangler.toml) —
+# the pipeline writes what the site reads. Paste the real id into both
+# configs; deploys fail loudly on the placeholder by design.
+[[kv_namespaces]]
+binding = "BLOG"
+id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
+
+# Secrets (never vars — this worker is the only one allowed to hold them,
+# user story 23). Provision per docs/guides/pipeline-deploy.md:
+#   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
+#   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml

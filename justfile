@@ -18,14 +18,22 @@ build:
     CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' cargo leptos build --release
     cd workers/site && LEPTOS_OUTPUT_NAME={{output_name}} CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features ssr
 
+# the write-path worker (webhook + publish op; ADR-0006)
+build-pipeline:
+    cd workers/pipeline && CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features worker
+
 # deploy to cloudflare workers
 deploy:
     npx wrangler deploy
+
+deploy-pipeline:
+    npx wrangler deploy --config workers/pipeline/wrangler.toml
 
 # gzipped wasm sizes — the server number is what the workers plan limit cares about
 size:
     @echo "server worker: $(gzip -9 -c workers/site/build/index_bg.wasm | wc -c) bytes gzipped"
     @echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
+    @echo "pipeline worker: $(gzip -9 -c workers/pipeline/build/index_bg.wasm | wc -c) bytes gzipped"
 
 # format everything (leptosfmt handles view! macros, rustfmt the rest)
 fmt:
