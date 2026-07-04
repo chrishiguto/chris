@@ -1,0 +1,10 @@
+[package]
+name = "publish-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+content-ast = { workspace = true }
+content-parser = { workspace = true }
+registry = { workspace = true }
+serde_json = { workspace = true }

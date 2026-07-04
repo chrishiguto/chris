@@ -5,7 +5,7 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 
-use crate::components::counter::Counter;
+use crate::listing::{HomePage, PostsPage};
 use crate::post::PostPage;
 
 /// Critical faces (body, headings, code) preloaded so they reliably beat the
@@ -63,6 +63,7 @@ pub fn App() -> impl IntoView {
             <main>
                 <Routes fallback=NotFound>
                     <Route path=StaticSegment("") view=HomePage />
+                    <Route path=StaticSegment("posts") view=PostsPage />
                     <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
                 </Routes>
             </main>
@@ -85,22 +86,6 @@ fn SiteHeader() -> impl IntoView {
                 </nav>
             </div>
         </header>
-    }
-}
-
-#[component]
-fn HomePage() -> impl IntoView {
-    view! {
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">"chris"</h1>
-            <p class="mt-6 leading-relaxed text-ink-muted">
-                "Engineering notes — Rust end-to-end: Leptos SSR on Cloudflare Workers. "
-                "The counter below is an island, the only thing on this page that hydrates."
-            </p>
-            <div class="mt-10">
-                <Counter initial=0 />
-            </div>
-        </section>
     }
 }
 

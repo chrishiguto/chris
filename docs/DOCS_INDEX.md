@@ -44,6 +44,10 @@ summary, key topics.
 
 ## Guides
 
+- `docs/guides/publishing.md` — Guide — the `blog` CLI: `check` (validate the content tree
+  against the compiled component vocabulary) and `publish --local` (break-glass publish via
+  the Cloudflare KV API), including the scoped-token setup. Topics: cli, publish, kv, api
+  token, break-glass.
 - `docs/guides/tracer-bullet-demo.md` — Guide — hand-publish a post end-to-end before the
   pipeline worker exists: mdx2json example bin → `wrangler kv key put` → `/posts/{slug}`.
   Topics: demo, kv seeding, read path, tracer bullet.

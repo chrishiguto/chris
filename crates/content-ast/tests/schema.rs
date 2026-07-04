@@ -115,3 +115,41 @@ fn prop_values_serialize_as_bare_scalars() {
     .unwrap();
     assert_eq!(json, serde_json::json!(["warning", 3.0, true]));
 }
+
+#[test]
+fn index_entry_matches_kv_index_shape() {
+    let entry = content_ast::IndexEntry::new(
+        "hello",
+        &Frontmatter {
+            title: "Hello".into(),
+            date: "2026-07-04".into(),
+            tags: vec!["rust".into()],
+            draft: true,
+        },
+    );
+    let json = serde_json::to_value([&entry]).unwrap();
+    assert_eq!(
+        json,
+        serde_json::json!([{
+            "slug": "hello",
+            "title": "Hello",
+            "date": "2026-07-04",
+            "tags": ["rust"],
+            "draft": true,
+        }])
+    );
+    let back: Vec<content_ast::IndexEntry> = serde_json::from_value(json).unwrap();
+    assert_eq!(back, vec![entry]);
+}
+
+#[test]
+fn index_entry_defaults_tags_and_draft() {
+    let entry: content_ast::IndexEntry = serde_json::from_value(serde_json::json!({
+        "slug": "hello",
+        "title": "Hello",
+        "date": "2026-07-04",
+    }))
+    .unwrap();
+    assert!(entry.tags.is_empty());
+    assert!(!entry.draft);
+}

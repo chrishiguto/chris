@@ -14,6 +14,7 @@ getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true, optional = true }
 leptos_axum = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 tower-service = { workspace = true, optional = true }
 worker = { workspace = true, optional = true }
 
@@ -26,6 +27,7 @@ ssr = [
   "dep:content-ast",
   "dep:leptos",
   "dep:leptos_axum",
+  "dep:serde_json",
   "dep:tower-service",
   "dep:worker",
   "leptos/ssr",

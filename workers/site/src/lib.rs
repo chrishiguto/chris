@@ -4,6 +4,7 @@
 mod server {
     use app::{
         app::{shell, App},
+        listing::IndexData,
         post::PostData,
     };
     use axum::{
@@ -14,7 +15,7 @@ mod server {
         routing::get,
         Router,
     };
-    use content_ast::Document;
+    use content_ast::{Document, IndexEntry};
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
     use tower_service::Service;
@@ -22,9 +23,12 @@ mod server {
 
     /// KV namespace holding `post:{slug}` documents (see wrangler.toml).
     const KV_BINDING: &str = "BLOG";
-    /// Handled by a custom axum route (it needs the per-request `Env` for the
-    /// KV read), so it is excluded from the leptos-generated route list.
+    /// Handled by custom axum routes (they need the per-request `Env` for
+    /// KV reads), so they are excluded from the leptos-generated route list.
     const POST_ROUTE: &str = "/posts/{slug}";
+    /// Listing routes render from the KV `index`; one handler serves both —
+    /// the leptos Router picks the page from the request URL.
+    const LISTING_ROUTES: [&str; 2] = ["/", "/posts"];
 
     #[derive(Clone)]
     struct AppState {
@@ -52,7 +56,12 @@ mod server {
                 let conf = get_configuration(None).unwrap();
                 let routes = generate_route_list_with_exclusions(
                     App,
-                    Some(vec![POST_ROUTE.to_string()]),
+                    Some(
+                        std::iter::once(POST_ROUTE)
+                            .chain(LISTING_ROUTES)
+                            .map(String::from)
+                            .collect(),
+                    ),
                 );
                 (conf.leptos_options, routes)
             };
@@ -63,8 +72,12 @@ mod server {
             env,
         };
 
-        let mut router = Router::new()
-            .route(POST_ROUTE, get(post_page))
+        let mut router = LISTING_ROUTES
+            .iter()
+            .fold(
+                Router::new().route(POST_ROUTE, get(post_page)),
+                |r, path| r.route(path, get(listing_page)),
+            )
             .leptos_routes(&state, routes, move || shell(options.clone()))
             .with_state(state);
 
@@ -102,6 +115,45 @@ mod server {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
         response
+    }
+
+    #[worker::send]
+    async fn listing_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let index = match load_index(&state.env).await {
+            Ok(index) => index,
+            Err(err) => {
+                console_error!("failed to load index: {err}");
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "the post index could not be loaded",
+                )
+                    .into_response();
+            }
+        };
+
+        let render = leptos_axum::render_app_async_with_context(
+            move || provide_context(IndexData(index.clone())),
+            {
+                let options = state.options.clone();
+                move || shell(options.clone())
+            },
+        );
+        render(req).await
+    }
+
+    /// A missing `index` key just means nothing has been published yet —
+    /// rendered as an empty listing. Corrupt payloads are errors so pipeline
+    /// bugs surface loudly (ADR-0001).
+    async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
+        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
+        let json = kv
+            .get("index")
+            .text()
+            .await
+            .map_err(|err| err.to_string())?;
+        json.map(|json| serde_json::from_str(&json).map_err(|err| err.to_string()))
+            .transpose()
+            .map(Option::unwrap_or_default)
     }
 
     /// A KV miss is `Ok(None)` — served as a plain 404, never a trigger to

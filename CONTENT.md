@@ -4,7 +4,8 @@ Posts look like MDX but are **not** MDX (ADR-0003): they are markdown plus
 component *tags*, with zero JavaScript. Everything a post can express is pure
 data; component behavior lives in compiled Rust, resolved by name through the
 registry (ADR-0005). This file is the contract — when in doubt, `blog check`
-(Slice 5) and publish validation enforce exactly what is described here.
+(`cargo run -p blog-cli -- check`) and publish validation enforce exactly
+what is described here.
 
 ## Where posts live
 

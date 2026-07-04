@@ -4,6 +4,8 @@ members = [
     "app",
     "crates/content-ast",
     "crates/content-parser",
+    "crates/blog-cli",
+    "crates/publish-core",
     "crates/registry",
     "crates/registry-macro",
     "workers/site",
@@ -13,6 +15,7 @@ members = [
 app = { path = "app" }
 content-ast = { path = "crates/content-ast" }
 content-parser = { path = "crates/content-parser" }
+publish-core = { path = "crates/publish-core" }
 registry = { path = "crates/registry" }
 registry-macro = { path = "crates/registry-macro" }
 axum = { version = "0.8", default-features = false }

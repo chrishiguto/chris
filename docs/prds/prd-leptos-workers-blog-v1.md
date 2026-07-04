@@ -159,12 +159,13 @@ Objects, no queues.
 
 | Module | Responsibility | Interface (conceptual) |
 |---|---|---|
-| `content-ast` | The versioned serde AST schema: document, frontmatter, node enum (`Heading`, `Paragraph`, `CodeBlock`, `List`, `Link`, `Image`, `Html`, `Component{name, props, children}`, …) | Types + (de)serialization + `schema_version`; no logic |
+| `content-ast` | The versioned serde AST schema: document, frontmatter, node enum (`Heading`, `Paragraph`, `CodeBlock`, `List`, `Link`, `Image`, `Html`, `Component{name, props, children}`, …) *(amended in Slice 5: also `IndexEntry`, the KV `index` element — it is the other KV-schema contract, and the site worker must read it without pulling the parser)* | Types + (de)serialization + `schema_version`; no logic |
 | `content-parser` | markdown-rs MDX-mode parsing → `content-ast`; frontmatter extraction; validation against the component manifest (unknown components, missing/mistyped props, rejected JS-isms) with source locations | `parse(source) -> Result<Document, Vec<Diagnostic>>`, `parse_validated(source, manifest) -> Result<Document, Vec<Diagnostic>>` *(amended in Slice 4: originally `validate(doc, manifest)`, but source positions exist only on the markdown tree — the stored AST carries none (ADR-0002) — so validation is fused into parsing to keep file/line diagnostics)* |
 | `registry` | `#[post_component]` proc macro: prop conversion codegen, `inventory` registration, manifest emission; runtime dispatch `render(name, props, children) -> AnyView` | Macro + `lookup(name)` + `manifest()` |
 | `app` | Leptos UI: routes, layout, AST renderer (node → view mapping), shared components (v1: `Callout` + one demo island), Tailwind v4 theme (CSS-first oklch design tokens, light/dark, Libre Baskerville / Lora / IBM Plex Mono) | `render_document(doc) -> impl IntoView` + route tree |
 | `workers/site` | Worker entry: axum router, Cache API front, KV reads, RSS/sitemap/tag rendering from the index | HTTP |
 | `workers/pipeline` | Webhook handling, path-based routing decision, publish op, GitHub content fetch, commit statuses, purge, pending stash | HTTP (webhook + authenticated `/publish`) |
+| `publish-core` | *(added in Slice 5)* The publish operation's pure core, shared by `blog-cli` and `workers/pipeline`: parse+validate post sources against the manifest, merge the index, lay out KV writes/deletes; wasm-clean (no fs/HTTP/clock — callers own transport) | `check(sources, manifest) -> Result<Vec<ParsedPost>, Vec<Diagnostic>>`, `plan(prev_index, changed, removed) -> PublishPlan` |
 | `blog-cli` | `blog check` (parse+validate content tree), `blog publish --local`/`--all` | CLI over the same crates |
 
 **KV schema** (single namespace):

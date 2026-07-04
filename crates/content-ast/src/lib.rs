@@ -97,6 +97,33 @@ pub struct Frontmatter {
     pub draft: bool,
 }
 
+/// One entry of the KV `index` key: the ordered post listing the site
+/// renders from (PRD "KV schema"). Drafts are stored here but filtered out
+/// of every listing/feed at render time.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IndexEntry {
+    pub slug: String,
+    pub title: String,
+    /// ISO `YYYY-MM-DD`; the index is ordered newest-first on this.
+    pub date: String,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub draft: bool,
+}
+
+impl IndexEntry {
+    pub fn new(slug: &str, frontmatter: &Frontmatter) -> Self {
+        Self {
+            slug: slug.to_string(),
+            title: frontmatter.title.clone(),
+            date: frontmatter.date.clone(),
+            tags: frontmatter.tags.clone(),
+            draft: frontmatter.draft,
+        }
+    }
+}
+
 /// One semantic node of the post body.
 ///
 /// Prose maps to HTML-shaped variants; [`Node::Component`] references a
