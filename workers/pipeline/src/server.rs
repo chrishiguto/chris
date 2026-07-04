@@ -236,8 +236,9 @@ async fn purge(env: &Env, paths: &[String]) {
         return;
     };
     let url = purge_url(&zone);
+    let token = token.to_string();
     for body in purge_payloads(&origin, paths) {
-        if let Err(err) = purge_request(&url, &token.to_string(), body).await {
+        if let Err(err) = purge_request(&url, &token, body).await {
             console_error!("cache purge failed (TTL backstop applies): {err}");
         }
     }
