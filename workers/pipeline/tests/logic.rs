@@ -4,11 +4,10 @@
 
 use pipeline::{
     classify, code_push_description, contents_url, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, post_slug,
-    purge_payloads, purge_url, reconcile_description, source_path, status_payload, statuses_url,
-    tree_post_slugs, tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass,
-    PushCommit, PushEvent, ReconcileConfig, StatusState, PURGE_FILES_LIMIT, STATUS_CONTEXT,
-    WORKFLOW_FILE,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, post_slug, purge_body,
+    purge_url, reconcile_description, source_path, status_payload, statuses_url, tree_post_slugs,
+    tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit,
+    PushEvent, ReconcileConfig, StatusState, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -461,46 +460,16 @@ fn purge_url_targets_the_zone_purge_endpoint() {
     );
 }
 
+/// Origin-prefixing and chunking live on `SnapshotPlan::purge_chunks`
+/// (tested in publish); the pipeline only wraps a chunk in the API body.
 #[test]
-fn purge_payloads_prefix_the_site_origin_onto_each_path() {
-    let paths = vec!["/".to_string(), "/posts/hello".to_string()];
+fn purge_body_wraps_a_chunk_in_the_files_field() {
+    let files = vec![
+        "https://blog.example.com/".to_string(),
+        "https://blog.example.com/posts/hello".to_string(),
+    ];
     assert_eq!(
-        purge_payloads("https://blog.example.com", &paths),
-        vec![r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#]
+        purge_body(&files),
+        r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#
     );
-}
-
-/// A configured `SITE_ORIGIN` with a trailing slash must not produce
-/// `https://host//posts/…` — purge-by-URL matches URLs exactly.
-#[test]
-fn purge_payloads_normalize_a_trailing_slash_origin() {
-    let paths = vec!["/posts/hello".to_string()];
-    assert_eq!(
-        purge_payloads("https://blog.example.com/", &paths),
-        vec![r#"{"files":["https://blog.example.com/posts/hello"]}"#]
-    );
-}
-
-/// The purge-by-URL API caps each request at 30 files; a bigger publish
-/// (many tags) must split into several requests, not silently truncate.
-#[test]
-fn purge_payloads_chunk_to_the_api_file_limit() {
-    let paths: Vec<String> = (0..PURGE_FILES_LIMIT + 1)
-        .map(|n| format!("/posts/p{n}"))
-        .collect();
-    let payloads = purge_payloads("https://blog.example.com", &paths);
-    assert_eq!(payloads.len(), 2);
-    let files = |payload: &str| {
-        serde_json::from_str::<serde_json::Value>(payload).unwrap()["files"]
-            .as_array()
-            .unwrap()
-            .len()
-    };
-    assert_eq!(files(&payloads[0]), PURGE_FILES_LIMIT);
-    assert_eq!(files(&payloads[1]), 1);
-}
-
-#[test]
-fn no_paths_means_no_purge_requests() {
-    assert!(purge_payloads("https://blog.example.com", &[]).is_empty());
 }

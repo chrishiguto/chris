@@ -42,7 +42,11 @@ fn main() -> ExitCode {
 }
 
 fn check(args: &[String]) -> Result<String, String> {
-    let content_dir = flag_value(args, "--content-dir")?.unwrap_or_else(default_content_dir);
+    let flags = parse_flags(args, &["--content-dir"])?;
+    let content_dir = flags
+        .get("--content-dir")
+        .cloned()
+        .unwrap_or_else(default_content_dir);
     let posts = xtask::check_tree(Path::new(&content_dir), &app::manifest())
         .map_err(|diags| render_diags(&diags))?;
     Ok(format!("checked {} posts — all valid", posts.len()))
@@ -51,10 +55,22 @@ fn check(args: &[String]) -> Result<String, String> {
 /// Break-glass publish plan: the whole local tree becomes one snapshot — a
 /// broken post blocks the plan. The previous index feeds only the purge set.
 fn plan(args: &[String]) -> Result<String, String> {
-    let content_dir = flag_value(args, "--content-dir")?.unwrap_or_else(default_content_dir);
-    let index_file = flag_value(args, "--index")?.ok_or("plan: --index FILE is required")?;
-    let out_dir = flag_value(args, "--out")?.ok_or("plan: --out DIR is required")?;
-    let sha = flag_value(args, "--sha")?.ok_or("plan: --sha LABEL is required")?;
+    let flags = parse_flags(
+        args,
+        &["--sha", "--content-dir", "--index", "--out", "--origin"],
+    )?;
+    let content_dir = flags
+        .get("--content-dir")
+        .cloned()
+        .unwrap_or_else(default_content_dir);
+    let index_file = flags
+        .get("--index")
+        .ok_or("plan: --index FILE is required")?;
+    let out_dir = flags.get("--out").ok_or("plan: --out DIR is required")?;
+    let sha = flags
+        .get("--sha")
+        .ok_or("plan: --sha LABEL is required")?
+        .clone();
 
     let manifest = app::manifest();
     let posts = xtask::check_tree(Path::new(&content_dir), &manifest)
@@ -65,31 +81,53 @@ fn plan(args: &[String]) -> Result<String, String> {
 
     let out = Path::new(&out_dir);
     std::fs::create_dir_all(out).map_err(|err| format!("creating {out_dir}: {err}"))?;
-    // wrangler `kv bulk put` takes [{"key","value"}].
-    let writes: Vec<serde_json::Value> = plan
-        .writes
+    // `KvWrite` serializes to wrangler's `kv bulk put` shape; posts first,
+    // index last, so a torn bulk put never leaves an index naming missing
+    // posts (the pointer flip afterwards is the real gate).
+    let writes: Vec<_> = plan
+        .post_writes
         .iter()
-        .map(|w| serde_json::json!({ "key": w.key, "value": w.value }))
+        .chain(std::iter::once(&plan.index_write))
         .collect();
-    write_json(out, "writes.json", &serde_json::Value::Array(writes))?;
+    let writes =
+        serde_json::to_value(&writes).map_err(|err| format!("serializing writes: {err}"))?;
+    write_json(out, "writes.json", &writes)?;
     let pointer = serde_json::to_value(CurrentPointer { sha: sha.clone() })
         .map_err(|err| format!("serializing pointer: {err}"))?;
     write_json(out, "pointer.json", &pointer)?;
-    // With --origin the purge file is curl-ready full URLs; without it,
-    // bare paths (purge gets skipped anyway).
-    let origin = flag_value(args, "--origin")?.unwrap_or_default();
-    let purge: Vec<String> = plan
-        .purge
-        .iter()
-        .map(|path| format!("{}{path}", origin.trim_end_matches('/')))
-        .collect();
-    write_json(out, "purge.json", &serde_json::json!(purge))?;
+    // One purge-N.json per API-capped chunk of full URLs (with --origin;
+    // bare paths otherwise — the purge gets skipped anyway). Stale chunks
+    // from a previous, larger plan must not ride along.
+    for stale in purge_files(out)? {
+        std::fs::remove_file(&stale).map_err(|err| format!("removing stale purge file: {err}"))?;
+    }
+    let origin = flags.get("--origin").cloned().unwrap_or_default();
+    let chunks = plan.purge_chunks(&origin);
+    for (n, chunk) in chunks.iter().enumerate() {
+        write_json(out, &format!("purge-{n}.json"), &serde_json::json!(chunk))?;
+    }
 
     Ok(format!(
-        "planned snapshot {sha}: {} posts, {} purge paths → {out_dir}",
+        "planned snapshot {sha}: {} posts, {} purge paths in {} chunks → {out_dir}",
         plan.index.len(),
         plan.purge.len(),
+        chunks.len(),
     ))
+}
+
+/// The `purge-N.json` files already in the plan directory.
+fn purge_files(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
+    let entries = std::fs::read_dir(dir).map_err(|err| format!("reading {dir:?}: {err}"))?;
+    let mut files = Vec::new();
+    for entry in entries {
+        let entry = entry.map_err(|err| format!("reading {dir:?}: {err}"))?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("purge-") && name.ends_with(".json") {
+            files.push(entry.path());
+        }
+    }
+    Ok(files)
 }
 
 /// Prints the KV key holding the previous snapshot's index, resolved from a
@@ -130,16 +168,25 @@ fn default_content_dir() -> String {
     "content/blog".into()
 }
 
-/// Value of `--flag VALUE`; errors when the flag dangles without a value.
-fn flag_value(args: &[String], flag: &str) -> Result<Option<String>, String> {
-    match args.iter().position(|a| a == flag) {
-        Some(i) => args
-            .get(i + 1)
-            .filter(|v| !v.starts_with("--"))
-            .map(|v| Some(v.clone()))
-            .ok_or_else(|| format!("{flag} needs a value")),
-        None => Ok(None),
+/// `--flag VALUE` pairs; anything unrecognized is an error — a typo'd flag
+/// in a break-glass publish must never silently fall back to a default.
+fn parse_flags(
+    args: &[String],
+    known: &[&str],
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let mut flags = std::collections::HashMap::new();
+    let mut args = args.iter();
+    while let Some(flag) = args.next() {
+        if !known.contains(&flag.as_str()) {
+            return Err(format!("unrecognized argument `{flag}`\n{USAGE}"));
+        }
+        let value = args
+            .next()
+            .filter(|value| !value.starts_with("--"))
+            .ok_or_else(|| format!("{flag} needs a value"))?;
+        flags.insert(flag.clone(), value.clone());
     }
+    Ok(flags)
 }
 
 fn render_diags(diags: &[Diagnostic]) -> String {

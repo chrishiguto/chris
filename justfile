@@ -94,13 +94,20 @@ publish:
     # The pointer flips only after every snapshot key landed.
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
     if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${SITE_ORIGIN:-}" ]; then
-        # A failed purge only means the 7-day TTL backstop.
-        curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "{\"files\": $(cat "$out/purge.json")}" > /dev/null \
-            && echo "purged the plan's urls" \
-            || echo "warning: purge failed — cached pages fall back to the 7-day TTL"
+        # xtask chunks the URL list to the API's 30-file cap — one request
+        # per chunk. A failed purge only means the 7-day TTL backstop.
+        purged=1
+        for chunk in "$out"/purge-*.json; do
+            curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                -d "{\"files\": $(cat "$chunk")}" > /dev/null || purged=0
+        done
+        if [ "$purged" = 1 ]; then
+            echo "purged the plan's urls"
+        else
+            echo "warning: purge failed — cached pages fall back to the 7-day TTL"
+        fi
     else
         echo "purge skipped (CLOUDFLARE_ZONE_ID/SITE_ORIGIN unset — inert on workers.dev)"
     fi

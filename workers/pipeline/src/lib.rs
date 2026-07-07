@@ -328,22 +328,12 @@ pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
 
-/// The purge-by-URL API caps each request at 30 files (non-Enterprise).
-pub const PURGE_FILES_LIMIT: usize = 30;
-
 pub fn purge_url(zone: &str) -> String {
     format!("https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache")
 }
 
-/// Purge-by-URL bodies: the plan's paths made absolute under the origin
-/// (purge matches URLs exactly), chunked to the API's per-request cap.
-pub fn purge_payloads(origin: &str, paths: &[String]) -> Vec<String> {
-    let origin = origin.trim_end_matches('/');
-    paths
-        .chunks(PURGE_FILES_LIMIT)
-        .map(|chunk| {
-            let files: Vec<String> = chunk.iter().map(|path| format!("{origin}{path}")).collect();
-            serde_json::json!({ "files": files }).to_string()
-        })
-        .collect()
+/// Purge-by-URL request body for one chunk of absolute URLs; the plan owns
+/// origin-prefixing and chunking (`SnapshotPlan::purge_chunks`).
+pub fn purge_body(files: &[String]) -> String {
+    serde_json::json!({ "files": files }).to_string()
 }

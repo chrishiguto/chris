@@ -35,26 +35,44 @@ pub struct CarriedPost {
     pub payload: String,
 }
 
-/// One KV put the caller must perform.
-#[derive(Debug, Clone, PartialEq)]
+/// One KV put the caller must perform. Serializes to exactly the
+/// `{"key","value"}` shape `wrangler kv bulk put` consumes.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct KvWrite {
     pub key: String,
     pub value: String,
 }
 
-/// Everything one snapshot publish must do to KV, in order: post payloads,
-/// then the index last — a torn write must never leave an index naming
-/// missing posts. The caller flips `current` after all writes, then purges.
+/// The purge-by-URL API caps each request at 30 files (non-Enterprise).
+pub const PURGE_FILES_LIMIT: usize = 30;
+
+/// Everything one snapshot publish must do to KV. The caller flips
+/// `current` after all writes, then purges.
 #[derive(Debug, Clone)]
 pub struct SnapshotPlan {
-    /// `snapshot:{sha}:post:*` payloads, then `snapshot:{sha}:index`.
-    pub writes: Vec<KvWrite>,
+    /// `snapshot:{sha}:post:*` payloads; land these first, in any order.
+    pub post_writes: Vec<KvWrite>,
+    /// `snapshot:{sha}:index`, written only after every post write — a torn
+    /// write must never leave an index naming missing posts.
+    pub index_write: KvWrite,
     /// The new index, newest-first.
     pub index: Vec<IndexEntry>,
     /// URL paths this publish invalidates: the whole enumerated set of the
     /// previous and new indexes — a full rebuild records no body deltas.
     /// Sorted, deduplicated; callers prefix their origin.
     pub purge: Vec<String>,
+}
+
+impl SnapshotPlan {
+    /// The purge set as absolute URLs, chunked to the API's per-request
+    /// cap; transports wrap each chunk in their own wire format.
+    pub fn purge_chunks(&self, origin: &str) -> Vec<Vec<String>> {
+        let origin = origin.trim_end_matches('/');
+        self.purge
+            .chunks(PURGE_FILES_LIMIT)
+            .map(|chunk| chunk.iter().map(|path| format!("{origin}{path}")).collect())
+            .collect()
+    }
 }
 
 /// Validates every source against the manifest, collecting diagnostics
@@ -163,8 +181,11 @@ pub fn snapshot(
     index.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.slug.cmp(&b.slug)));
     let purge = purge_paths(prev_index, &index);
 
-    let index_json = serde_json::to_string(&index).map_err(AstError::Json)?;
-    let writes = posts
+    let index_write = KvWrite {
+        key: snapshot_index_key(sha),
+        value: serde_json::to_string(&index).map_err(AstError::Json)?,
+    };
+    let post_writes = posts
         .iter()
         .map(|post| {
             Ok(KvWrite {
@@ -178,14 +199,11 @@ pub fn snapshot(
                 value: post.payload,
             })
         }))
-        .chain(std::iter::once(Ok(KvWrite {
-            key: snapshot_index_key(sha),
-            value: index_json,
-        })))
         .collect::<Result<Vec<_>, AstError>>()?;
 
     Ok(SnapshotPlan {
-        writes,
+        post_writes,
+        index_write,
         index,
         purge,
     })

@@ -10,7 +10,9 @@ command = "just build"
 [assets]
 directory = "./target/site"
 
-# The single content namespace: `post:{slug}`, `index`, `pending`.
+# The single content namespace: `snapshot:{sha}:post:{slug}` and
+# `snapshot:{sha}:index` behind the `current` pointer (flat `post:{slug}`
+# and `index` only as the pre-snapshot fallback).
 # `wrangler dev` uses a local simulator and ignores the id. Before the first
 # production deploy, run `npx wrangler kv namespace create BLOG` and paste the
 # real id here — deploys fail loudly on the placeholder by design.

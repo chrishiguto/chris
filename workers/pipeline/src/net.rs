@@ -3,7 +3,7 @@
 
 use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result};
 
-use crate::{purge_payloads, purge_url, status_payload, statuses_url, StatusState, STATUS_CONTEXT};
+use crate::{purge_body, purge_url, status_payload, statuses_url, StatusState, STATUS_CONTEXT};
 
 const GITHUB_TOKEN: &str = "GITHUB_TOKEN";
 /// Zone of the site's custom domain; empty until one exists.
@@ -120,7 +120,7 @@ pub(crate) async fn post_status(
 
 /// Best-effort purge-by-URL: KV is the truth and the site's 7-day TTL
 /// backstops a miss. Skips until a custom domain's zone and origin exist.
-pub(crate) async fn purge(env: &Env, paths: &[String]) {
+pub(crate) async fn purge(env: &Env, plan: &publish::SnapshotPlan) {
     let var = |name: &str| {
         env.var(name)
             .ok()
@@ -141,10 +141,10 @@ pub(crate) async fn purge(env: &Env, paths: &[String]) {
     };
     let url = purge_url(&zone);
     let token = token.to_string();
-    let requests = purge_payloads(&origin, paths).into_iter().map(|body| {
+    let requests = plan.purge_chunks(&origin).into_iter().map(|chunk| {
         let (url, token) = (&url, &token);
         async move {
-            if let Err(err) = purge_request(url, token, body).await {
+            if let Err(err) = purge_request(url, token, purge_body(&chunk)).await {
                 console_error!("cache purge failed (TTL backstop applies): {err}");
             }
         }

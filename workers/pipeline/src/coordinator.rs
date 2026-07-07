@@ -173,15 +173,11 @@ impl PublishCoordinator {
             .map_err(|err| err.to_string())?;
         // Post payloads land concurrently; the index goes last so a torn
         // write never leaves an index naming missing posts.
-        let (index_write, post_writes) = plan
-            .writes
-            .split_last()
-            .ok_or_else(|| "snapshot plan has no writes".to_string())?;
-        join_all(post_writes.iter().map(|write| kv_put(&kv, write)))
+        join_all(plan.post_writes.iter().map(|write| kv_put(&kv, write)))
             .await
             .into_iter()
             .collect::<std::result::Result<(), _>>()?;
-        kv_put(&kv, index_write).await?;
+        kv_put(&kv, &plan.index_write).await?;
         // Every snapshot key is in place — the flip is the publish.
         let pointer = serde_json::to_string(&CurrentPointer { sha: head.clone() })
             .map_err(|err| err.to_string())?;
@@ -193,7 +189,7 @@ impl PublishCoordinator {
 
         // Retention and purge are best-effort; the publish already happened.
         self.retain(&kv, &head).await;
-        net::purge(env, &plan.purge).await;
+        net::purge(env, &plan).await;
         self.report(repo, &head, parsed.len(), failed, &diags).await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",

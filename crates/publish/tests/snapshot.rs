@@ -113,25 +113,22 @@ fn snapshot_writes_posts_then_index_under_snapshot_keys() {
     .unwrap();
     let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
 
-    let keys: Vec<_> = plan.writes.iter().map(|w| w.key.as_str()).collect();
+    let keys: Vec<_> = plan.post_writes.iter().map(|w| w.key.as_str()).collect();
     assert_eq!(
         keys,
-        [
-            "snapshot:abc123:post:older",
-            "snapshot:abc123:post:newer",
-            "snapshot:abc123:index"
-        ]
+        ["snapshot:abc123:post:older", "snapshot:abc123:post:newer"]
     );
+    assert_eq!(plan.index_write.key, "snapshot:abc123:index");
 
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["newer", "older"]);
 
     // Post payloads must round-trip through the schema-versioned Document.
-    let doc = content::Document::from_json(&plan.writes[0].value).unwrap();
+    let doc = content::Document::from_json(&plan.post_writes[0].value).unwrap();
     assert_eq!(doc.frontmatter.title, "Older");
 
     // The index write is the serialized new index.
-    let index: Vec<IndexEntry> = serde_json::from_str(&plan.writes[2].value).unwrap();
+    let index: Vec<IndexEntry> = serde_json::from_str(&plan.index_write.value).unwrap();
     assert_eq!(index, plan.index);
 }
 
@@ -178,7 +175,7 @@ fn snapshot_carries_failed_posts_previous_versions() {
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["good", "broken"]);
     let write = plan
-        .writes
+        .post_writes
         .iter()
         .find(|w| w.key == "snapshot:abc123:post:broken")
         .expect("carried payload must be written under the new snapshot");
@@ -228,6 +225,46 @@ fn snapshot_purges_the_full_url_set_of_both_indexes() {
         "/tags/old-tag",
     ];
     assert_eq!(plan.purge, expected);
+}
+
+#[test]
+fn kv_writes_serialize_to_the_wrangler_bulk_shape() {
+    let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
+    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let json = serde_json::to_value(&plan.index_write).unwrap();
+    assert_eq!(json["key"], "snapshot:abc123:index");
+    assert!(json["value"].is_string());
+    assert_eq!(json.as_object().unwrap().len(), 2);
+}
+
+#[test]
+fn purge_chunks_prefix_the_origin_and_normalize_a_trailing_slash() {
+    let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
+    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let chunks = plan.purge_chunks("https://blog.example.com/");
+    assert_eq!(chunks.len(), 1);
+    assert!(chunks[0].contains(&"https://blog.example.com/posts/a".to_string()));
+    assert!(chunks[0]
+        .iter()
+        .all(|url| url.starts_with("https://blog.example.com/") && !url.contains("com//")));
+}
+
+/// The purge-by-URL API caps each request at 30 files; a bigger publish
+/// must split, never truncate.
+#[test]
+fn purge_chunks_split_at_the_api_file_limit() {
+    let prev: Vec<IndexEntry> = (0..40)
+        .map(|i| entry(&format!("post-{i:02}"), "T", "2026-01-01", &[], false))
+        .collect();
+    let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
+    let plan = snapshot(&prev, &parsed, Vec::new(), "abc123").unwrap();
+    // 41 post paths + 3 listings + 2 feeds = 46 URLs.
+    assert_eq!(plan.purge.len(), 46);
+    let chunks = plan.purge_chunks("https://blog.example.com");
+    assert_eq!(
+        chunks.iter().map(Vec::len).collect::<Vec<_>>(),
+        [publish::PURGE_FILES_LIMIT, 16]
+    );
 }
 
 #[test]
