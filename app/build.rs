@@ -1,4 +1,4 @@
-//! ADR-0004 discovery: each `content/blog/{slug}/components.rs` becomes a
+//! Component discovery: each `content/blog/{slug}/components.rs` becomes a
 //! `#[path]` module under `app::components`, so per-post code is real
 //! workspace Rust (full rust-analyzer) that joins the registry inventory.
 

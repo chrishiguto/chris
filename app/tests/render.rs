@@ -301,7 +301,7 @@ fn manifest_contains_the_v1_vocabulary() {
     assert!(counter.prop("initial").is_some_and(|p| p.required));
 }
 
-// The full Slice 3 flow minus KV transport: the fixture post parses under
+// The full read path minus KV transport: the fixture post parses under
 // the real manifest and renders through real registry dispatch.
 #[test]
 fn fixture_post_renders_end_to_end() {
@@ -367,7 +367,7 @@ fn post_page_with_post_renders_article() {
     assert!(html.contains("<p>body text</p>"), "missing body: {html}");
 }
 
-// Slice 9: drafts stay reachable by slug (device testing / sharing the URL)
+// Drafts stay reachable by slug (device testing / sharing the URL)
 // — the page renders the article like any published post; only listings,
 // feeds, and the cache treat drafts specially.
 #[test]

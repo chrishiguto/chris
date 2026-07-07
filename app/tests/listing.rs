@@ -1,6 +1,6 @@
-//! Listing pages (Slice 5): `/posts` and `/` render from the KV `index`
+//! Listing pages: `/posts` and `/` render from the KV `index`
 //! provided by the site worker via context; drafts are filtered at render
-//! time (PRD "KV schema"). Run with `cargo test -p app --features ssr`.
+//! time. Run with `cargo test -p app --features ssr`.
 #![cfg(feature = "ssr")]
 
 use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
@@ -91,7 +91,7 @@ fn posts_page_with_empty_index_says_so() {
     );
 }
 
-// Slice 9: the home page shares the draft filter — a draft must not leak
+// The home page shares the draft filter — a draft must not leak
 // onto `/` even when it is the newest entry (and thus inside RECENT_POSTS).
 #[test]
 fn home_page_filters_drafts() {

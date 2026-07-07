@@ -1,4 +1,4 @@
-//! Thin worker shim per the PRD's testing decisions: routing, KV I/O, and
+//! Thin worker shim: routing, KV I/O, and
 //! the Cache API front only. HTML rendering lives in `app`, feed/sitemap
 //! rendering in [`feeds`], and the cache policy in [`cache`] — all testable
 //! natively with `cargo test`.
@@ -81,7 +81,7 @@ mod server {
             env,
         };
 
-        // Cache front (ADR-0008): a hit returns before any KV read or render.
+        // Cache front: a hit returns before any KV read or render.
         let key = (req.method() == Method::GET)
             .then(|| cache::cache_key(&req.uri().to_string()))
             .flatten();
@@ -210,7 +210,7 @@ mod server {
             }
         };
         let not_found = post.is_none();
-        // Drafts render (shareable by URL, Slice 9) but must never be
+        // Drafts render (shareable by URL) but must never be
         // cached: an unpublish would leave them served for the full TTL.
         let cacheable = post
             .as_ref()
@@ -358,7 +358,7 @@ mod server {
 
     /// A missing `index` key just means nothing has been published yet —
     /// rendered as an empty listing. Corrupt payloads are errors so pipeline
-    /// bugs surface loudly (ADR-0001).
+    /// bugs surface loudly.
     async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
         let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
         let json = kv
@@ -372,7 +372,7 @@ mod server {
     }
 
     /// A KV miss is `Ok(None)` — served as a plain 404, never a trigger to
-    /// rebuild (ADR-0001; user story 33). Corrupt or wrong-schema payloads
+    /// rebuild. Corrupt or wrong-schema payloads
     /// are errors so pipeline bugs surface loudly.
     async fn load_post(env: &Env, slug: &str) -> Result<Option<Document>, String> {
         let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;

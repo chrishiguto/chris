@@ -129,7 +129,7 @@
 }
 
 /* Prose styling for the AST renderer's output. `render_node` emits bare
-   semantic elements (ADR-0002: presentation lives here, not in KV), so every
+   semantic elements (presentation lives here, not in KV), so every
    node type is styled through flat `.post <element>` selectors — the shape
    app/tests/theme.rs pins down. */
 
@@ -288,7 +288,7 @@
     border-top: 1px solid var(--color-line);
   }
 
-  /* Frontmatter tags — shared by the post header and (Slice 5) listing and
+  /* Frontmatter tags — shared by the post header and the listing and
      tag pages. Element-qualified (`ul`/`li`) so they outrank the `.post ul`
      and `.post li` prose rules above when the tag list sits in a post header;
      margins are set in full to neutralize the inherited `margin-block`. */
@@ -323,7 +323,7 @@
     color: var(--color-accent);
   }
 
-  /* Listing pages (Slice 5) only need this markup shape:
+  /* Listing pages only need this markup shape:
      <ul class="post-list"><li><a><h2>title</h2><p class="post-date">…</p></a></li>… */
 
   .post-list {
@@ -398,7 +398,7 @@
     margin-bottom: 0;
   }
 
-  /* Bad KV data must fail loudly on the page (ADR-0001), so the error surface
+  /* Bad KV data must fail loudly on the page, so the error surface
      is deliberately jarring in both modes. */
   .component-error {
     font-family: var(--font-mono);

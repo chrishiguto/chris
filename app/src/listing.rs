@@ -1,7 +1,7 @@
 //! Listing pages: `/` (recent posts), `/posts` (everything), and tag
 //! browsing (`/tags`, `/tags/{tag}`), rendered from the KV `index` the site
 //! worker provides via context. Drafts are stored in the index but filtered
-//! here, at render time (PRD "KV schema").
+//! here, at render time.
 
 use content::{post_path, tag_path, IndexEntry};
 use leptos::prelude::*;

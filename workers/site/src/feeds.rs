@@ -1,8 +1,8 @@
-//! Feed and sitemap rendering from the KV `index` (user story 21) — pure
+//! Feed and sitemap rendering from the KV `index` — pure
 //! string builders over [`IndexEntry`], natively testable; the wasm shim in
 //! `server` only wires them to `/rss.xml` and `/sitemap.xml`.
 //!
-//! The feed is Atom (RFC 4287), served at `/rss.xml` per the PRD's URL set:
+//! The feed is Atom (RFC 4287), served at `/rss.xml`:
 //! Atom takes ISO-8601 timestamps directly, so frontmatter dates need no
 //! RFC-822 weekday arithmetic.
 

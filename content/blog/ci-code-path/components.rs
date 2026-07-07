@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use registry::post_component;
 
-/// Co-located with its post (ADR-0004): this island ships in the same push
+/// Co-located with its post: this island ships in the same push
 /// as the prose referencing it, and CI deploys it before the post publishes.
 #[post_component]
 #[island]

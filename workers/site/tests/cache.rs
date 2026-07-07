@@ -1,4 +1,4 @@
-//! Native tests for the pure cache policy (ADR-0008): what the shim's
+//! Native tests for the pure cache policy: what the shim's
 //! Cache API front keys on and which responses it may store.
 
 use site::cache::{cache_key, should_cache, CACHE_CONTROL};

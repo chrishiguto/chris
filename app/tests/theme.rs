@@ -1,4 +1,4 @@
-//! Slice 11 theme guards: the stylesheet is data these tests pin down —
+//! Theme guards: the stylesheet is data these tests pin down —
 //! every element the AST renderer emits must have a `.post` selector, the
 //! tokens must be oklch with light and dark values, and every font the CSS
 //! references must exist on disk and load without layout shift.
@@ -85,8 +85,8 @@ fn callout_and_error_surfaces_are_styled() {
     }
 }
 
-// Listing pages land with Slice 5; the theme defines their treatment now so
-// they only need markup.
+// The theme defines the listing pages' treatment; the pages themselves
+// only need markup.
 #[test]
 fn listing_and_tag_surfaces_are_styled() {
     let css = stylesheet();

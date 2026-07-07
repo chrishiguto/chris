@@ -1,4 +1,4 @@
-//! Pins the ADR-0004 contract: build.rs discovers co-located
+//! Pins the co-location contract: build.rs discovers
 //! `content/blog/{slug}/components.rs` files, their components join the
 //! compiled registry, and the post shipping them validates and renders.
 //! Run with `cargo test -p app --features ssr`.

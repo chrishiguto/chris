@@ -1,8 +1,8 @@
-//! Pure cache policy for the shim's Cache API front (ADR-0008): the key a
+//! Pure cache policy for the shim's Cache API front: the key a
 //! request caches under and whether a rendered response may be stored.
 //! Native-testable; the wasm shim owns the actual `cache.match`/`put`.
 
-/// The 7-day TTL — a staleness backstop for missed purges (ADR-0008).
+/// The 7-day TTL — a staleness backstop for missed purges.
 /// Handlers set it only on pages the publish purge set covers; its exact
 /// value doubles as the shim's may-store marker (see [`should_cache`]).
 pub const CACHE_CONTROL: &str = "max-age=604800";

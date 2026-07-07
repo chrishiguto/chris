@@ -1,5 +1,5 @@
 //! Post page: renders a content-IR [`Document`] (read from KV by the site
-//! worker) into Leptos views. Per ADR-0002 the stored AST is semantic; every
+//! worker) into Leptos views. The stored AST is semantic; every
 //! presentational decision lives here.
 
 use content::{Document, Node};
@@ -9,7 +9,7 @@ use leptos_meta::{Meta, Title};
 
 /// Per-request payload provided by the site worker via context.
 /// `None` means the slug had no KV entry — rendered as a plain 404
-/// (never a rebuild trigger, per ADR-0001).
+/// (never a rebuild trigger).
 #[derive(Clone)]
 pub struct PostData(pub Option<Document>);
 
@@ -158,7 +158,7 @@ fn render_node(node: &Node) -> AnyView {
         }
         // Publish-time validation makes both error arms unreachable for
         // content that went through the pipeline; if bad data lands in KV
-        // anyway it must fail visibly, never silently (ADR-0001).
+        // anyway it must fail visibly, never silently.
         Node::Component {
             name,
             props,
