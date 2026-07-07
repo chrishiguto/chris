@@ -12,6 +12,8 @@ use app::app::{shell, PRELOADED_FONTS};
 use app::render::render_document;
 use leptos::prelude::{LeptosOptions, RenderHtml};
 
+mod common;
+
 /// `main.css` (foundations) plus every local sheet it `@import`s — the guards
 /// below pin the combined sheet, wherever a rule lives. Deriving the list from
 /// the `@import` lines means a dropped or added import shifts what the guards
@@ -33,6 +35,8 @@ fn assets_dir() -> &'static Path {
 
 // Every element `render_node` can emit needs a deliberate prose style; a new
 // AST node type added without theming must fail here, not on a live page.
+// Matching requires a selector boundary after the element name so `.post-body
+// p` can never be satisfied by `.post-body pre`.
 #[test]
 fn stylesheet_styles_every_rendered_element() {
     let css = stylesheet();
@@ -55,9 +59,12 @@ fn stylesheet_styles_every_rendered_element() {
         "img",
         "hr",
     ] {
+        let styled = [" ", ",", ":", "\n"]
+            .iter()
+            .any(|boundary| css.contains(&format!(".post-body {element}{boundary}")));
         assert!(
-            css.contains(&format!(".post {element}")),
-            "no `.post {element}` selector in the stylesheet"
+            styled,
+            "no `.post-body {element}` selector in the stylesheet"
         );
     }
 }
@@ -157,7 +164,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
-    let html = render_document(&doc).to_html().replace("<!>", "");
+    let html = common::strip_markers(render_document(&doc).to_html());
     for needle in [
         "<h2",
         "<h3",

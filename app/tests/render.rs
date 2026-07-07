@@ -7,19 +7,16 @@ use std::collections::BTreeMap;
 
 use app::post::{PostData, PostPage};
 use app::render::{render_document, render_nodes};
+use common::{ssr, strip_markers};
 use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
 use leptos::prelude::RenderHtml;
+
+mod common;
 
 fn text(value: &str) -> Node {
     Node::Text {
         value: value.into(),
     }
-}
-
-// `AnyView` emits `<!>` hydration-marker comments in SSR output; they are
-// invisible to browsers, so snapshots compare with them stripped.
-fn strip_markers(html: String) -> String {
-    html.replace("<!>", "")
 }
 
 fn html_of(nodes: Vec<Node>) -> String {
@@ -328,16 +325,13 @@ fn fixture_post_renders_end_to_end() {
     );
 }
 
-// Renders `PostPage` the way the worker does: contexts (meta + `PostData`)
-// provided on a reactive owner, then SSR'd to a string.
+// Renders `PostPage` the way the worker does (see `common::ssr`).
 fn page_html(post: Option<Document>) -> String {
-    use leptos::prelude::{provide_context, Owner};
-
-    let owner = Owner::new();
-    owner.set();
-    leptos_meta::provide_meta_context();
-    provide_context(PostData(post));
-    strip_markers(leptos::view! { <PostPage /> }.to_html())
+    use leptos::prelude::provide_context;
+    ssr(
+        move || provide_context(PostData(post)),
+        || leptos::view! { <PostPage /> },
+    )
 }
 
 // The worker provides `PostData(None)` on a KV miss; the page must still be

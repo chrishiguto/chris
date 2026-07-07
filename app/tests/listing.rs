@@ -4,8 +4,11 @@
 #![cfg(feature = "ssr")]
 
 use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
+use common::ssr;
 use content::IndexEntry;
-use leptos::prelude::RenderHtml;
+use leptos::prelude::provide_context;
+
+mod common;
 
 fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
     IndexEntry {
@@ -24,33 +27,17 @@ fn tagged(slug: &str, title: &str, date: &str, tags: &[&str]) -> IndexEntry {
     entry
 }
 
-fn strip_markers(html: String) -> String {
-    html.replace("<!>", "")
-}
-
-// Renders a listing page the way the worker does: contexts on a reactive
-// owner, then SSR'd to a string.
-fn page_html(view: impl FnOnce() -> leptos::prelude::AnyView, index: Vec<IndexEntry>) -> String {
-    use leptos::prelude::{provide_context, Owner};
-
-    let owner = Owner::new();
-    owner.set();
-    leptos_meta::provide_meta_context();
-    provide_context(IndexData(index));
-    strip_markers(view().to_html())
-}
-
 fn posts_html(index: Vec<IndexEntry>) -> String {
-    page_html(
-        || leptos::prelude::IntoAny::into_any(leptos::view! { <PostsPage /> }),
-        index,
+    ssr(
+        move || provide_context(IndexData(index)),
+        || leptos::view! { <PostsPage /> },
     )
 }
 
 fn home_html(index: Vec<IndexEntry>) -> String {
-    page_html(
-        || leptos::prelude::IntoAny::into_any(leptos::view! { <HomePage /> }),
-        index,
+    ssr(
+        move || provide_context(IndexData(index)),
+        || leptos::view! { <HomePage /> },
     )
 }
 
@@ -129,17 +116,17 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
 }
 
 fn tags_html(index: Vec<IndexEntry>) -> String {
-    page_html(
-        || leptos::prelude::IntoAny::into_any(leptos::view! { <TagsPage /> }),
-        index,
+    ssr(
+        move || provide_context(IndexData(index)),
+        || leptos::view! { <TagsPage /> },
     )
 }
 
 fn tag_html(tag: &str, index: Vec<IndexEntry>) -> String {
     let tag = tag.to_string();
-    page_html(
-        move || leptos::prelude::IntoAny::into_any(leptos::view! { <TagListing tag=tag /> }),
-        index,
+    ssr(
+        move || provide_context(IndexData(index)),
+        move || leptos::view! { <TagListing tag=tag /> },
     )
 }
 
@@ -210,10 +197,8 @@ fn tag_listing_for_unknown_tag_renders_a_readable_state() {
 
 #[test]
 fn home_page_without_index_context_still_renders() {
-    // generate_route_list runs the App tree outside a request; no context.
-    let owner = leptos::prelude::Owner::new();
-    owner.set();
-    leptos_meta::provide_meta_context();
-    let html = strip_markers(leptos::view! { <HomePage /> }.to_html());
+    // A missing IndexData context must degrade to the empty state, never
+    // panic — nothing guarantees every future render site provides it.
+    let html = ssr(|| (), || leptos::view! { <HomePage /> });
     assert!(html.contains("Nothing published yet"), "{html}");
 }

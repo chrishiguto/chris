@@ -5,8 +5,9 @@
 
 use content::{post_path, tag_path, IndexEntry};
 use leptos::prelude::*;
-use leptos_meta::Title;
 use leptos_router::hooks::use_params_map;
+
+use crate::components::page;
 
 /// Per-request payload provided by the site worker: the deserialized KV
 /// `index`, newest-first. Empty when nothing has been published yet.
@@ -45,24 +46,21 @@ fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
     view! { <ul class="post-list">{items}</ul> }
 }
 
-fn empty_state() -> impl IntoView {
-    view! { <p class="mt-6 text-ink-muted">"Nothing published yet — check back soon."</p> }
+fn empty_state(message: String) -> impl IntoView {
+    view! { <p class="mt-6 text-ink-muted">{message}</p> }
 }
+
+const NOTHING_PUBLISHED: &str = "Nothing published yet — check back soon.";
 
 #[component]
 pub fn PostsPage() -> impl IntoView {
     let entries = listed_entries();
-    view! {
-        <Title text="posts — chris" />
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">"posts"</h1>
-            {if entries.is_empty() {
-                empty_state().into_any()
-            } else {
-                post_list(entries).into_any()
-            }}
-        </section>
-    }
+    let listing = if entries.is_empty() {
+        empty_state(NOTHING_PUBLISHED.into()).into_any()
+    } else {
+        post_list(entries).into_any()
+    };
+    page(Some("posts — chris".into()), "posts", listing)
 }
 
 /// Tags across published posts with how many posts carry each, alphabetical.
@@ -82,7 +80,7 @@ fn tag_counts(entries: &[IndexEntry]) -> Vec<(String, usize)> {
 pub fn TagsPage() -> impl IntoView {
     let tags = tag_counts(&listed_entries());
     let listing = if tags.is_empty() {
-        view! { <p class="mt-6 text-ink-muted">"Nothing is tagged yet."</p> }.into_any()
+        empty_state("Nothing is tagged yet.".into()).into_any()
     } else {
         let pills: Vec<_> = tags
             .into_iter()
@@ -98,13 +96,7 @@ pub fn TagsPage() -> impl IntoView {
             .collect();
         view! { <ul class="post-tags mt-10">{pills}</ul> }.into_any()
     };
-    view! {
-        <Title text="tags — chris" />
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">"tags"</h1>
-            {listing}
-        </section>
-    }
+    page(Some("tags — chris".into()), "tags", listing)
 }
 
 /// The body of `/tags/{tag}`, with the tag as a plain prop so tests need no
@@ -117,18 +109,11 @@ pub fn TagListing(tag: String) -> impl IntoView {
         .filter(|entry| entry.tags.contains(&tag))
         .collect();
     let listing = if matching.is_empty() {
-        let none = format!("Nothing is tagged \"{tag}\".");
-        view! { <p class="mt-6 text-ink-muted">{none}</p> }.into_any()
+        empty_state(format!("Nothing is tagged \"{tag}\".")).into_any()
     } else {
         post_list(matching).into_any()
     };
-    view! {
-        <Title text=format!("#{tag} — chris") />
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">{format!("#{tag}")}</h1>
-            {listing}
-        </section>
-    }
+    page(Some(format!("#{tag} — chris")), format!("#{tag}"), listing)
 }
 
 #[component]
@@ -142,7 +127,7 @@ pub fn HomePage() -> impl IntoView {
     let entries = listed_entries();
     let recent: Vec<_> = entries.into_iter().take(RECENT_POSTS).collect();
     let listing = if recent.is_empty() {
-        empty_state().into_any()
+        empty_state(NOTHING_PUBLISHED.into()).into_any()
     } else {
         view! {
             {post_list(recent)}
@@ -152,13 +137,14 @@ pub fn HomePage() -> impl IntoView {
         }
         .into_any()
     };
-    view! {
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">"chris"</h1>
+    page(
+        None,
+        "chris",
+        view! {
             <p class="mt-6 leading-relaxed text-ink-muted">
                 "Engineering notes — Rust end-to-end: Leptos SSR on Cloudflare Workers."
             </p>
             <div class="mt-10">{listing}</div>
-        </section>
-    }
+        },
+    )
 }

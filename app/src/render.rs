@@ -17,14 +17,16 @@ pub fn render_document(doc: &Document) -> impl IntoView {
             .collect();
         view! { <ul class="post-tags">{tags}</ul> }
     });
+    // Prose lives in `.post-body`, so `.post-body <element>` selectors can
+    // never bleed into the header chrome above it.
     view! {
-        <article class="post">
+        <article class="post mx-auto max-w-2xl px-6">
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
                 <p class="post-date">{doc.frontmatter.date.clone()}</p>
                 {tags}
             </header>
-            {render_nodes(&doc.ast)}
+            <div class="post-body">{render_nodes(&doc.ast)}</div>
         </article>
     }
 }

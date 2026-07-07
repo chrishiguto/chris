@@ -7,6 +7,8 @@
 use app::render::render_document;
 use leptos::prelude::RenderHtml;
 
+mod common;
+
 #[test]
 fn colocated_components_join_the_manifest() {
     let manifest = registry::manifest();
@@ -24,7 +26,7 @@ fn the_ci_code_path_post_renders_its_colocated_island() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("post must validate against the live manifest");
-    let html = render_document(&doc).to_html().replace("<!>", "");
+    let html = common::strip_markers(render_document(&doc).to_html());
     assert!(
         html.contains("<leptos-island"),
         "DeployStages island missing: {html}"

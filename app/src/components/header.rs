@@ -10,7 +10,7 @@ pub fn Header() -> impl IntoView {
                     "chris"
                 </a>
                 <nav class="flex gap-4">
-                    <a href="/" class="font-mono text-sm text-ink-muted hover:text-accent">
+                    <a href="/posts" class="font-mono text-sm text-ink-muted hover:text-accent">
                         "posts"
                     </a>
                     <a href="/tags" class="font-mono text-sm text-ink-muted hover:text-accent">
