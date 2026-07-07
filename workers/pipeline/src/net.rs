@@ -1,7 +1,7 @@
 //! Shared transport for the wasm shim: GitHub API, commit statuses, cache
 //! purge. No decisions live here.
 
-use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result};
+use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response};
 
 use crate::{purge_body, purge_url, status_payload, statuses_url, StatusState, STATUS_CONTEXT};
 
@@ -15,30 +15,59 @@ const PURGE_TOKEN: &str = "CLOUDFLARE_PURGE_TOKEN";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
 
+/// The one request-building path for every outbound fetch.
+async fn send(
+    method: Method,
+    url: &str,
+    headers: &[(&str, &str)],
+    body: Option<String>,
+) -> std::result::Result<Response, String> {
+    let assembled = Headers::new();
+    for (name, value) in headers {
+        assembled.set(name, value).map_err(|err| err.to_string())?;
+    }
+    let mut init = RequestInit::new();
+    init.with_method(method).with_headers(assembled);
+    if let Some(body) = body {
+        init.with_body(Some(body.into()));
+    }
+    let request = Request::new_with_init(url, &init).map_err(|err| err.to_string())?;
+    Fetch::Request(request)
+        .send()
+        .await
+        .map_err(|err| err.to_string())
+}
+
+/// The one status-check shape: anything but `want` is an error naming the URL.
+fn expect_status(response: &Response, want: u16, url: &str) -> std::result::Result<(), String> {
+    let status = response.status_code();
+    (status == want)
+        .then_some(())
+        .ok_or_else(|| format!("{url} returned {status}"))
+}
+
 pub(crate) async fn github(
     env: &Env,
     method: Method,
     url: &str,
     accept: &str,
     body: Option<String>,
-) -> Result<Response> {
-    let token = env.secret(GITHUB_TOKEN)?.to_string();
-    let headers = Headers::new();
-    headers.set("authorization", &format!("Bearer {token}"))?;
-    headers.set("user-agent", USER_AGENT)?;
-    headers.set("accept", accept)?;
-    headers.set("x-github-api-version", "2022-11-28")?;
+) -> std::result::Result<Response, String> {
+    let token = env
+        .secret(GITHUB_TOKEN)
+        .map_err(|err| err.to_string())?
+        .to_string();
+    let auth = format!("Bearer {token}");
+    let mut headers = vec![
+        ("authorization", auth.as_str()),
+        ("user-agent", USER_AGENT),
+        ("accept", accept),
+        ("x-github-api-version", "2022-11-28"),
+    ];
     if body.is_some() {
-        headers.set("content-type", "application/json")?;
+        headers.push(("content-type", "application/json"));
     }
-    let mut init = RequestInit::new();
-    init.with_method(method).with_headers(headers);
-    if let Some(body) = body {
-        init.with_body(Some(body.into()));
-    }
-    Fetch::Request(Request::new_with_init(url, &init)?)
-        .send()
-        .await
+    send(method, url, &headers, body).await
 }
 
 /// One GitHub GET expected to answer 200 with a JSON body.
@@ -46,16 +75,10 @@ pub(crate) async fn github_json(
     env: &Env,
     url: &str,
 ) -> std::result::Result<serde_json::Value, String> {
-    let mut response = github(env, Method::Get, url, "application/vnd.github+json", None)
-        .await
-        .map_err(|err| err.to_string())?;
-    match response.status_code() {
-        200 => {
-            let text = response.text().await.map_err(|err| err.to_string())?;
-            serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))
-        }
-        status => Err(format!("{url} returned {status}")),
-    }
+    let mut response = github(env, Method::Get, url, "application/vnd.github+json", None).await?;
+    expect_status(&response, 200, url)?;
+    let text = response.text().await.map_err(|err| err.to_string())?;
+    serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))
 }
 
 /// Raw post source at the given sha via the contents API.
@@ -70,8 +93,7 @@ pub(crate) async fn fetch_content(
         "application/vnd.github.raw+json",
         None,
     )
-    .await
-    .map_err(|err| err.to_string())?;
+    .await?;
     match response.status_code() {
         200 => response
             .text()
@@ -153,21 +175,11 @@ pub(crate) async fn purge(env: &Env, plan: &publish::SnapshotPlan) {
 }
 
 async fn purge_request(url: &str, token: &str, body: String) -> std::result::Result<(), String> {
-    let headers = Headers::new();
-    let set = |k: &str, v: &str| headers.set(k, v).map_err(|err| err.to_string());
-    set("authorization", &format!("Bearer {token}"))?;
-    set("content-type", "application/json")?;
-    let mut init = RequestInit::new();
-    init.with_method(Method::Post)
-        .with_headers(headers)
-        .with_body(Some(body.into()));
-    let request = Request::new_with_init(url, &init).map_err(|err| err.to_string())?;
-    let response = Fetch::Request(request)
-        .send()
-        .await
-        .map_err(|err| err.to_string())?;
-    match response.status_code() {
-        200 => Ok(()),
-        status => Err(format!("purge request returned {status}")),
-    }
+    let auth = format!("Bearer {token}");
+    let headers = [
+        ("authorization", auth.as_str()),
+        ("content-type", "application/json"),
+    ];
+    let response = send(Method::Post, url, &headers, Some(body)).await?;
+    expect_status(&response, 200, url)
 }

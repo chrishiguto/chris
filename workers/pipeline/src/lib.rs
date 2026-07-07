@@ -250,6 +250,36 @@ pub fn failure_description(diags: &[Diagnostic]) -> String {
     }
 }
 
+/// What the webhook does with a verified, parsed push event.
+#[derive(Debug, PartialEq, Eq)]
+pub enum WebhookAction {
+    /// Acknowledge and stop.
+    Ignore(&'static str),
+    /// Content-only push: poke the coordinator now.
+    Reconcile(ReconcileConfig),
+    /// Code push: dispatch CI (deploy precedes publish), posting `pending`
+    /// with this description; CI's `/publish` callback reconciles.
+    DispatchCi { description: String },
+}
+
+/// The whole push decision tree, transport-free: deleted refs and
+/// non-default branches are ignored, then [`classify`] picks the path.
+pub fn decide_push(event: &PushEvent) -> WebhookAction {
+    if event.deleted || !event.is_default_branch() {
+        return WebhookAction::Ignore("ignored: not a default-branch push");
+    }
+    match classify(&event.commits) {
+        PushClass::Ignore => WebhookAction::Ignore("ignored: no content or code changes"),
+        PushClass::ContentOnly => WebhookAction::Reconcile(ReconcileConfig {
+            repository: event.repository.full_name.clone(),
+            branch: event.repository.default_branch.clone(),
+        }),
+        PushClass::Code { touched_posts } => WebhookAction::DispatchCi {
+            description: code_push_description(touched_posts),
+        },
+    }
+}
+
 /// Status text for a parked code push: the deploy must land first.
 pub fn code_push_description(touched_posts: usize) -> String {
     match touched_posts {
@@ -259,10 +289,13 @@ pub fn code_push_description(touched_posts: usize) -> String {
 }
 
 /// One reconcile's status: success when every post validated, failure
-/// naming the count that rode in as previous versions.
+/// naming the count that rode in as previous versions. `carried` is how
+/// many of the failures actually had a previous version to keep — claiming
+/// "kept" for a dropped post would be a lie.
 pub fn reconcile_description(
     published: usize,
     failed: usize,
+    carried: usize,
     diags: &[Diagnostic],
 ) -> (StatusState, String) {
     let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
@@ -271,14 +304,21 @@ pub fn reconcile_description(
             StatusState::Success,
             format!("reconciled: {} published", posts(published)),
         ),
-        n => (
-            StatusState::Failure,
-            format!(
-                "{} failed validation (previous versions kept); {}",
-                posts(n),
-                failure_description(diags)
-            ),
-        ),
+        n => {
+            let kept = if carried == n {
+                "previous versions kept"
+            } else {
+                "previous versions kept where available"
+            };
+            (
+                StatusState::Failure,
+                format!(
+                    "{} failed validation ({kept}); {}",
+                    posts(n),
+                    failure_description(diags)
+                ),
+            )
+        }
     }
 }
 

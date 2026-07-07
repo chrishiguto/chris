@@ -89,7 +89,10 @@ impl DurableObject for PublishCoordinator {
             console_error!("reconcile of {} failed: {err}", config.repository);
             return Err(worker::Error::RustError(err));
         }
-        // A trigger landed mid-reconcile: run again now.
+        // A trigger landed mid-reconcile: run again now. Belt-and-braces —
+        // the trigger's own set_alarm(0) should already land after the
+        // backstop re-arm above, but the platform docs don't pin down
+        // alarm-overwrite ordering during a running handler.
         if storage.get::<bool>(DIRTY_KEY).await?.unwrap_or(false) {
             storage.set_alarm(0_i64).await?;
         }
@@ -160,14 +163,21 @@ impl PublishCoordinator {
         for slug in failed_slugs {
             if let Some(entry) = prev_index.iter().find(|entry| entry.slug == slug) {
                 let key = post_key_at(prev_sha.as_deref(), slug);
-                if let Some(payload) = kv.get(&key).text().await.map_err(|err| err.to_string())? {
-                    carried.push(CarriedPost {
+                match kv.get(&key).text().await.map_err(|err| err.to_string())? {
+                    Some(payload) => carried.push(CarriedPost {
                         entry: entry.clone(),
                         payload,
-                    });
+                    }),
+                    // The previous index named it, so a missing payload is
+                    // infra trouble; the post drops from the new index (and
+                    // gets purged) — never silently.
+                    None => console_error!(
+                        "carry-forward of {slug} lost: {key} missing — the post drops from the index"
+                    ),
                 }
             }
         }
+        let carried_count = carried.len();
 
         let plan = publish::snapshot(&prev_index, &parsed, carried, &head)
             .map_err(|err| err.to_string())?;
@@ -190,7 +200,8 @@ impl PublishCoordinator {
         // Retention and purge are best-effort; the publish already happened.
         self.retain(&kv, &head).await;
         net::purge(env, &plan).await;
-        self.report(repo, &head, parsed.len(), failed, &diags).await;
+        self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
+            .await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
             parsed.len()
@@ -206,12 +217,16 @@ impl PublishCoordinator {
         head: &str,
         published: usize,
         failed: usize,
+        carried: usize,
         diags: &[Diagnostic],
     ) {
-        let (state, description) = reconcile_description(published, failed, diags);
+        let (state, description) = reconcile_description(published, failed, carried, diags);
         let stamp = format!("{head}|{state:?}|{description}");
         let storage = self.state.storage();
-        let last: Option<String> = storage.get(LAST_STATUS_KEY).await.ok().flatten();
+        let last: Option<String> = storage.get(LAST_STATUS_KEY).await.unwrap_or_else(|err| {
+            console_error!("last-status read failed (a duplicate status may repost): {err}");
+            None
+        });
         if last.as_deref() == Some(stamp.as_str()) {
             return;
         }

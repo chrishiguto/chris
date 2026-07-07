@@ -5,9 +5,8 @@ use worker::{console_error, Env, Method, Request, RequestInit, Response, Result}
 
 use crate::net::post_status;
 use crate::{
-    classify, code_push_description, coordinator, dispatch_payload, dispatch_url,
-    verify_publish_auth, verify_signature, PublishRequest, PushClass, PushEvent, ReconcileConfig,
-    StatusState,
+    coordinator, decide_push, dispatch_payload, dispatch_url, verify_publish_auth,
+    verify_signature, PublishRequest, PushEvent, ReconcileConfig, StatusState, WebhookAction,
 };
 
 const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
@@ -38,24 +37,15 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
     let Ok(event) = serde_json::from_slice::<PushEvent>(&body) else {
         return Response::error("unrecognized push payload", 400);
     };
-    if event.deleted || !event.is_default_branch() {
-        return Response::ok("ignored: not a default-branch push");
-    }
-    match classify(&event.commits) {
-        PushClass::Ignore => Response::ok("ignored: no content or code changes"),
+    match decide_push(&event) {
+        WebhookAction::Ignore(reason) => Response::ok(reason),
         // Fast path: the coordinator posts the status itself. A failed
         // trigger 500s so webhook redelivery retries.
-        PushClass::ContentOnly => {
-            let config = ReconcileConfig {
-                repository: event.repository.full_name,
-                branch: event.repository.default_branch,
-            };
+        WebhookAction::Reconcile(config) => {
             trigger_reconcile(env, &config).await?;
             Response::ok("content push: reconcile scheduled")
         }
-        // Deploy must precede publish: dispatch CI; its `/publish` callback
-        // triggers the reconcile.
-        PushClass::Code { touched_posts } => {
+        WebhookAction::DispatchCi { description } => {
             let repo = &event.repository.full_name;
             if let Err(err) = dispatch_workflow(env, &event).await {
                 // Dispatch is idempotent; the 500 makes redelivery the retry.
@@ -70,7 +60,6 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
                 .await;
                 return Response::error("workflow dispatch failed", 500);
             }
-            let description = code_push_description(touched_posts);
             post_status(env, repo, &event.after, StatusState::Pending, &description).await;
             Response::ok(description)
         }
@@ -130,8 +119,7 @@ async fn dispatch_workflow(env: &Env, event: &PushEvent) -> std::result::Result<
         "application/vnd.github+json",
         Some(body),
     )
-    .await
-    .map_err(|err| err.to_string())?;
+    .await?;
     match response.status_code() {
         204 => Ok(()),
         status => Err(format!("workflow dispatch returned {status}")),

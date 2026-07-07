@@ -3,11 +3,11 @@
 //! functions — the wasm shim stays thin.
 
 use pipeline::{
-    classify, code_push_description, contents_url, dispatch_payload, dispatch_url,
+    classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
     failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_body, purge_url,
     reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url,
     verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit, PushEvent,
-    ReconcileConfig, StatusState, STATUS_CONTEXT, WORKFLOW_FILE,
+    ReconcileConfig, StatusState, WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -257,11 +257,11 @@ fn a_tree_response_without_a_tree_array_is_an_error() {
 
 #[test]
 fn reconcile_description_reports_success_and_carried_failures() {
-    let (state, description) = reconcile_description(3, 0, &[]);
+    let (state, description) = reconcile_description(3, 0, 0, &[]);
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 3 posts published");
 
-    let (state, description) = reconcile_description(1, 0, &[]);
+    let (state, description) = reconcile_description(1, 0, 0, &[]);
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 1 post published");
 
@@ -271,12 +271,30 @@ fn reconcile_description_reports_success_and_carried_failures() {
         line: Some(3),
         column: None,
     };
-    let (state, description) = reconcile_description(2, 1, &[diag]);
+    let (state, description) = reconcile_description(2, 1, 1, &[diag]);
     assert_eq!(state, StatusState::Failure);
     assert_eq!(
         description,
         "1 post failed validation (previous versions kept); \
          content/blog/broken/index.mdx: unknown component <OrbitSimulatr>"
+    );
+}
+
+/// A failed post with no previous version to carry drops from the index;
+/// the status must not claim it was kept.
+#[test]
+fn reconcile_description_does_not_claim_kept_for_dropped_posts() {
+    let diag = content::Diagnostic {
+        message: "unknown component <Nope>".to_string(),
+        file: Some("content/blog/new-and-broken/index.mdx".to_string()),
+        line: None,
+        column: None,
+    };
+    let (state, description) = reconcile_description(2, 2, 1, &[diag]);
+    assert_eq!(state, StatusState::Failure);
+    assert!(
+        description.contains("previous versions kept where available"),
+        "{description}"
     );
 }
 
@@ -456,5 +474,77 @@ fn purge_body_wraps_a_chunk_in_the_files_field() {
     assert_eq!(
         purge_body(&files),
         r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#
+    );
+}
+
+// --- the webhook decision tree ---
+
+fn push_event(git_ref: &str, deleted: bool, commits: Vec<PushCommit>) -> PushEvent {
+    let mut event: PushEvent =
+        serde_json::from_str(include_str!("fixtures/push.json")).expect("payload should parse");
+    event.git_ref = git_ref.to_string();
+    event.deleted = deleted;
+    event.commits = commits;
+    event
+}
+
+#[test]
+fn deleted_refs_and_non_default_branches_are_ignored() {
+    let content = || vec![commit(&["content/blog/hello/index.mdx"], &[], &[])];
+    assert_eq!(
+        decide_push(&push_event("refs/heads/main", true, content())),
+        WebhookAction::Ignore("ignored: not a default-branch push")
+    );
+    assert_eq!(
+        decide_push(&push_event("refs/heads/feature/x", false, content())),
+        WebhookAction::Ignore("ignored: not a default-branch push")
+    );
+}
+
+#[test]
+fn a_push_touching_nothing_relevant_is_ignored() {
+    let event = push_event(
+        "refs/heads/main",
+        false,
+        vec![commit(&["docs/DOCS_INDEX.md"], &[], &[])],
+    );
+    assert_eq!(
+        decide_push(&event),
+        WebhookAction::Ignore("ignored: no content or code changes")
+    );
+}
+
+#[test]
+fn a_content_only_push_reconciles_to_the_default_branch() {
+    let event = push_event(
+        "refs/heads/main",
+        false,
+        vec![commit(&["content/blog/hello/index.mdx"], &[], &[])],
+    );
+    assert_eq!(
+        decide_push(&event),
+        WebhookAction::Reconcile(ReconcileConfig {
+            repository: "chrishiguto/chris".to_string(),
+            branch: "main".to_string(),
+        })
+    );
+}
+
+#[test]
+fn a_code_push_dispatches_ci_with_the_touched_post_count() {
+    let event = push_event(
+        "refs/heads/main",
+        false,
+        vec![commit(
+            &["app/src/lib.rs", "content/blog/hello/index.mdx"],
+            &[],
+            &[],
+        )],
+    );
+    assert_eq!(
+        decide_push(&event),
+        WebhookAction::DispatchCi {
+            description: code_push_description(1),
+        }
     );
 }
