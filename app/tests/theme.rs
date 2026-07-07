@@ -9,11 +9,22 @@ use std::fs;
 use std::path::Path;
 
 use app::app::{shell, PRELOADED_FONTS};
-use app::post::render_document;
+use app::render::render_document;
 use leptos::prelude::{LeptosOptions, RenderHtml};
 
+/// `main.css` (foundations) plus every local sheet it `@import`s — the guards
+/// below pin the combined sheet, wherever a rule lives. Deriving the list from
+/// the `@import` lines means a dropped or added import shifts what the guards
+/// see, instead of silently diverging from what Tailwind bundles.
 fn stylesheet() -> String {
-    fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/style/main.css")).unwrap()
+    let style = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/style"));
+    let main = fs::read_to_string(style.join("main.css")).unwrap();
+    let imported: String = main
+        .lines()
+        .filter_map(|line| line.strip_prefix("@import \"./")?.strip_suffix("\";"))
+        .map(|sheet| fs::read_to_string(style.join(sheet)).unwrap())
+        .collect();
+    main + &imported
 }
 
 fn assets_dir() -> &'static Path {
@@ -46,7 +57,7 @@ fn stylesheet_styles_every_rendered_element() {
     ] {
         assert!(
             css.contains(&format!(".post {element}")),
-            "no `.post {element}` selector in main.css"
+            "no `.post {element}` selector in the stylesheet"
         );
     }
 }
@@ -81,7 +92,10 @@ fn callout_and_error_surfaces_are_styled() {
         ".callout-title",
         ".component-error",
     ] {
-        assert!(css.contains(class), "no `{class}` styling in main.css");
+        assert!(
+            css.contains(class),
+            "no `{class}` styling in the stylesheet"
+        );
     }
 }
 
@@ -91,7 +105,10 @@ fn callout_and_error_surfaces_are_styled() {
 fn listing_and_tag_surfaces_are_styled() {
     let css = stylesheet();
     for class in [".post-list", ".post-tags", ".tag"] {
-        assert!(css.contains(class), "no `{class}` styling in main.css");
+        assert!(
+            css.contains(class),
+            "no `{class}` styling in the stylesheet"
+        );
     }
 }
 
@@ -113,7 +130,7 @@ fn fonts_are_self_hosted_and_never_shift_layout() {
     for file in &faces {
         assert!(
             assets_dir().join("fonts").join(file).is_file(),
-            "{file} referenced in main.css but missing from app/assets/fonts"
+            "{file} referenced in the stylesheet but missing from app/assets/fonts"
         );
     }
     let face_count = css.matches("@font-face").count();

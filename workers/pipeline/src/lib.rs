@@ -23,8 +23,6 @@ pub const WORKFLOW_FILE: &str = "publish.yml";
 /// The Commit Status API rejects descriptions longer than 140 characters.
 const DESCRIPTION_LIMIT: usize = 140;
 
-// --- webhook payload (only the fields the decision needs) ---
-
 #[derive(Debug, Deserialize)]
 pub struct PushEvent {
     #[serde(rename = "ref")]
@@ -62,8 +60,6 @@ pub struct PushCommit {
     pub removed: Vec<String>,
 }
 
-// --- signature verification ---
-
 /// GitHub signs the raw request body with HMAC-SHA256 and sends
 /// `X-Hub-Signature-256: sha256=<hex>`; comparison is constant-time
 /// (`Mac::verify_slice`), so no timing oracle on the secret.
@@ -92,8 +88,6 @@ fn decode_hex(hex: &str) -> Option<Vec<u8>> {
         })
         .flatten()
 }
-
-// --- classification ---
 
 /// The posts a push wants published or retired, as slugs.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -194,8 +188,6 @@ pub fn post_path(slug: &str) -> String {
     format!("content/blog/{slug}/index.mdx")
 }
 
-// --- pending stash ---
-
 /// One parked publish awaiting the CI callback.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PendingEntry {
@@ -228,8 +220,6 @@ pub fn merge_pending(prev: Vec<PendingEntry>, set: &PublishSet, sha: &str) -> Ve
         .collect()
 }
 
-// --- /publish auth ---
-
 /// CI's callback body: which commit triggered the workflow, on which repo
 /// (pending entries carry slugs and SHAs, but not the repo).
 #[derive(Debug, Deserialize)]
@@ -254,8 +244,6 @@ pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
         .verify_slice(&expected.into_bytes())
         .is_ok()
 }
-
-// --- drain report (the cross-commit retry) ---
 
 /// What draining did with one parked entry.
 #[derive(Debug, PartialEq)]
@@ -342,8 +330,6 @@ impl DrainReport {
     }
 }
 
-// --- commit status building ---
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum StatusState {
@@ -412,8 +398,6 @@ pub fn pending_description(set: &PublishSet) -> String {
     )
 }
 
-// --- GitHub API request shapes ---
-
 /// Raw-content fetch for one changed post, pinned to the pushed SHA.
 pub fn contents_url(repo: &str, slug: &str, sha: &str) -> String {
     format!(
@@ -435,8 +419,6 @@ pub fn dispatch_url(repo: &str) -> String {
 pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
-
-// --- cache purge requests ---
 
 /// The purge-by-URL API caps each request at 30 files (non-Enterprise).
 pub const PURGE_FILES_LIMIT: usize = 30;

@@ -1,6 +1,9 @@
-pub mod callout;
-pub mod counter;
+//! Site-wide UI components. Post-embeddable components (the registry
+//! vocabulary) live under [`blog`]; everything else here is app chrome.
 
-// Co-located per-post components, discovered by build.rs from
-// content/blog/*/components.rs.
-include!(concat!(env!("OUT_DIR"), "/post_components.rs"));
+pub mod blog;
+pub mod header;
+pub mod not_found;
+
+pub use header::Header;
+pub use not_found::NotFound;

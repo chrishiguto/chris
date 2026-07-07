@@ -2,6 +2,7 @@ pub mod app;
 pub mod components;
 pub mod listing;
 pub mod post;
+pub mod render;
 
 /// The deployed component vocabulary, collected from this crate's inventory
 /// registrations — publish validation and `xtask check` validate against

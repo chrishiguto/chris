@@ -5,6 +5,7 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 
+use crate::components::{Header, NotFound};
 use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
 
@@ -60,9 +61,9 @@ pub fn App() -> impl IntoView {
         <Title text="chris" />
 
         <Router>
-            <SiteHeader />
+            <Header />
             <main>
-                <Routes fallback=NotFound>
+                <Routes fallback=|| view! { <NotFound /> }>
                     <Route path=StaticSegment("") view=HomePage />
                     <Route path=StaticSegment("posts") view=PostsPage />
                     <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
@@ -71,39 +72,5 @@ pub fn App() -> impl IntoView {
                 </Routes>
             </main>
         </Router>
-    }
-}
-
-#[component]
-fn SiteHeader() -> impl IntoView {
-    view! {
-        <header class="border-b border-line">
-            <div class="mx-auto flex max-w-2xl items-baseline justify-between px-6 py-4">
-                <a href="/" class="font-heading text-lg font-bold">
-                    "chris"
-                </a>
-                <nav class="flex gap-4">
-                    <a href="/" class="font-mono text-sm text-ink-muted hover:text-accent">
-                        "posts"
-                    </a>
-                    <a href="/tags" class="font-mono text-sm text-ink-muted hover:text-accent">
-                        "tags"
-                    </a>
-                </nav>
-            </div>
-        </header>
-    }
-}
-
-#[component]
-fn NotFound() -> impl IntoView {
-    view! {
-        <section class="mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-heading text-3xl font-bold">"404"</h1>
-            <p class="mt-6 text-ink-muted">"This page does not exist."</p>
-            <a href="/" class="mt-4 inline-block text-accent underline">
-                "back home"
-            </a>
-        </section>
     }
 }

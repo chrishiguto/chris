@@ -14,7 +14,3 @@ node_modules/
 flows/
 hako-target
 hakod-ralph.toml
-
-# local scratch / generated review artifacts
-my-notes.md
-pr-review-*.html

@@ -1,0 +1,282 @@
+/* Prose styling for the AST renderer's output. `render_node` emits bare
+   semantic elements (presentation lives here, not in KV), so every
+   node type is styled through flat `.post <element>` selectors — the shape
+   app/tests/theme.rs pins down. */
+
+@layer components {
+  .post {
+    max-width: 42rem;
+    margin-inline: auto;
+    padding: 3rem 1.5rem 5rem;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+  }
+
+  .post header {
+    margin-bottom: 3rem;
+  }
+
+  .post header h1 {
+    margin: 0;
+    font-size: 2.125rem;
+    line-height: 1.25;
+  }
+
+  .post-date {
+    margin-top: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-ink-faint);
+  }
+
+  .post h1,
+  .post h2,
+  .post h3,
+  .post h4,
+  .post h5,
+  .post h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    line-height: 1.3;
+    margin: 2.25em 0 0.75em;
+    text-wrap: balance;
+  }
+
+  .post h1 {
+    font-size: 1.75rem;
+  }
+
+  .post h2 {
+    font-size: 1.5rem;
+  }
+
+  .post h3 {
+    font-size: 1.25rem;
+  }
+
+  .post h4 {
+    font-size: 1.0625rem;
+  }
+
+  .post h5,
+  .post h6 {
+    font-size: 1rem;
+  }
+
+  .post h6 {
+    color: var(--color-ink-muted);
+  }
+
+  .post p {
+    margin-block: 1.25em;
+  }
+
+  .post a {
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    text-decoration-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
+  }
+
+  .post a:hover {
+    text-decoration-color: var(--color-accent);
+  }
+
+  .post strong {
+    font-weight: 700;
+  }
+
+  .post code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-line);
+    border-radius: 0.25rem;
+    padding: 0.125em 0.375em;
+  }
+
+  .post pre {
+    margin-block: 1.5em;
+    padding: 1rem 1.25rem;
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-line);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    font-size: 0.875rem;
+    line-height: 1.65;
+  }
+
+  .post pre code {
+    background-color: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    font-size: 1em;
+  }
+
+  .post ul,
+  .post ol {
+    margin-block: 1.25em;
+    padding-inline-start: 1.5em;
+  }
+
+  .post ul {
+    list-style-type: disc;
+  }
+
+  .post ol {
+    list-style-type: decimal;
+  }
+
+  .post li {
+    margin-block: 0.375em;
+    padding-inline-start: 0.25em;
+  }
+
+  .post li::marker {
+    color: var(--color-ink-faint);
+  }
+
+  .post blockquote {
+    margin-block: 1.5em;
+    padding-inline-start: 1.25em;
+    border-inline-start: 3px solid var(--color-line);
+    color: var(--color-ink-muted);
+    font-style: italic;
+  }
+
+  .post img {
+    margin-block: 1.5em;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-line);
+  }
+
+  .post hr {
+    margin-block: 3em;
+    border: none;
+    border-top: 1px solid var(--color-line);
+  }
+
+  /* Frontmatter tags — shared by the post header and the listing and
+     tag pages. Element-qualified (`ul`/`li`) so they outrank the `.post ul`
+     and `.post li` prose rules above when the tag list sits in a post header;
+     margins are set in full to neutralize the inherited `margin-block`. */
+
+  ul.post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li.tag {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-ink-muted);
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-line);
+    border-radius: 9999px;
+    padding: 0.125rem 0.625rem;
+  }
+
+  /* On /tags the pills are links; keep the pill look, signal on hover. */
+  li.tag a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  li.tag a:hover {
+    color: var(--color-accent);
+  }
+
+  /* Listing pages only need this markup shape:
+     <ul class="post-list"><li><a><h2>title</h2><p class="post-date">…</p></a></li>… */
+
+  .post-list {
+    margin-block: 2rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  .post-list li {
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .post-list a {
+    display: block;
+    padding-block: 1.25rem;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .post-list h2 {
+    margin: 0;
+    font-family: var(--font-heading);
+    font-size: 1.125rem;
+    font-weight: 700;
+  }
+
+  .post-list a:hover h2 {
+    color: var(--color-accent);
+  }
+
+  /* Component surfaces. */
+
+  .callout {
+    --callout-hue: var(--color-accent);
+    margin-block: 1.5em;
+    padding: 1rem 1.25rem;
+    border: 1px solid color-mix(in oklab, var(--callout-hue) 35%, var(--color-line));
+    border-inline-start: 3px solid var(--callout-hue);
+    border-radius: 0.5rem;
+    background-color: color-mix(in oklab, var(--callout-hue) 7%, var(--color-surface));
+  }
+
+  .callout-note {
+    --callout-hue: var(--hue-note);
+  }
+
+  .callout-tip {
+    --callout-hue: var(--hue-tip);
+  }
+
+  .callout-warning {
+    --callout-hue: var(--hue-warning);
+  }
+
+  .callout-danger {
+    --callout-hue: var(--hue-danger);
+  }
+
+  .callout-title {
+    margin: 0 0 0.5em;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.9375rem;
+    color: color-mix(in oklab, var(--callout-hue) 75%, var(--color-ink));
+  }
+
+  .callout-body > :first-child {
+    margin-top: 0;
+  }
+
+  .callout-body > :last-child {
+    margin-bottom: 0;
+  }
+
+  /* Bad KV data must fail loudly on the page, so the error surface
+     is deliberately jarring in both modes. */
+  .component-error {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    color: var(--hue-danger);
+    background-color: color-mix(in oklab, var(--hue-danger) 12%, var(--color-surface));
+    border: 1px dashed var(--hue-danger);
+    border-radius: 0.25rem;
+    padding: 0.125em 0.5em;
+  }
+}

@@ -5,7 +5,8 @@
 
 use std::collections::BTreeMap;
 
-use app::post::{render_document, render_nodes, PostData, PostPage};
+use app::post::{PostData, PostPage};
+use app::render::{render_document, render_nodes};
 use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
 use leptos::prelude::RenderHtml;
 

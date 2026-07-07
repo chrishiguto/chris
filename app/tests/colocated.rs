@@ -4,7 +4,7 @@
 //! Run with `cargo test -p app --features ssr`.
 #![cfg(feature = "ssr")]
 
-use app::post::render_document;
+use app::render::render_document;
 use leptos::prelude::RenderHtml;
 
 #[test]

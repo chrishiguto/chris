@@ -1,5 +1,5 @@
 //! Component discovery: each `content/blog/{slug}/components.rs` becomes a
-//! `#[path]` module under `app::components`, so per-post code is real
+//! `#[path]` module under `app::components::blog`, so per-post code is real
 //! workspace Rust (full rust-analyzer) that joins the registry inventory.
 
 use std::path::Path;
