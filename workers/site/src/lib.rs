@@ -110,6 +110,7 @@ mod server {
                     |r, path| r.route(path, get(listing_page)),
                 )
                 .leptos_routes(&state, routes, move || shell(options.clone()))
+                .fallback(not_found_page)
                 .with_state(state);
 
             let response = router.call(req).await?;
@@ -300,6 +301,15 @@ mod server {
         } else {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
+        response
+    }
+
+    /// Unmatched paths: SSR the shell so the app's router fallback renders
+    /// the 404 page, with a real 404 status. Never marked cacheable.
+    #[worker::send]
+    async fn not_found_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let mut response = render_page(&state, req, || ()).await;
+        *response.status_mut() = StatusCode::NOT_FOUND;
         response
     }
 
