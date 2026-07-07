@@ -65,6 +65,11 @@ check:
     cargo clippy --workspace -- -D warnings
     cargo run -q -p xtask -- check
 
+# native test suite; workspace feature unification (app enables registry's
+# `dispatch`) keeps the feature-gated suites in this run
+test:
+    cargo test --workspace
+
 # break-glass publish straight to KV through wrangler: xtask plans the whole
 # tree as one snapshot, wrangler moves the bytes and flips `current` last.
 # Deliberately bypasses the coordinator — the escape hatch for when the
