@@ -29,11 +29,26 @@ deploy:
 deploy-pipeline:
     npx wrangler deploy --config workers/pipeline/wrangler.toml
 
-# gzipped wasm sizes — the server number is what the workers plan limit cares about
+# gzipped wasm sizes — worker scripts fail past the 10 MB Workers limit and
+# warn past 5 MB; client islands are assets with no script limit. The
+# ::error::/::warning:: prefixes surface as annotations in GitHub Actions.
 size:
-    @echo "server worker: $(gzip -9 -c workers/site/build/index_bg.wasm | wc -c) bytes gzipped"
-    @echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
-    @echo "pipeline worker: $(gzip -9 -c workers/pipeline/build/index_bg.wasm | wc -c) bytes gzipped"
+    #!/usr/bin/env bash
+    set -euo pipefail
+    budget() {
+        local label=$1 file=$2 size
+        size=$(gzip -9 -c "$file" | wc -c)
+        echo "$label: $size bytes gzipped"
+        if [ "$size" -gt 10485760 ]; then
+            echo "${GITHUB_ACTIONS:+::error::}$label exceeds the 10 MB gzipped Workers limit ($size bytes)"
+            exit 1
+        elif [ "$size" -gt 5242880 ]; then
+            echo "${GITHUB_ACTIONS:+::warning::}$label is over 5 MB gzipped ($size bytes), approaching the 10 MB limit"
+        fi
+    }
+    budget "server worker" workers/site/build/index_bg.wasm
+    echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
+    budget "pipeline worker" workers/pipeline/build/index_bg.wasm
 
 # format everything (leptosfmt handles view! macros, rustfmt the rest;
 # content/ holds co-located per-post components — rustfmt can't see them

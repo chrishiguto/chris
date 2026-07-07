@@ -16,7 +16,7 @@ All builds route through `just` (wrangler.toml's `[build]` also calls `just buil
 
 - `just dev` — wrangler dev at http://localhost:8787
 - `just build` — cargo-leptos build (client) then worker-build (SSR worker)
-- `just size` — gzipped wasm sizes; the server artifact (`workers/site/build/index_bg.wasm`) must stay under the Workers 10 MB gzipped limit
+- `just size` — gzipped wasm sizes; fails when a worker script (`workers/site/build/index_bg.wasm` or the pipeline's) exceeds the Workers 10 MB gzipped limit, warns past 5 MB (CI runs the same recipe)
 - `just deploy` — wrangler deploy
 - `just publish` — manual/break-glass content publish: the whole tree as one snapshot + `current` pointer flip (`xtask plan` → `wrangler kv bulk put` → `kv key put current`; `remote='--local'` targets the dev simulator)
 - `just fmt` — leptosfmt (view! macros, config in `leptosfmt.toml`) + cargo fmt

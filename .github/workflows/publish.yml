@@ -52,28 +52,15 @@ jobs:
           just build
           just build-pipeline
 
-      # Workers caps scripts at 10 MB gzipped; warn early at 5 MB
+      # Fails past the 10 MB gzipped Workers limit, warns at 5 MB
       - name: Enforce the worker size budget
-        run: |
-          budget() {
-            local label=$1 file=$2 size
-            size=$(gzip -9 -c "$file" | wc -c)
-            echo "$label: $size bytes gzipped"
-            if [ "$size" -gt 10485760 ]; then
-              echo "::error::$label exceeds the 10 MB gzipped Workers limit ($size bytes)"
-              exit 1
-            elif [ "$size" -gt 5242880 ]; then
-              echo "::warning::$label is over 5 MB gzipped ($size bytes), approaching the 10 MB limit"
-            fi
-          }
-          budget "site worker" workers/site/build/index_bg.wasm
-          budget "pipeline worker" workers/pipeline/build/index_bg.wasm
+        run: just size
 
       - name: Deploy the site worker
-        run: npx wrangler deploy
+        run: just deploy
 
       - name: Deploy the pipeline worker
-        run: npx wrangler deploy --config workers/pipeline/wrangler.toml
+        run: just deploy-pipeline
 
       # Deploys invalidate everything (hashed assets, hydration pairing).
       # purge_everything needs a zone, and workers.dev has
