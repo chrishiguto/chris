@@ -1552,7 +1552,6 @@ dependencies = [
  "inventory",
  "leptos",
  "registry-macro",
- "serde",
  "serde_json",
  "trybuild",
 ]

@@ -5,9 +5,9 @@ edition = "2021"
 
 [dependencies]
 content = { workspace = true }
-serde = { workspace = true }
-# Dispatch needs leptos; manifest-only consumers (the content parser, the CLI)
-# stay leptos-free by leaving `dispatch` off.
+# Dispatch needs leptos. Today every consumer (`app`) enables it; the gate
+# stays (AGENTS.md pins this shape) so a future manifest-only consumer can
+# link this crate's `::registry` re-exports leptos-free.
 inventory = { workspace = true, optional = true }
 leptos = { workspace = true, optional = true }
 registry-macro = { workspace = true, optional = true }
