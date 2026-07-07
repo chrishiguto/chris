@@ -3,7 +3,7 @@
 //! worker provides via context. Drafts are stored in the index but filtered
 //! here, at render time (PRD "KV schema").
 
-use content_ast::IndexEntry;
+use content::{post_path, tag_path, IndexEntry};
 use leptos::prelude::*;
 use leptos_meta::Title;
 use leptos_router::hooks::use_params_map;
@@ -22,7 +22,7 @@ fn listed_entries() -> Vec<IndexEntry> {
         .map(|data| data.0)
         .unwrap_or_default()
         .into_iter()
-        .filter(|entry| !entry.draft)
+        .filter(|entry| entry.is_listed())
         .collect()
 }
 
@@ -34,7 +34,7 @@ fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
         .map(|entry| {
             view! {
                 <li>
-                    <a href=format!("/posts/{}", entry.slug)>
+                    <a href=post_path(&entry.slug)>
                         <h2>{entry.title}</h2>
                         <p class="post-date">{entry.date}</p>
                     </a>
@@ -89,7 +89,7 @@ pub fn TagsPage() -> impl IntoView {
             .map(|(tag, count)| {
                 view! {
                     <li class="tag">
-                        <a href=format!("/tags/{tag}")>{tag.clone()}</a>
+                        <a href=tag_path(&tag)>{tag.clone()}</a>
                         " ×"
                         {count}
                     </li>

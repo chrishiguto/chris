@@ -2,10 +2,9 @@
 resolver = "2"
 members = [
     "app",
-    "crates/content-ast",
-    "crates/content-parser",
-    "crates/blog-cli",
-    "crates/publish-core",
+    "crates/content",
+    "crates/publish",
+    "crates/xtask",
     "crates/registry",
     "crates/registry-macro",
     "workers/pipeline",
@@ -14,9 +13,8 @@ members = [
 
 [workspace.dependencies]
 app = { path = "app" }
-content-ast = { path = "crates/content-ast" }
-content-parser = { path = "crates/content-parser" }
-publish-core = { path = "crates/publish-core" }
+content = { path = "crates/content" }
+publish = { path = "crates/publish" }
 registry = { path = "crates/registry" }
 registry-macro = { path = "crates/registry-macro" }
 axum = { version = "0.8", default-features = false }

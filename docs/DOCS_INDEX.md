@@ -27,7 +27,7 @@ summary, key topics.
   ride CI (Tier 2 hybrid). Topics: co-located components, rust-analyzer, hybrid pipeline.
 - `docs/adrs/adr-0005-macro-registry-manifest.md` — ADR (Accepted) — #[post_component] proc
   macro: prop conversion, inventory registration, and a component manifest consumed by render
-  dispatch, publish validation, blog check CLI, and a future LSP. Topics: proc macro, registry,
+  dispatch, publish validation, the `xtask check` gate, and a future LSP. Topics: proc macro, registry,
   manifest, inventory, dx.
 - `docs/adrs/adr-0006-two-worker-topology.md` — ADR (Accepted) — two workers split read/write:
   site (SSR + KV read, no secrets) and pipeline (webhook + publish + secrets); no containers,
@@ -49,12 +49,12 @@ summary, key topics.
   path (content push → commit status → live post) and the CI code path (workflow_dispatch →
   build → size gate → deploy → authenticated `/publish` drain). Topics: pipeline worker,
   webhook, hmac, commit status, deploy, secrets, ci, workflow_dispatch, size budget.
-- `docs/guides/publishing.md` — Guide — the `blog` CLI: `check` (validate the content tree
-  against the compiled component vocabulary) and `publish --local` (break-glass publish via
-  the Cloudflare KV API), including the scoped-token setup. Topics: cli, publish, kv, api
-  token, break-glass.
+- `docs/guides/publishing.md` — Guide — manual publishing: `just check` (validate the content
+  tree against the compiled component vocabulary) and `just publish` (break-glass/bulk publish:
+  `xtask plan` piped into `wrangler kv bulk put/delete` + purge; wrangler owns auth). Topics:
+  xtask, just, publish, kv, wrangler, break-glass.
 - `docs/guides/tracer-bullet-demo.md` — Guide — hand-publish a post end-to-end before the
-  pipeline worker exists: mdx2json example bin → `wrangler kv key put` → `/posts/{slug}`.
+  pipeline worker exists: `xtask ast` → `wrangler kv key put` → `/posts/{slug}`.
   Topics: demo, kv seeding, read path, tracer bullet.
 
 ## Other

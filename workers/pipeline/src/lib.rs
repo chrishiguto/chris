@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use content_parser::Diagnostic;
+use content::Diagnostic;
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -462,13 +462,10 @@ pub fn purge_payloads(origin: &str, paths: &[String]) -> Vec<String> {
 
 // --- manifest ---
 
-/// The deployed component vocabulary, collected from `app`'s inventory
-/// registrations — publish validation runs against exactly what the site
-/// renders with.
-pub fn manifest() -> registry::Manifest {
-    // The registrations only link if at least one `app` symbol is referenced
-    // from this crate — with zero references the linker drops the rlib and
-    // the vocabulary comes back empty (pinned by the manifest test).
-    std::hint::black_box(app::app::PRELOADED_FONTS);
-    registry::manifest()
+/// The deployed component vocabulary — publish validation runs against
+/// exactly what the site renders with. `app::manifest()` owns the
+/// linker-anchor dance that keeps the inventory registrations linked
+/// (pinned by the manifest test).
+pub fn manifest() -> content::Manifest {
+    app::manifest()
 }

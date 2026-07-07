@@ -34,11 +34,15 @@ next CI callback. Observability: the worker posts a **GitHub commit status** (co
 > worker), v1 uses the **Commit Status API**, which works with a fine-grained PAT
 > (commit statuses: read/write). Trade-off: a status carries only a ~140-char description and
 > a target URL — no rich markdown output panel — so the status holds a concise summary and
-> full file/line diagnostics remain the job of `blog check`. Revisit as a GitHub App if v2
+> full file/line diagnostics remain the job of `just check`. Revisit as a GitHub App if v2
 > wants inline annotations.
 
-A `blog publish --local` CLI ships as break-glass; if the webhook path is ever retired, the
-CLI-in-CI posture (option 3 below) is reachable without redesign.
+A manual break-glass path ships alongside: `just publish` — an `xtask` plan piped into
+`wrangler kv bulk put/delete` plus a purge call *(amended post-v1: originally a dedicated
+`blog publish --local` CLI with its own Cloudflare REST client and scoped token; replaced by
+the justfile + wrangler so auth and transport reuse the tooling deploys already need)*. If
+the webhook path is ever retired, the CLI-in-CI posture (option 3 below) is reachable
+without redesign.
 
 ## Options considered
 

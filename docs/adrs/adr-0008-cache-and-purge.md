@@ -26,6 +26,13 @@ hydration markup — served after a deploy, it means 404'd wasm and dead islands
   that fetch client-side. KV remains the source of truth; the cache is never trusted, only
   invalidated.
 
+*Amendment (post-v1, crate consolidation):* the purge set is no longer a hand-maintained
+mirror of the site's routes. The KV keys, post/tag path builders, and the listing/feed path
+sets are defined once in `content` (`content/src/routes.rs`) and consumed by the site's
+router/sitemap, the app's hrefs, and the publish plan's purge list — adding an index-backed
+page in one place makes it routed, listed, and purged by construction. The draft-visibility
+filter is likewise one helper (`IndexEntry::is_listed`) instead of per-consumer `!draft`.
+
 ## Options considered
 
 1. **No caching** — fine (single-digit ms renders) but leaves free performance unclaimed.

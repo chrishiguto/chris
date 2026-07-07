@@ -1,7 +1,7 @@
 //! Native tests for feed/sitemap rendering over a fixture index — the pure
 //! half of the site worker (the wasm shim only wires these to routes).
 
-use content_ast::IndexEntry;
+use content::IndexEntry;
 use site::feeds;
 
 const ORIGIN: &str = "https://example.com";

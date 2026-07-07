@@ -64,10 +64,11 @@ git push → webhook → pipeline worker
 
 ```
 crates/
-  content-ast/       versioned serde ast — the contract everything shares
-  content-parser/    markdown-rs mdx mode → ast + validation diagnostics
+  content/           versioned serde ast + manifest types — the contract everything
+                     shares; mdx parsing + validation behind its `parse` feature
   registry/          #[post_component] macro, inventory registration, manifest
-  blog-cli/          blog check / blog publish --local
+  publish/           pure publish planning: check + kv write plan (wasm-clean)
+  xtask/             workspace scripts: check / plan (for just publish) / ast
 app/                 leptos ui: routes, layout, ast renderer, shared components
 workers/
   site/              ssr worker — leptos_axum (wasm) + axum + cache api + kv reads

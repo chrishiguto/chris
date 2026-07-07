@@ -1,14 +1,17 @@
-# Publishing with the `blog` CLI
+# Manual publishing with `just` + wrangler
 
-The `blog` CLI is the v1 publish path and the permanent break-glass path
-(ADR-0007): validate the content tree locally, then write posts and the
-listing index straight to KV through the Cloudflare API. The webhook fast
-path (pipeline worker, Slice 6) reuses the same `publish-core` logic.
+The `just publish` recipe is the permanent break-glass path (ADR-0007) and the
+bulk-import path: validate the content tree locally, plan the KV writes with
+`xtask`, and move the bytes with wrangler — the same `publish` crate logic the
+webhook fast path (pipeline worker) runs. There is no dedicated CLI and no
+extra API token: auth is wrangler's own (your local `wrangler login` session,
+or `CLOUDFLARE_API_TOKEN` in automation — the same credentials deploys use).
 
-## `blog check`
+## `just check`
 
 ```sh
-cargo run -p blog-cli -- check
+just check          # fmt + clippy + content-tree validation
+cargo run -p xtask -- check   # just the content check
 ```
 
 Parses and validates every `content/blog/{slug}/index.mdx` against the
@@ -18,39 +21,48 @@ bad prop, malformed frontmatter, non-ISO date, a post directory without
 `index.mdx`) prints as `file:line:column: message` and exits non-zero, so it
 works as a pre-commit hook.
 
-## One-time setup for `blog publish --local`
-
-KV writes go through the Cloudflare REST API with a scoped token — never a
-global API key.
-
-1. **Namespace id**: `npx wrangler kv namespace create BLOG` (once per
-   account); paste the id into `wrangler.toml` and keep it handy.
-2. **Scoped token**: Cloudflare dashboard → My Profile → API Tokens →
-   Create Token → Custom. Grant exactly one permission:
-   **Account → Workers KV Storage → Edit**, scoped to your account.
-3. **Environment** (e.g. in your shell profile or an untracked `.env`):
-
-```sh
-export CLOUDFLARE_ACCOUNT_ID=…   # dashboard → Workers & Pages → account id
-export BLOG_KV_NAMESPACE_ID=…    # from step 1
-export CLOUDFLARE_API_TOKEN=…    # from step 2
-```
-
 ## Publishing
 
 ```sh
 # one post (break-glass: only this post has to be valid)
-cargo run -p blog-cli -- publish --local components-demo
+just publish components-demo
 
 # the whole tree: publishes every post, rewrites the index from the tree,
 # and deletes KV posts whose directories no longer exist locally
-cargo run -p blog-cli -- publish --local --all
+just publish --all
+
+# against the local `wrangler dev` simulator (e2e testing)
+just remote='--local' publish --all
 ```
 
-Both write `post:{slug}` documents plus the rewritten `index` (newest-first)
-in one bulk call, so `/`, `/posts`, and `/posts/{slug}` are live immediately
-after the command returns. `--all` is also the onboarding path for content
-written before the pipeline existed (PRD "Importing existing content").
+Under the hood the recipe is four steps, all inspectable in the justfile:
+fetch the current `index` (`wrangler kv key get`), plan (`xtask plan` →
+`target/publish/{writes,deletes,purge}.json`), apply (`wrangler kv bulk put`
++ `bulk delete`), purge. Posts and the rewritten newest-first `index` land
+in one bulk call, so `/`, `/posts`, and `/posts/{slug}` are live immediately.
+`--all` is also the onboarding path for content written before the pipeline
+existed (PRD "Importing existing content").
 
-Note: until Slice 8 (cache layer) lands, pages are rendered per-request, so
-there is nothing to purge after a publish.
+## Cache purge
+
+After applying the plan, the recipe purges exactly the plan's URLs (the same
+set the pipeline worker purges, ADR-0008) — but only when a zone exists:
+
+```sh
+export CLOUDFLARE_ZONE_ID=…      # the custom domain's zone
+export SITE_ORIGIN=…             # e.g. https://blog.example.com
+export CLOUDFLARE_API_TOKEN=…    # needs Zone → Cache Purge
+```
+
+With any of these unset the purge is skipped with a note — correct on
+`*.workers.dev`, where the Cache API is inert and there is nothing to purge.
+A failed purge never fails the already-applied publish; the site's 7-day TTL
+is the backstop.
+
+## One-time setup
+
+1. **Namespace**: `npx wrangler kv namespace create BLOG` (once per account);
+   paste the id into `wrangler.toml`.
+2. **Auth**: `npx wrangler login` locally — that's it. In CI or scripts, set
+   `CLOUDFLARE_ACCOUNT_ID` + `CLOUDFLARE_API_TOKEN` (the token needs
+   **Workers KV Storage: Edit**; the deploy token can simply gain that scope).

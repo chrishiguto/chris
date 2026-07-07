@@ -6,7 +6,7 @@
 //! Atom takes ISO-8601 timestamps directly, so frontmatter dates need no
 //! RFC-822 weekday arithmetic.
 
-use content_ast::IndexEntry;
+use content::{tag_path, IndexEntry, LISTING_PAGES};
 
 const SITE_TITLE: &str = "chris";
 const AUTHOR: &str = "chris";
@@ -15,7 +15,7 @@ const EPOCH: &str = "1970-01-01";
 
 /// Published entries only, in stored (newest-first) order.
 fn published(index: &[IndexEntry]) -> impl Iterator<Item = &IndexEntry> {
-    index.iter().filter(|entry| !entry.draft)
+    index.iter().filter(|entry| entry.is_listed())
 }
 
 /// Escapes text for XML element content and attribute values.
@@ -90,10 +90,10 @@ pub fn sitemap(origin: &str, index: &[IndexEntry]) -> String {
         .map(String::as_str)
         .collect();
 
-    let urls = ["/", "/posts", "/tags"]
+    let urls = LISTING_PAGES
         .into_iter()
         .map(String::from)
-        .chain(tags.into_iter().map(|tag| format!("/tags/{tag}")))
+        .chain(tags.into_iter().map(tag_path))
         .map(|path| format!("<url><loc>{origin}{path}</loc></url>\n"))
         .chain(published(index).map(|entry| {
             format!(

@@ -7,14 +7,12 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Linked for its inventory registrations (same as blog-cli): publish
+# Linked for its inventory registrations (via app::manifest): publish
 # validation runs against the real deployed vocabulary.
 app = { workspace = true }
-content-ast = { workspace = true }
-content-parser = { workspace = true }
+content = { workspace = true, features = ["parse"] }
 hmac = { workspace = true }
-publish-core = { workspace = true }
-registry = { workspace = true, features = ["dispatch"] }
+publish = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

@@ -24,7 +24,7 @@ mod server {
         routing::get,
         Router,
     };
-    use content_ast::{Document, IndexEntry};
+    use content::{post_key, Document, IndexEntry, INDEX_KEY, LISTING_PAGES};
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
     use tower_service::Service;
@@ -37,7 +37,7 @@ mod server {
     const POST_ROUTE: &str = "/posts/{slug}";
     /// Listing routes render from the KV `index`; one handler serves them
     /// all — the leptos Router picks the page from the request URL.
-    const LISTING_ROUTES: [&str; 3] = ["/", "/posts", "/tags"];
+    const LISTING_ROUTES: [&str; 3] = LISTING_PAGES;
     /// Like [`POST_ROUTE`], but 404s on tags no published post carries.
     const TAG_ROUTE: &str = "/tags/{tag}";
 
@@ -256,7 +256,7 @@ mod server {
         };
         let known = index
             .iter()
-            .any(|entry| !entry.draft && entry.tags.contains(&tag));
+            .any(|entry| entry.is_listed() && entry.tags.contains(&tag));
 
         let mut response = render_page(&state, req, move || {
             provide_context(IndexData(index.clone()))
@@ -363,7 +363,7 @@ mod server {
     async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
         let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
         let json = kv
-            .get("index")
+            .get(INDEX_KEY)
             .text()
             .await
             .map_err(|err| err.to_string())?;
@@ -378,7 +378,7 @@ mod server {
     async fn load_post(env: &Env, slug: &str) -> Result<Option<Document>, String> {
         let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
         let json = kv
-            .get(&format!("post:{slug}"))
+            .get(&post_key(slug))
             .text()
             .await
             .map_err(|err| err.to_string())?;

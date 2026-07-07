@@ -6,7 +6,7 @@ Slice 3 read-path demo: fixture `.mdx` → AST JSON → KV → `/posts/{slug}`.
 ## 1. Parse a fixture into AST JSON
 
 ```sh
-cargo run -p content-parser --example mdx2json -- \
+cargo run -p xtask -- ast \
   content/blog/components-demo/index.mdx > /tmp/post.json
 ```
 

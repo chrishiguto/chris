@@ -43,10 +43,47 @@ fmt:
     cargo fmt --all
 
 # fmt-check + clippy (native target; ssr deps are feature-gated so this compiles)
+# + content-tree validation against the compiled component vocabulary
 check:
     leptosfmt --check app workers content
     cargo fmt --all --check
     cargo clippy --workspace -- -D warnings
+    cargo run -q -p xtask -- check
+
+# break-glass / bulk publish straight to KV through wrangler (ADR-0007):
+# xtask plans, wrangler moves the bytes, auth is wrangler's own (local OAuth
+# session or CLOUDFLARE_API_TOKEN — no extra token setup). Pass slugs or
+# --all; `remote='--local'` targets the `wrangler dev` simulator instead.
+# Purge needs CLOUDFLARE_ZONE_ID + SITE_ORIGIN + CLOUDFLARE_API_TOKEN and is
+# skipped otherwise (correct on workers.dev, where the Cache API is inert).
+remote := '--remote'
+
+publish +args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    out=target/publish
+    mkdir -p "$out"
+    # Missing key prints "Value not found" and exits 0 (xtask treats any
+    # non-JSON as the empty first-publish index); real failures exit non-zero
+    # and abort — a half-read index must never plan deletes.
+    npx wrangler kv key get --binding BLOG {{remote}} index --text > "$out/index.json"
+    cargo run -q -p xtask -- plan {{args}} --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
+    npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
+    if [ "$(cat "$out/deletes.json")" != "[]" ]; then
+        npx wrangler kv bulk delete --binding BLOG {{remote}} --force "$out/deletes.json"
+    fi
+    if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${SITE_ORIGIN:-}" ]; then
+        # Purge-by-URL caps at 30 files per call; a break-glass publish stays
+        # well under it, and a failed purge only means the 7-day TTL backstop.
+        curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"files\": $(cat "$out/purge.json")}" > /dev/null \
+            && echo "purged the plan's urls" \
+            || echo "warning: purge failed — cached pages fall back to the 7-day TTL"
+    else
+        echo "purge skipped (CLOUDFLARE_ZONE_ID/SITE_ORIGIN unset — inert on workers.dev)"
+    fi
 
 # one-time toolchain setup (rust + node assumed)
 setup:

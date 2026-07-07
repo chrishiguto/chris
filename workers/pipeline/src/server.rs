@@ -2,9 +2,8 @@
 //! function in `lib.rs` with native tests; this file just moves bytes
 //! between the webhook, the GitHub API, and KV.
 
-use content_ast::IndexEntry;
-use content_parser::Diagnostic;
-use publish_core::{ParsedPost, PostSource, INDEX_KEY};
+use content::{Diagnostic, IndexEntry, INDEX_KEY};
+use publish::{ParsedPost, PostSource};
 use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result};
 
 use crate::{
@@ -172,7 +171,7 @@ async fn run_publish(
             source,
         });
     }
-    let parsed = publish_core::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
+    let parsed = publish::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
 
     apply_plan(env, &parsed, &set.removed)
         .await
@@ -196,7 +195,7 @@ async fn apply_plan(
         .await
         .map_err(|err| err.to_string())?
         .unwrap_or_default();
-    let plan = publish_core::plan(prev, published, removed).map_err(|err| err.to_string())?;
+    let plan = publish::plan(prev, published, removed).map_err(|err| err.to_string())?;
     for write in &plan.writes {
         kv.put(&write.key, write.value.as_str())
             .map_err(|err| err.to_string())?
@@ -319,7 +318,7 @@ async fn drain(
                         file: post_path(&entry.slug),
                         source,
                     };
-                    match publish_core::check(std::slice::from_ref(&post), &manifest) {
+                    match publish::check(std::slice::from_ref(&post), &manifest) {
                         Ok(mut posts) => {
                             published.extend(posts.pop());
                             DrainEntryOutcome::Published

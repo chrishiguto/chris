@@ -9,7 +9,7 @@ The renderer must turn `Component{name: "OrbitSimulator", props: {"gravity": "3.
 typed call of a compiled Leptos component. That dispatch table — and the knowledge of which
 components exist with which props — has to come from somewhere, and the same knowledge is
 needed in three places: render dispatch (site worker), publish validation (pipeline worker),
-and local/editor checking (`blog check`, future LSP).
+and local/editor checking (`xtask check`, future LSP).
 
 ## Decision
 
@@ -22,9 +22,17 @@ components in the app crate (available to every post) and per-post co-located fi
 (ADR-0004) — through the same macro, manifest, and dispatch path. v1 macro scope is deliberately bounded: scalar props + children +
 manifest emission; richer prop types come later.
 
-The DX ladder this enables: `.mdx` editor highlighting (free) → `blog check` pre-commit (v1) →
+The DX ladder this enables: `.mdx` editor highlighting (free) → `xtask check` pre-commit (v1) →
 diagnostics/autocomplete LSP fed by the manifest (v2; rust-analyzer can never see into
 markdown, so the manifest is the only road to editor intelligence).
+
+*Amendment (post-v1, crate consolidation):* the manifest **type definitions**
+(`Manifest`/`ComponentSpec`/`PropSpec`/`PropType`) moved from `registry` into the shared
+`content` crate, so the parser validates against them without depending on the registry
+(breaking the `content(parse) → registry → content` package cycle the consolidation would
+otherwise create). `registry` remains the layer that *produces* a `content::Manifest` from
+its `inventory` registrations, and re-exports the types so macro-generated `::registry::…`
+paths are unchanged. One source of truth, three consumers — unchanged in substance.
 
 ## Options considered
 

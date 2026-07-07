@@ -4,7 +4,7 @@
 #![cfg(feature = "ssr")]
 
 use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
-use content_ast::IndexEntry;
+use content::IndexEntry;
 use leptos::prelude::RenderHtml;
 
 fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {

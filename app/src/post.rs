@@ -1,8 +1,8 @@
-//! Post page: renders a `content-ast` [`Document`] (read from KV by the site
+//! Post page: renders a content-IR [`Document`] (read from KV by the site
 //! worker) into Leptos views. Per ADR-0002 the stored AST is semantic; every
 //! presentational decision lives here.
 
-use content_ast::{Document, Node};
+use content::{Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 use leptos_meta::{Meta, Title};

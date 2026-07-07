@@ -9,7 +9,7 @@ pub const CACHE_CONTROL: &str = "max-age=604800";
 
 /// Cache-API lookup key for a request URL: the absolute URL with query and
 /// fragment stripped, so every variant of a page shares the one entry the
-/// purge set's bare `origin + path` URLs (publish-core) name exactly.
+/// purge set's bare `origin + path` URLs (the `publish` crate) name exactly.
 /// `None` for relative URIs — the Cache API keys on absolute URLs only.
 pub fn cache_key(uri: &str) -> Option<String> {
     let (scheme, rest) = uri.split_once("://")?;

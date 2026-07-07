@@ -11,9 +11,9 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 app = { workspace = true, features = ["ssr"], optional = true }
 axum = { workspace = true, optional = true }
-# Ungated: the feeds module renders from `IndexEntry` natively (content-ast
+# Ungated: the feeds module renders from `IndexEntry` natively (content's
 # is pure serde types, fine on the host target).
-content-ast = { workspace = true }
+content = { workspace = true }
 getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true, optional = true }

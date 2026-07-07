@@ -3,8 +3,8 @@
 Posts look like MDX but are **not** MDX (ADR-0003): they are markdown plus
 component *tags*, with zero JavaScript. Everything a post can express is pure
 data; component behavior lives in compiled Rust, resolved by name through the
-registry (ADR-0005). This file is the contract — when in doubt, `blog check`
-(`cargo run -p blog-cli -- check`) and publish validation enforce exactly
+registry (ADR-0005). This file is the contract — when in doubt, `just check`
+(`cargo run -p xtask -- check`) and publish validation enforce exactly
 what is described here.
 
 ## Where posts live
@@ -34,7 +34,7 @@ draft: true                          # optional; keeps the post out of listings
 TOML frontmatter (`+++`) and posts without frontmatter are rejected.
 
 Each tag names its `/tags/{tag}` page verbatim, so tags must be lowercase
-slugs — letters, digits, and hyphens only; `blog check` enforces this. Posts
+slugs — letters, digits, and hyphens only; `just check` enforces this. Posts
 without a `description` fall back to their title in the feed.
 
 ## Drafts
@@ -117,7 +117,7 @@ Posts are data, not programs. The parser rejects, with file/line diagnostics:
 Shared components live in `app/src/components/`; annotate a Leptos component
 with `#[post_component]` (above `#[component]`/`#[island]`) and it registers
 itself — name, props, and children-acceptance flow into the manifest that
-validation and `blog check` consume:
+validation and `just check` consume:
 
 ```rust
 #[post_component]

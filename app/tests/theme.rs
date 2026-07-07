@@ -138,7 +138,7 @@ fn fonts_are_self_hosted_and_never_shift_layout() {
 #[test]
 fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
-    let doc = content_parser::parse_validated(source, &registry::manifest())
+    let doc = content::parse_validated(source, &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
     let html = render_document(&doc).to_html().replace("<!>", "");
     for needle in [

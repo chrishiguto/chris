@@ -1,12 +1,12 @@
 //! Snapshot tests for the AST renderer: every prose node type in
-//! `content-ast` must render, plus the Slice-3 component placeholder.
+//! the content IR must render, plus the Slice-3 component placeholder.
 //! Run with `cargo test -p app --features ssr`.
 #![cfg(feature = "ssr")]
 
 use std::collections::BTreeMap;
 
 use app::post::{render_document, render_nodes, PostData, PostPage};
-use content_ast::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
+use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
 use leptos::prelude::RenderHtml;
 
 fn text(value: &str) -> Node {
@@ -306,7 +306,7 @@ fn manifest_contains_the_v1_vocabulary() {
 #[test]
 fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/components-demo/index.mdx");
-    let doc = content_parser::parse_validated(source, &registry::manifest())
+    let doc = content::parse_validated(source, &registry::manifest())
         .expect("fixture post must validate against the live manifest");
     let html = strip_markers(render_document(&doc).to_html());
     assert!(

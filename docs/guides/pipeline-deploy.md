@@ -24,7 +24,7 @@ the worker just runs.
    - **neither** → no-op.
 3. Posts a `blog/publish` commit status on the pushed SHA: `success` with the
    published slugs, `failure` with a concise error (the Commit Status API caps
-   descriptions at 140 chars — full diagnostics via `blog check`), `pending`
+   descriptions at 140 chars — full diagnostics via `just check`), `pending`
    for parked code pushes.
 
 `POST /publish` is CI's post-deploy callback (ADR-0007's ordering guarantee):
@@ -59,7 +59,7 @@ Two purge layers, different scopes, deliberately ordered:
   On the CI code path this runs *before* the `/publish` callback, so the
   callback's targeted purge is never undone by the nuke.
 - **Publish** (this worker): after every applied KV plan, REST purge-by-URL
-  of exactly the plan's enumerated set (`publish_core::PublishPlan::purge`):
+  of exactly the plan's enumerated set (`publish::PublishPlan::purge`):
   `/`, `/posts`, `/rss.xml`, `/sitemap.xml`, `/tags`, the touched posts'
   URLs, and the tag pages they appear on (old and new tags). Publishing
   post N never evicts post M. Requests are chunked to the API's 30-files

@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use content_ast::PropValue;
+use content::PropValue;
 use leptos::prelude::AnyView;
 
 use crate::{integral, ComponentSpec, Manifest, PropSpec, PropType};

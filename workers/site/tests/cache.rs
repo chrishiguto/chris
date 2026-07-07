@@ -21,7 +21,7 @@ fn cache_key_is_the_absolute_url() {
 }
 
 /// Query and fragment variants must share one entry: the purge set names
-/// pages as bare `origin + path` URLs (publish-core), and a `?utm=…` copy
+/// pages as bare `origin + path` URLs (the `publish` crate), and a `?utm=…` copy
 /// that survived a purge would serve stale content for the full TTL.
 #[test]
 fn cache_key_strips_query_and_fragment() {

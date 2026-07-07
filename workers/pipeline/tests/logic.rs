@@ -313,7 +313,7 @@ fn success_description_lists_published_and_removed_slugs() {
 
 #[test]
 fn failure_description_is_concise_and_counts_diagnostics() {
-    let diag = |message: &str| content_parser::Diagnostic {
+    let diag = |message: &str| content::Diagnostic {
         message: message.to_string(),
         file: Some("content/blog/hello/index.mdx".to_string()),
         line: Some(3),
@@ -438,7 +438,7 @@ fn publish_request_carries_sha_and_repository() {
 // --- drain report (user story 32: the cross-commit retry) ---
 
 fn drain_report() -> DrainReport {
-    let diag = content_parser::Diagnostic {
+    let diag = content::Diagnostic {
         message: "unknown component <OrbitSimulatr>".to_string(),
         file: Some("content/blog/broken/index.mdx".to_string()),
         line: Some(3),
@@ -505,7 +505,7 @@ fn summary_counts_what_landed_and_what_stayed_parked() {
     assert_eq!(clean.summary(), "published hello");
 }
 
-// --- manifest (pins the inventory linkage anchor, like blog-cli) ---
+// --- manifest (pins the inventory linkage anchor in app::manifest) ---
 
 #[test]
 fn manifest_exposes_the_real_app_vocabulary() {
