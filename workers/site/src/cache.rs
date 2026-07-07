@@ -17,18 +17,26 @@ pub fn not_modified(if_none_match: &str, etag: &str) -> bool {
     })
 }
 
-/// Lookup key: the absolute URL minus query and fragment, matching the bare
-/// URLs the purge set names. `None` for relative URIs.
-pub fn cache_key(uri: &str) -> Option<String> {
-    let (scheme, rest) = uri.split_once("://")?;
-    if scheme.is_empty() || rest.is_empty() {
-        return None;
-    }
-    let end = rest
-        .find(['?', '#'])
-        .map(|i| scheme.len() + 3 + i)
-        .unwrap_or(uri.len());
-    Some(uri[..end].to_string())
+/// Lookup key: the absolute URL, matching the bare URLs the purge set
+/// names. Callers pass `Uri::path()`, which already excludes the query
+/// (and request URIs carry no fragment). `None` for relative URIs.
+pub fn cache_key(scheme: Option<&str>, authority: Option<&str>, path: &str) -> Option<String> {
+    Some(format!("{}://{}{path}", scheme?, authority?))
+}
+
+/// Whether a response may thin to a bodyless 304: a 200 whose ETag matches
+/// the client's `If-None-Match`.
+pub fn revalidates(status: u16, if_none_match: Option<&str>, etag: Option<&str>) -> bool {
+    status == 200
+        && match (if_none_match, etag) {
+            (Some(validators), Some(etag)) => not_modified(validators, etag),
+            _ => false,
+        }
+}
+
+/// Headers describing the entity body, dropped when a 304 drops the body.
+pub fn is_entity_header(name: &str) -> bool {
+    name.starts_with("content-")
 }
 
 /// Store only what a handler explicitly marked: 200 with exactly

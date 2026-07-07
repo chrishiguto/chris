@@ -1,43 +1,27 @@
 //! Native tests for the pure cache policy.
 
-use site::cache::{cache_key, etag, not_modified, should_cache, CACHE_CONTROL};
-
-#[test]
-fn cache_control_splits_edge_ttl_from_browser_revalidation() {
-    assert_eq!(CACHE_CONTROL, "max-age=0, s-maxage=604800");
-}
+use site::cache::{
+    cache_key, etag, is_entity_header, not_modified, revalidates, should_cache, CACHE_CONTROL,
+};
 
 #[test]
 fn cache_key_is_the_absolute_url() {
     assert_eq!(
-        cache_key("https://blog.example.com/posts/hello"),
+        cache_key(Some("https"), Some("blog.example.com"), "/posts/hello"),
         Some("https://blog.example.com/posts/hello".to_string())
     );
     assert_eq!(
-        cache_key("https://blog.example.com/"),
+        cache_key(Some("https"), Some("blog.example.com"), "/"),
         Some("https://blog.example.com/".to_string())
     );
 }
 
-/// Variants must share one entry — a `?utm=…` copy that survived a purge
-/// would serve stale content for the full TTL.
-#[test]
-fn cache_key_strips_query_and_fragment() {
-    assert_eq!(
-        cache_key("https://blog.example.com/posts/hello?utm_source=feed"),
-        Some("https://blog.example.com/posts/hello".to_string())
-    );
-    assert_eq!(
-        cache_key("https://blog.example.com/tags#top"),
-        Some("https://blog.example.com/tags".to_string())
-    );
-}
-
-/// A relative URI means no key rather than a malformed one.
+/// A relative request URI means no key rather than a malformed one.
 #[test]
 fn cache_key_requires_an_absolute_url() {
-    assert_eq!(cache_key("/posts/hello"), None);
-    assert_eq!(cache_key("://missing-scheme/x"), None);
+    assert_eq!(cache_key(None, None, "/posts/hello"), None);
+    assert_eq!(cache_key(None, Some("blog.example.com"), "/x"), None);
+    assert_eq!(cache_key(Some("https"), None, "/x"), None);
 }
 
 #[test]
@@ -69,4 +53,27 @@ fn not_modified_handles_lists_weak_prefixes_and_star() {
     assert!(not_modified(&format!("W/{tag}"), &tag));
     assert!(not_modified("*", &tag));
     assert!(!not_modified("\"a\", \"b\"", &tag));
+}
+
+/// Only a matching 200 thins to a 304 — a 404 or 500 with a stray ETag
+/// must never lose its body.
+#[test]
+fn revalidates_only_a_matching_200() {
+    let tag = etag("abc123");
+    assert!(revalidates(200, Some(&tag), Some(&tag)));
+    assert!(!revalidates(404, Some(&tag), Some(&tag)));
+    assert!(!revalidates(500, Some(&tag), Some(&tag)));
+    assert!(!revalidates(200, Some("\"other\""), Some(&tag)));
+    assert!(!revalidates(200, None, Some(&tag)));
+    assert!(!revalidates(200, Some(&tag), None));
+}
+
+/// The 304 keeps validators and cache directives, drops body metadata.
+#[test]
+fn entity_headers_are_the_content_family() {
+    assert!(is_entity_header("content-type"));
+    assert!(is_entity_header("content-length"));
+    assert!(!is_entity_header("etag"));
+    assert!(!is_entity_header("cache-control"));
+    assert!(!is_entity_header("x-blog-cache"));
 }

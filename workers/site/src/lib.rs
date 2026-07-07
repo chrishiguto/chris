@@ -6,11 +6,7 @@ pub mod feeds;
 #[cfg(feature = "ssr")]
 mod server {
     use crate::{cache, feeds};
-    use app::{
-        app::{shell, App},
-        listing::IndexData,
-        post::PostData,
-    };
+    use app::{app::shell, listing::IndexData, post::PostData};
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
@@ -27,14 +23,12 @@ mod server {
         LISTING_PAGES, RSS_PATH, SITEMAP_PATH,
     };
     use leptos::prelude::*;
-    use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
     use tower_service::Service;
     use worker::{console_error, Cache, Env};
 
     const KV_BINDING: &str = "BLOG";
-    /// Custom axum routes (they need the per-request `Env` for KV), so
-    /// excluded from the leptos-generated route list. Axum's `{param}`
-    /// templates for `content::post_path` / `content::tag_path`.
+    /// Axum's `{param}` templates for `content::post_path` /
+    /// `content::tag_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
     const TAG_ROUTE: &str = "/tags/{tag}";
 
@@ -54,31 +48,15 @@ mod server {
     async fn fetch(
         req: worker::HttpRequest,
         env: Env,
-        _ctx: worker::Context,
+        ctx: worker::Context,
     ) -> worker::Result<Response<Body>> {
-        // Isolates outlive requests: cache the config and route list, but
-        // assemble the router per-request (it captures `env`).
+        // Isolates outlive requests: cache the config, but assemble the
+        // router per-request (it captures `env`).
         thread_local! {
-            static CONFIG: (LeptosOptions, Vec<AxumRouteListing>) = {
-                let conf = get_configuration(None).unwrap();
-                let routes = generate_route_list_with_exclusions(
-                    App,
-                    Some(
-                        [POST_ROUTE, TAG_ROUTE]
-                            .into_iter()
-                            .chain(LISTING_PAGES)
-                            .map(String::from)
-                            .collect(),
-                    ),
-                );
-                (conf.leptos_options, routes)
-            };
+            static OPTIONS: LeptosOptions = get_configuration(None).unwrap().leptos_options;
         }
-        let (options, routes) = CONFIG.with(Clone::clone);
-        let state = AppState {
-            options: options.clone(),
-            env,
-        };
+        let options = OPTIONS.with(Clone::clone);
+        let state = AppState { options, env };
 
         // Captured before the router consumes the request.
         let if_none_match = req
@@ -89,18 +67,26 @@ mod server {
 
         // Cache front: a hit returns before any KV read or render.
         let key = (req.method() == Method::GET)
-            .then(|| cache::cache_key(&req.uri().to_string()))
+            .then(|| {
+                let uri = req.uri();
+                cache::cache_key(
+                    uri.scheme_str(),
+                    uri.authority().map(|authority| authority.as_str()),
+                    uri.path(),
+                )
+            })
             .flatten();
         let cache = Cache::default();
-        let response = 'response: {
+        let mut response = 'response: {
             if let Some(key) = &key {
                 if let Some(hit) = cached(&cache, key).await {
                     break 'response hit;
                 }
             }
 
-            // One handler serves all listing pages; the leptos Router picks
-            // the page from the URL.
+            // Every app route gets an explicit handler (one listing handler
+            // serves all listing pages; the leptos Router picks the page
+            // from the URL). An app route missing here 404s.
             let mut router = LISTING_PAGES
                 .iter()
                 .fold(
@@ -111,7 +97,6 @@ mod server {
                         .route(SITEMAP_PATH, get(sitemap_xml)),
                     |r, path| r.route(path, get(listing_page)),
                 )
-                .leptos_routes(&state, routes, move || shell(options.clone()))
                 .fallback(not_found_page)
                 .with_state(state);
 
@@ -124,11 +109,19 @@ mod server {
                 Some(key) if cache::should_cache(response.status().as_u16(), cache_control) => {
                     // The cache keeps the full body; only the client copy
                     // may thin to a 304 below.
-                    store(&cache, key, response).await
+                    store(&ctx, key, response).await
                 }
                 _ => response,
             }
         };
+        // Not explicitly cacheable means explicitly uncacheable: drafts,
+        // 404s, and errors must never pick up heuristic freshness anywhere
+        // downstream.
+        if !response.headers().contains_key(CACHE_CONTROL) {
+            response
+                .headers_mut()
+                .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
+        }
         Ok(revalidated(response, if_none_match.as_deref()))
     }
 
@@ -155,8 +148,9 @@ mod server {
     }
 
     /// Buffers the body so one copy goes to the cache, one to the client.
-    /// A failed put logs but never fails a good render.
-    async fn store(cache: &Cache, key: String, response: Response<Body>) -> Response<Body> {
+    /// The put completes after the response via `wait_until`, off the
+    /// miss-path latency; a failed put logs but never fails a good render.
+    async fn store(ctx: &worker::Context, key: String, response: Response<Body>) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let bytes = match axum::body::to_bytes(body, usize::MAX).await {
             Ok(bytes) => bytes,
@@ -171,11 +165,11 @@ mod server {
         };
         let copy = Response::from_parts(parts.clone(), Body::from(bytes.clone()));
         match worker::Response::try_from(copy) {
-            Ok(copy) => {
-                if let Err(err) = cache.put(&key, copy).await {
+            Ok(copy) => ctx.wait_until(async move {
+                if let Err(err) = Cache::default().put(&key, copy).await {
                     console_error!("cache put for {key} failed: {err}");
                 }
-            }
+            }),
             Err(err) => console_error!("cache copy of {key} unusable: {err}"),
         }
         let mut response = Response::from_parts(parts, Body::from(bytes));
@@ -204,16 +198,13 @@ mod server {
     }
 
     /// Downgrades a 200 whose ETag matches the client's `If-None-Match` to a
-    /// bodyless 304; anything without an ETag passes through untouched.
+    /// bodyless 304; the policy lives in [`cache::revalidates`].
     fn revalidated(response: Response<Body>, if_none_match: Option<&str>) -> Response<Body> {
         let etag = response
             .headers()
             .get(ETAG)
             .and_then(|value| value.to_str().ok());
-        let (Some(validators), Some(etag)) = (if_none_match, etag) else {
-            return response;
-        };
-        if response.status() != StatusCode::OK || !cache::not_modified(validators, etag) {
+        if !cache::revalidates(response.status().as_u16(), if_none_match, etag) {
             return response;
         }
         let (mut parts, _) = response.into_parts();
@@ -221,7 +212,7 @@ mod server {
         let entity: Vec<_> = parts
             .headers
             .keys()
-            .filter(|name| name.as_str().starts_with("content-"))
+            .filter(|name| cache::is_entity_header(name.as_str()))
             .cloned()
             .collect();
         for name in entity {
@@ -236,16 +227,10 @@ mod server {
         Path(slug): Path<String>,
         req: Request<Body>,
     ) -> Response<Body> {
-        let (post, sha) = match load_post(&state.env, &slug).await {
+        let loaded = load_or_500(load_post(&state.env, &slug), &format!("post {slug}")).await;
+        let (post, sha) = match loaded {
             Ok(loaded) => loaded,
-            Err(err) => {
-                console_error!("failed to load post:{slug}: {err}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "the stored post could not be loaded",
-                )
-                    .into_response();
-            }
+            Err(response) => return response,
         };
         let not_found = post.is_none();
         // Drafts render (shareable by URL) but are never cached: an
@@ -266,7 +251,7 @@ mod server {
 
     #[worker::send]
     async fn listing_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
-        let (index, sha) = match load_index_or_500(&state.env).await {
+        let (index, sha) = match load_or_500(load_index(&state.env), "the post index").await {
             Ok(loaded) => loaded,
             Err(response) => return response,
         };
@@ -286,7 +271,7 @@ mod server {
         Path(tag): Path<String>,
         req: Request<Body>,
     ) -> Response<Body> {
-        let (index, sha) = match load_index_or_500(&state.env).await {
+        let (index, sha) = match load_or_500(load_index(&state.env), "the post index").await {
             Ok(loaded) => loaded,
             Err(response) => return response,
         };
@@ -344,7 +329,7 @@ mod server {
         build: fn(&str, &[IndexEntry]) -> String,
         content_type: &'static str,
     ) -> Response<Body> {
-        let (index, sha) = match load_index_or_500(&state.env).await {
+        let (index, sha) = match load_or_500(load_index(&state.env), "the post index").await {
             Ok(loaded) => loaded,
             Err(response) => return response,
         };
@@ -383,15 +368,16 @@ mod server {
         render(req).await
     }
 
-    /// The KV index (with its snapshot sha) or the shared 500 response.
-    async fn load_index_or_500(
-        env: &Env,
-    ) -> Result<(Vec<IndexEntry>, Option<String>), Response<Body>> {
-        load_index(env).await.map_err(|err| {
-            console_error!("failed to load index: {err}");
+    /// Maps a failed KV load to the shared, logged 500.
+    async fn load_or_500<T>(
+        load: impl std::future::Future<Output = Result<T, String>>,
+        what: &str,
+    ) -> Result<T, Response<Body>> {
+        load.await.map_err(|err| {
+            console_error!("failed to load {what}: {err}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                "the post index could not be loaded",
+                format!("{what} could not be loaded"),
             )
                 .into_response()
         })
