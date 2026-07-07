@@ -11,8 +11,7 @@ command = "just build"
 directory = "./target/site"
 
 # Keys: `snapshot:{sha}:post:{slug}` / `snapshot:{sha}:index` behind the
-# `current` pointer. `wrangler dev` ignores the id; the placeholder makes
-# production deploys fail loudly until the real namespace id is pasted in.
+# `current` pointer. `wrangler dev` ignores the id.
 [[kv_namespaces]]
 binding = "BLOG"
-id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
+id = "86ddce8f97854520bb4c9ec79cd838f0"

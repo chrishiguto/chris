@@ -9,10 +9,10 @@ compatibility_date = "2026-07-03"
 command = "just build-pipeline"
 
 # Must be the SAME namespace the site worker binds — the pipeline writes
-# what the site reads. The placeholder makes deploys fail loudly by design.
+# what the site reads.
 [[kv_namespaces]]
 binding = "BLOG"
-id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
+id = "86ddce8f97854520bb4c9ec79cd838f0"
 
 # One Durable Object instance serializes every content mutation.
 # SQLite-backed is the only kind available on the Workers Free plan.
