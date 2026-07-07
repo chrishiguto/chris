@@ -1,0 +1,98 @@
+---
+title: The kitchen sink
+date: 2026-07-04
+description: Every AST node type and Callout kind on one page — the theme's QA read.
+tags: [meta, theme]
+---
+
+This post is the theme's QA page: every AST node type and every `Callout`
+kind, in one long read. If a construct exists in `CONTENT.md`, it appears
+here — when the theme changes, read this page top to bottom in *both* color
+schemes before shipping.
+
+## Prose and inline marks
+
+Body text is set in Lora with real *italics*, **bold**, and `inline code`
+that sits inside a sentence without jumping out of the line. Links like
+[the Leptos book](https://book.leptos.dev) get a quiet underline that
+sharpens on hover.
+
+A hard\
+break splits a line inside one paragraph.
+
+Press <kbd>ctrl</kbd>+<kbd>c</kbd> to copy, and lowercase tags such as
+<abbr title="Abstract Syntax Tree">AST</abbr> pass straight through with
+their children still parsed as markdown.
+
+### Lists
+
+Unordered, for shapes of things:
+
+- KV stores meaning
+- deployed code owns presentation
+- caches are purged, never rebuilt
+
+Ordered, starting mid-sequence the way real numbered digressions do:
+
+3. parse at publish time
+4. render at request time
+5. purge exactly what changed
+
+#### Code
+
+```rust
+fn render_node(node: &Node) -> AnyView {
+    // presentation decisions live here, never in KV
+    match node {
+        Node::Text { value } => value.clone().into_any(),
+        _ => todo!(),
+    }
+}
+```
+
+A fence with no language stays a plain styled block:
+
+```
+$ just dev
+Listening on http://localhost:8787
+```
+
+##### Quotes
+
+> Publishing or editing post N triggers zero work on any other post —
+> that is the whole architecture, stated once.
+
+###### The smallest heading
+
+An h6 exists mostly to prove the scale bottoms out gracefully.
+
+---
+
+## Components
+
+<Callout kind="note" title="Note">
+  The default informational aside — accent-hued, calm.
+</Callout>
+
+<Callout kind="tip" title="Tip">
+  Green means *go*: something worth stealing for your own setup.
+</Callout>
+
+<Callout kind="warning" title="Heads up">
+  Amber for sharp edges, like the `worker` version pin this repo carries.
+</Callout>
+
+<Callout kind="danger" title="Do not">
+  Red for the things that break production, with a [link](https://example.com)
+  to the postmortem.
+</Callout>
+
+An interactive island, server-rendered then hydrated:
+
+<Counter initial={42} />
+
+## An image
+
+![A muted placeholder gradient](/images/kitchen-sink.svg "Every image gets a hairline border and rounded corners")
+
+That is every node type the renderer can emit.

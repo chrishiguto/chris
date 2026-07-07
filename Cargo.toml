@@ -1,10 +1,31 @@
 [workspace]
 resolver = "2"
-members = ["app", "workers/site"]
+members = [
+    "app",
+    "crates/content",
+    "crates/publish",
+    "crates/xtask",
+    "crates/registry",
+    "crates/registry-macro",
+    "workers/pipeline",
+    "workers/site",
+]
 
 [workspace.dependencies]
 app = { path = "app" }
+content = { path = "crates/content" }
+publish = { path = "crates/publish" }
+registry = { path = "crates/registry" }
+registry-macro = { path = "crates/registry-macro" }
 axum = { version = "0.8", default-features = false }
+# Already in the wasm graph via `worker`; used directly for join!/buffered.
+futures-util = "0.3"
+hmac = "0.12"
+inventory = "0.3"
+markdown = "1"
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
 # Both getrandom majors are in the graph; each needs `wasm_js` (plus the
 # getrandom_backend cfg set in the build command) to compile for wasm32.
 getrandom = { version = "0.4", features = ["wasm_js"] }
@@ -14,6 +35,9 @@ leptos_axum = { version = "0.8", default-features = false, features = ["wasm"] }
 leptos_meta = "0.8"
 leptos_router = "0.8"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+sha2 = "0.10"
 tower-service = "0.3"
 wasm-bindgen = "0.2"
 # Pinned: 0.8.4+ pulls wasm-streams 0.6 alongside server_fn's 0.5 and fat LTO

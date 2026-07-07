@@ -1,0 +1,75 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "Component children are "
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "markdown"
+                }
+              ],
+              "type": "strong"
+            },
+            {
+              "type": "text",
+              "value": ", parsed recursively."
+            }
+          ],
+          "type": "paragraph"
+        }
+      ],
+      "name": "Callout",
+      "props": {
+        "dismissable": true,
+        "kind": "warning",
+        "level": 3.0
+      },
+      "type": "component"
+    },
+    {
+      "children": [],
+      "name": "OrbitSim",
+      "props": {
+        "autoplay": true,
+        "planets": 8.0,
+        "speed": 1.5
+      },
+      "type": "component"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Inline components work too: "
+        },
+        {
+          "children": [],
+          "name": "Badge",
+          "props": {
+            "label": "beta"
+          },
+          "type": "component"
+        },
+        {
+          "type": "text",
+          "value": " inside prose."
+        }
+      ],
+      "type": "paragraph"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Components"
+  },
+  "schema_version": 1
+}

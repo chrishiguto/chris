@@ -1,0 +1,34 @@
+# The write-path worker; deploys independently of the site.
+name = "chris-pipeline"
+main = "build/index.js"
+compatibility_date = "2026-07-03"
+
+[build]
+# Build lives in the repo-root justfile so dev, deploy, and CI share one
+# definition.
+command = "just build-pipeline"
+
+# Must be the SAME namespace the site worker binds — the pipeline writes
+# what the site reads.
+[[kv_namespaces]]
+binding = "BLOG"
+id = "86ddce8f97854520bb4c9ec79cd838f0"
+
+# One Durable Object instance serializes every content mutation.
+# SQLite-backed is the only kind available on the Workers Free plan.
+[durable_objects]
+bindings = [{ name = "COORDINATOR", class_name = "PublishCoordinator" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PublishCoordinator"]
+
+# Secrets (wrangler secret put, never vars): GITHUB_WEBHOOK_SECRET,
+# GITHUB_TOKEN, PUBLISH_SHARED_SECRET, CLOUDFLARE_PURGE_TOKEN.
+
+# Publish-time cache purge; empty = skipped (purge-by-URL needs a zone and
+# *.workers.dev has none). With a custom domain, set both here and the
+# CLOUDFLARE_ZONE_ID repo variable so the CI purge runs too.
+[vars]
+CLOUDFLARE_ZONE_ID = ""
+SITE_ORIGIN = ""

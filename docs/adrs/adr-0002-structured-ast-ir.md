@@ -16,7 +16,7 @@ whether islands hydrate correctly.
 KV stores a **serde-typed, versioned semantic AST**: prose as structured nodes (`Heading`,
 `Paragraph`, `CodeBlock{lang, text}`, `List`, `Link`, `Image`, `Component{name, props,
 children}`, …), with **no pre-rendered HTML** and component references resolved **by name at
-render time** through the registry. The schema lives in a shared crate (`content-ast`) with a
+render time** through the registry. The schema lives in the shared `content` crate (its always-on layer) with a
 `schema_version` field — the single contract shared by parser, renderer, and CLI.
 
 Corollary decisions: code blocks are stored as raw text + lang — presentation (including

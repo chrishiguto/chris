@@ -1,0 +1,104 @@
+{
+  "ast": [
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "first bullet"
+                }
+              ],
+              "type": "paragraph"
+            }
+          ]
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "second bullet with "
+                },
+                {
+                  "children": [
+                    {
+                      "type": "text",
+                      "value": "emphasis"
+                    }
+                  ],
+                  "type": "emphasis"
+                }
+              ],
+              "type": "paragraph"
+            },
+            {
+              "items": [
+                {
+                  "children": [
+                    {
+                      "children": [
+                        {
+                          "type": "text",
+                          "value": "nested bullet"
+                        }
+                      ],
+                      "type": "paragraph"
+                    }
+                  ]
+                }
+              ],
+              "ordered": false,
+              "type": "list"
+            }
+          ]
+        }
+      ],
+      "ordered": false,
+      "type": "list"
+    },
+    {
+      "items": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "ordered, starting at three"
+                }
+              ],
+              "type": "paragraph"
+            }
+          ]
+        },
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "and counting"
+                }
+              ],
+              "type": "paragraph"
+            }
+          ]
+        }
+      ],
+      "ordered": true,
+      "start": 3,
+      "type": "list"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Lists"
+  },
+  "schema_version": 1
+}

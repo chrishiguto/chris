@@ -1,7 +1,7 @@
 # ADR-0007: Single publish operation, two invokers; CI provides ordering
 
-**Status**: Accepted (2026-07-03); amended 2026-07-04 — Check Runs replaced by commit statuses (see note in Decision)
-**Related**: PRD `docs/prds/prd-leptos-workers-blog-v1.md`; depends on ADR-0004, ADR-0006
+**Status**: Accepted (2026-07-03); amended 2026-07-04 — Check Runs replaced by commit statuses (see note in Decision); amended 2026-07-07 — the ordering mechanism (pending list + CI drain) is superseded by ADR-0009 (see note at the end)
+**Related**: PRD `docs/prds/prd-leptos-workers-blog-v1.md`; depends on ADR-0004, ADR-0006; superseded in part by ADR-0009
 
 ## Context
 
@@ -34,11 +34,15 @@ next CI callback. Observability: the worker posts a **GitHub commit status** (co
 > worker), v1 uses the **Commit Status API**, which works with a fine-grained PAT
 > (commit statuses: read/write). Trade-off: a status carries only a ~140-char description and
 > a target URL — no rich markdown output panel — so the status holds a concise summary and
-> full file/line diagnostics remain the job of `blog check`. Revisit as a GitHub App if v2
+> full file/line diagnostics remain the job of `just check`. Revisit as a GitHub App if v2
 > wants inline annotations.
 
-A `blog publish --local` CLI ships as break-glass; if the webhook path is ever retired, the
-CLI-in-CI posture (option 3 below) is reachable without redesign.
+A manual break-glass path ships alongside: `just publish` — an `xtask` plan piped into
+`wrangler kv bulk put/delete` plus a purge call *(amended post-v1: originally a dedicated
+`blog publish --local` CLI with its own Cloudflare REST client and scoped token; replaced by
+the justfile + wrangler so auth and transport reuse the tooling deploys already need)*. If
+the webhook path is ever retired, the CLI-in-CI posture (option 3 below) is reachable
+without redesign.
 
 ## Options considered
 
@@ -58,3 +62,14 @@ CLI-in-CI posture (option 3 below) is reachable without redesign.
 - Bad: `GITHUB_TOKEN` must live in the pipeline worker (webhook payloads carry paths, not file
   contents, so the worker must fetch content itself).
 - Bad: the code path depends on GitHub Actions availability (accepted; break-glass CLI exists).
+
+> **Amendment (2026-07-07, ADR-0009)**: the "two-line pending list" claim did not survive
+> contact with concurrency — the list was shared mutable state on CAS-less KV, and its
+> per-push SHA pinning let a late CI drain revert a newer fast-path publish (review findings
+> 1 and 3). What this ADR got right stands: one publish operation, two invokers, the worker
+> classifying pushes, CI sequencing deploy before publish, commit statuses as the receipt.
+> What changed: the publish operation is now a reconcile-to-HEAD writing immutable
+> `snapshot:{sha}:*` sets behind a `current` pointer, serialized by a coordinator Durable
+> Object; the `pending` list, drain, and per-SHA retry machinery are gone. Deploy-before-
+> publish is enforced by validation against the deployed manifest (the post-deploy trigger
+> retries carried-forward failures) instead of by parking. See ADR-0009.

@@ -1,0 +1,71 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level one"
+        }
+      ],
+      "level": 1,
+      "type": "heading"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level two"
+        }
+      ],
+      "level": 2,
+      "type": "heading"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level three"
+        }
+      ],
+      "level": 3,
+      "type": "heading"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level four"
+        }
+      ],
+      "level": 4,
+      "type": "heading"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level five"
+        }
+      ],
+      "level": 5,
+      "type": "heading"
+    },
+    {
+      "children": [
+        {
+          "type": "text",
+          "value": "Level six"
+        }
+      ],
+      "level": 6,
+      "type": "heading"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Headings"
+  },
+  "schema_version": 1
+}

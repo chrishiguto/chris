@@ -7,13 +7,18 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+content = { workspace = true }
 getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true }
 leptos_meta = { workspace = true }
 leptos_router = { workspace = true }
+registry = { workspace = true, features = ["dispatch"] }
 serde = { workspace = true }
 wasm-bindgen = { workspace = true }
+
+[dev-dependencies]
+content = { workspace = true, features = ["parse"] }
 
 [features]
 hydrate = ["leptos/hydrate"]

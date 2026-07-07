@@ -1,0 +1,30 @@
+[package]
+name = "content"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+# Parser-only; default-feature consumers never link markdown-rs.
+markdown = { workspace = true, optional = true }
+serde_yaml = { workspace = true, optional = true }
+
+[features]
+parse = ["dep:markdown", "dep:serde_yaml"]
+
+[[test]]
+name = "parse"
+required-features = ["parse"]
+
+[[test]]
+name = "validate"
+required-features = ["parse"]
+
+[[test]]
+name = "diagnostics"
+required-features = ["parse"]
+
+[[test]]
+name = "golden"
+required-features = ["parse"]

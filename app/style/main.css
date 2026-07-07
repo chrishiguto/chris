@@ -1,3 +1,129 @@
 @import "tailwindcss";
+/* post.css owns everything post-shaped; this file owns fonts, tokens, base layer. */
+@import "./post.css";
 
 @source "../src";
+
+/* Self-hosted faces (Fontsource, OFL-1.1), latin only. `optional` display +
+   preload: a face makes the first paint or the fallback serves the whole page
+   — text never swaps mid-read. */
+
+@font-face {
+  font-family: "Lora";
+  font-style: normal;
+  font-weight: 400;
+  font-display: optional;
+  src: url("/fonts/lora-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lora";
+  font-style: normal;
+  font-weight: 700;
+  font-display: optional;
+  src: url("/fonts/lora-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Lora";
+  font-style: italic;
+  font-weight: 400;
+  font-display: optional;
+  src: url("/fonts/lora-latin-400-italic.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Libre Baskerville";
+  font-style: normal;
+  font-weight: 700;
+  font-display: optional;
+  src: url("/fonts/libre-baskerville-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: optional;
+  src: url("/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Semantic palette: plain vars flipped by `prefers-color-scheme`, mapped to
+   utilities via `@theme inline`. Callout surfaces derive from one hue via
+   color-mix so both modes stay in tune. */
+
+:root {
+  color-scheme: light dark;
+
+  --surface: oklch(98.5% 0.005 85);
+  --surface-raised: oklch(95.7% 0.007 85);
+  --ink: oklch(27% 0.02 55);
+  --ink-muted: oklch(46% 0.018 55);
+  --ink-faint: oklch(62% 0.014 60);
+  --line: oklch(89% 0.01 85);
+  --accent: oklch(50% 0.1 225);
+
+  --hue-note: oklch(55% 0.11 245);
+  --hue-tip: oklch(58% 0.12 155);
+  --hue-warning: oklch(70% 0.14 75);
+  --hue-danger: oklch(55% 0.17 25);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: oklch(22% 0.015 265);
+    --surface-raised: oklch(26.5% 0.017 265);
+    --ink: oklch(89% 0.012 85);
+    --ink-muted: oklch(71% 0.014 85);
+    --ink-faint: oklch(58% 0.012 85);
+    --line: oklch(33% 0.016 265);
+    --accent: oklch(74% 0.09 215);
+
+    --hue-note: oklch(72% 0.1 245);
+    --hue-tip: oklch(74% 0.11 155);
+    --hue-warning: oklch(78% 0.12 80);
+    --hue-danger: oklch(70% 0.14 25);
+  }
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+
+  --font-serif: "Lora", "Georgia", "Times New Roman", serif;
+  --font-heading: "Libre Baskerville", "Georgia", "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Menlo", "Consolas", monospace;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-serif);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: color-mix(in oklab, var(--color-accent) 25%, transparent);
+  }
+}

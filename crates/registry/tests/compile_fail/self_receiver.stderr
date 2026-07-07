@@ -1,0 +1,6 @@
+error: #[post_component] components cannot take `self`
+       = help: #[post_component] must sit above #[component] or #[island] (no such attribute was found below it)
+ --> tests/compile_fail/self_receiver.rs:7:16
+  |
+7 |     pub fn bad(self, msg: String) {
+  |                ^^^^

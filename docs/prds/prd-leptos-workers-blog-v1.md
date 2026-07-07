@@ -39,7 +39,7 @@ A Rust workspace deployed as two Cloudflare Workers:
 Authoring: posts are `content/blog/{slug}/index.mdx` (MDX-syntax subset — component tags with
 literal props; no JS) plus optional co-located `components.rs` (real Rust, full rust-analyzer,
 baked into the registry at build time). Branches are drafts; merge to `main` publishes. A
-`blog check` CLI (sharing the parser/validator crates) catches errors pre-push.
+`just check` gate (an `xtask` over the parser/validator crates) catches errors pre-push.
 
 The entire system is two Worker scripts and a KV namespace — no containers, no Durable
 Objects, no queues.
@@ -53,8 +53,8 @@ Objects, no queues.
   publish callback).
 - Publish outcome visible as a commit status on the commit within the same window, with a
   concise error summary (statuses cap at ~140 chars; full file/line diagnostics via
-  `blog check`).
-- `blog check` locally validates the entire content tree in **≤ 2 s**.
+  `just check`).
+- `just check` locally validates the entire content tree in **≤ 2 s**.
 
 **Technical:**
 - TTFB: **≤ 50 ms** on cache hit, **≤ 300 ms** on cache miss (KV read + SSR render), measured
@@ -101,9 +101,9 @@ Objects, no queues.
 13. As an author, I want a typo'd component name (`<OrbitSimulatr>`) to fail the publish with a
     "did you mean" error on the commit — not render a broken page, so that errors surface at
     publish time.
-14. As an author, I want to run `blog check` locally (or as a pre-commit hook), so that I catch
+14. As an author, I want to run `just check` locally (or as a pre-commit hook), so that I catch
     unknown components, bad props, and malformed frontmatter before pushing.
-15. As an author, I want `blog publish --local` as a break-glass path, so that I can publish
+15. As an author, I want `just publish` as a break-glass path, so that I can publish
     from my laptop if the webhook path is ever down.
 
 **Reader**
@@ -159,19 +159,23 @@ Objects, no queues.
 
 | Module | Responsibility | Interface (conceptual) |
 |---|---|---|
-| `content-ast` | The versioned serde AST schema: document, frontmatter, node enum (`Heading`, `Paragraph`, `CodeBlock`, `List`, `Link`, `Image`, `Html`, `Component{name, props, children}`, …) | Types + (de)serialization + `schema_version`; no logic |
-| `content-parser` | markdown-rs MDX-mode parsing → `content-ast`; frontmatter extraction; validation against the component manifest (unknown components, missing/mistyped props, rejected JS-isms) with source locations | `parse(source) -> Result<Document, Vec<Diagnostic>>`, `validate(doc, manifest) -> Vec<Diagnostic>` |
-| `registry` | `#[post_component]` proc macro: prop conversion codegen, `inventory` registration, manifest emission; runtime dispatch `render(name, props, children) -> AnyView` | Macro + `lookup(name)` + `manifest()` |
+| `content` | *(amended post-v1: `content-ast` and `content-parser` consolidated into one crate, syn-style)* The versioned serde AST schema: document, frontmatter, node enum (`Heading`, `Paragraph`, `CodeBlock`, `List`, `Link`, `Image`, `Html`, `Component{name, props, children}`, …), `IndexEntry` (the KV `index` element), and the component-manifest types (`Manifest`/`ComponentSpec`/`PropSpec`/`PropType`, moved here from `registry` so the parser validates without a registry dependency). The default feature set is types-only (wasm-lean, no logic); the `parse` feature adds markdown-rs MDX-mode parsing → AST, frontmatter extraction, and validation against the component manifest (unknown components, missing/mistyped props, rejected JS-isms) with source locations | Types + (de)serialization + `schema_version`; behind `parse`: `parse(source) -> Result<Document, Vec<Diagnostic>>`, `parse_validated(source, manifest) -> Result<Document, Vec<Diagnostic>>` *(amended in Slice 4: originally `validate(doc, manifest)`, but source positions exist only on the markdown tree — the stored AST carries none (ADR-0002) — so validation is fused into parsing to keep file/line diagnostics)* |
+| `registry` | `#[post_component]` proc macro: prop conversion codegen, `inventory` registration, manifest emission (producing a `content::Manifest`; re-exports the manifest types so macro-generated `::registry::…` paths stay stable); runtime dispatch `render(name, props, children) -> AnyView` | Macro + `lookup(name)` + `manifest()` |
 | `app` | Leptos UI: routes, layout, AST renderer (node → view mapping), shared components (v1: `Callout` + one demo island), Tailwind v4 theme (CSS-first oklch design tokens, light/dark, Libre Baskerville / Lora / IBM Plex Mono) | `render_document(doc) -> impl IntoView` + route tree |
 | `workers/site` | Worker entry: axum router, Cache API front, KV reads, RSS/sitemap/tag rendering from the index | HTTP |
 | `workers/pipeline` | Webhook handling, path-based routing decision, publish op, GitHub content fetch, commit statuses, purge, pending stash | HTTP (webhook + authenticated `/publish`) |
-| `blog-cli` | `blog check` (parse+validate content tree), `blog publish --local`/`--all` | CLI over the same crates |
+| `publish` | *(added in Slice 5 as `publish-core`; renamed post-v1)* The publish operation's pure core, shared by `xtask` and `workers/pipeline`: parse+validate post sources against the manifest, merge the index, lay out KV writes/deletes; wasm-clean (no fs/HTTP/clock — callers own transport) | `check(sources, manifest) -> Result<Vec<ParsedPost>, Vec<Diagnostic>>`, `plan(prev_index, changed, removed) -> PublishPlan` |
+| `xtask` | *(amended post-v1: replaces the `blog-cli` crate — the cargo-xtask scripts pattern; wrangler owns transport/auth instead of a hand-rolled Cloudflare REST client)* `check` (parse+validate content tree), `plan` (emit wrangler-ready KV bulk files consumed by `just publish`), `ast` (one post's AST JSON) | bin over the same crates, fronted by justfile recipes |
 
 **KV schema** (single namespace):
 - `post:{slug}` → `{ schema_version, frontmatter, ast }`
-- `index` → ordered `[{slug, title, date, tags, draft}]`; drafts stored but filtered out of all
+- `index` → ordered `[{slug, title, date, tags, draft, description?}]` *(amended in Slice 10:
+  optional `description`, the post's feed summary — absent entries serialize unchanged)*;
+  drafts stored but filtered out of all
   listings/feeds at render time
-- `pending` → list of `{slug, sha}` awaiting a CI callback
+- `pending` → list of `{slug, sha, removed}` awaiting a CI callback *(amended in Slice 6:
+  `removed` marks a parked deletion, so a code push that removes a post dir drains as a KV
+  delete rather than a content fetch)*
 
 **Publish operation contract** (one implementation, two invokers):
 input = commit SHA + changed/removed content paths; behavior = fetch → parse → validate →
@@ -181,10 +185,17 @@ the SHA (Commit Status API — Checks API write is GitHub-App-only; see ADR-0007
 `index` rewrites are last-write-wins; accepted.
 
 **Cache & purge:**
-- `site`: `cache.match` first; miss → render → `cache.put` with `Cache-Control: max-age=604800`.
+- `site`: `cache.match` first; miss → render → `cache.put` with `Cache-Control: max-age=0,
+  s-maxage=604800` and a snapshot-sha `ETag` *(amended post-v1: originally a bare
+  `max-age=604800`, which browsers honored too — and no purge reaches a client cache. The
+  `s-maxage` split keeps the 7-day edge backstop while browsers revalidate every view,
+  answered with bodyless 304s; see the ADR-0008 amendment)*.
 - Publish purge set (REST purge-by-URL, all colos): changed post URLs, `/`, `/posts`,
   `/rss.xml`, `/sitemap.xml`, and `/tags/{t}` for each tag on the changed posts (+ `/tags`).
-- Deploy: `purge_everything` as the CI step after `wrangler deploy` (hydration correctness).
+- Deploy: `purge_everything` as the CI step after `wrangler deploy` (hydration correctness)
+  *(amended in Slice 7: the step is gated on a `CLOUDFLARE_ZONE_ID` repo variable —
+  `purge_everything` needs a zone and `*.workers.dev` has none (the Cache API is equally inert
+  there), so it stays skipped until a custom domain lands)*.
 
 **CI (single workflow):** triggered by `workflow_dispatch` from the pipeline worker; steps:
 build → size check → `wrangler deploy` (site, pipeline as needed) → `purge_everything` →
@@ -244,7 +255,7 @@ Full ADRs in `docs/adrs/`; summaries:
 ### Proc-macro component registry with emitted manifest
 **Decision**: `#[post_component]` generates prop parsing, registers via `inventory`, and emits a machine-readable manifest of names/props/types.
 **Context**: The registry (name + string props → typed component call) must come from somewhere; hand-written match arms vs codegen.
-**Key Drivers**: DX ("just annotate the component"); the manifest enables publish validation, `blog check`, and a future `.mdx` LSP from one source of truth; `inventory` is proven on wasm (Leptos server fns).
+**Key Drivers**: DX ("just annotate the component"); the manifest enables publish validation, `xtask check`, and a future `.mdx` LSP from one source of truth; `inventory` is proven on wasm (Leptos server fns).
 **Considered Options**: 1. Hand-written match + manual prop parsing. 2. Attribute macro + inventory. 3. build.rs syn-based codegen.
 **Chosen Option**: Attribute macro (v1 scope: scalar props + children + manifest), because it's the piece that makes this a framework rather than a script, and the manifest's three consumers justify the macro investment.
 **Trade-offs**: Good: zero per-component boilerplate; introspectable vocabulary. Bad: proc-macro development/debugging cost lands in v1. Bad: macro scope creep is a real risk — v1 boundary is explicit.
@@ -284,11 +295,11 @@ Full ADRs in `docs/adrs/`; summaries:
   interesting behavior is testable with `cargo test` on the native target — no Workers runtime,
   no mocks of Cloudflare APIs for the core.
 - **Modules tested**:
-  - `content-parser` (highest value): golden tests — fixture `.mdx` files → expected AST JSON;
+  - `content` parser (highest value, behind `parse`): golden tests — fixture `.mdx` files → expected AST JSON;
     diagnostic tests — unknown component, missing/mistyped prop, `import`/expression rejection,
     malformed frontmatter, each asserting message + source location. The fixture corpus doubles
     as the authoring-format spec.
-  - `content-ast`: serde round-trip and schema-version compatibility (old-version fixture must
+  - `content` types: serde round-trip and schema-version compatibility (old-version fixture must
     still deserialize or fail detectably).
   - `app` renderer: AST → `leptos::ssr::render_to_string` snapshot tests per node type,
     including component dispatch and children recursion.
@@ -297,7 +308,7 @@ Full ADRs in `docs/adrs/`; summaries:
   - `workers/pipeline`: pure decision logic (path classification, purge-set computation,
     pending handling) extracted into testable functions; the worker shim stays thin and is
     exercised by `wrangler dev` smoke tests, not unit tests.
-  - `blog-cli`: integration test over a fixture content tree (check passes/fails as expected).
+  - `xtask`: integration test over a fixture content tree (check passes/fails as expected).
 - **Prior art**: Workers-runtime test harnesses are high-friction and tend to rot into unused
   scaffolding; this design avoids depending on them — thin worker shims, fat natively-testable
   crates.
@@ -313,7 +324,7 @@ Full ADRs in `docs/adrs/`; summaries:
   vocabulary addition.
 - **Figure/Image component and image asset hosting** — v1 posts are text + components; where
   images live (repo vs R2) is deliberately unresolved.
-- **Branch deploy previews**; v1 preview = `blog check` + local `cargo leptos watch`.
+- **Branch deploy previews**; v1 preview = `just check` + local `cargo leptos watch`.
 - **`/status` page** and `publish:log` journal.
 - **About page** as content; if wanted in v1 it's a hardcoded route.
 - Comments, search, analytics, newsletter — not this project.
@@ -324,7 +335,7 @@ Full ADRs in `docs/adrs/`; summaries:
 
 - **Sequencing** (tracer-bullet order agreed in the design session): (1) scaffold from the
   workers-rs Leptos template, SSR + hydration working under `wrangler dev` and deployed once;
-  (2) `content-ast` + `content-parser` with the fixture corpus; (3) AST renderer in `app` with
+  (2) the `content` crate (types + parser) with the fixture corpus; (3) AST renderer in `app` with
   a hand-wired component before the macro exists; (4) macro + manifest; (5) pipeline worker +
   publish op + commit statuses; (6) CI workflow + purge; (7) RSS/sitemap/tags; (8) visual theme.
 - **Dependencies**: Cloudflare Workers Paid plan ($5/mo — 10 MB limit accepted as the budget);
@@ -335,5 +346,5 @@ Full ADRs in `docs/adrs/`; summaries:
 - **Ecosystem risk, accepted**: Leptos is feature-complete but "lightly maintained" (May 2026
   maintainer statement); pinned to 0.8.x with no expectation of 0.9.
 - **Importing existing content**: posts already written in the `content/blog/{slug}/index.mdx`
-  shape are onboarded by running the publish operation over the tree (`blog publish --all`);
+  shape are onboarded by running the publish operation over the tree (`just publish --all`);
   there is no storage-level migration — KV is populated exclusively through the pipeline.

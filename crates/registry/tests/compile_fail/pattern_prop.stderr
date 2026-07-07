@@ -1,0 +1,6 @@
+error: #[post_component] props must be plain identifiers, not patterns
+       = help: #[post_component] must sit above #[component] or #[island] (no such attribute was found below it)
+ --> tests/compile_fail/pattern_prop.rs:5:12
+  |
+5 | pub fn Bad((a, b): (String, String)) {
+  |            ^^^^^^

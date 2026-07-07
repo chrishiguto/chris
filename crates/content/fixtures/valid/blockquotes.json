@@ -1,0 +1,47 @@
+{
+  "ast": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "A quoted paragraph with "
+            },
+            {
+              "children": [
+                {
+                  "type": "text",
+                  "value": "strong"
+                }
+              ],
+              "type": "strong"
+            },
+            {
+              "type": "text",
+              "value": " text."
+            }
+          ],
+          "type": "paragraph"
+        },
+        {
+          "children": [
+            {
+              "type": "text",
+              "value": "And a second quoted paragraph."
+            }
+          ],
+          "type": "paragraph"
+        }
+      ],
+      "type": "blockquote"
+    }
+  ],
+  "frontmatter": {
+    "date": "2026-07-04",
+    "draft": false,
+    "tags": [],
+    "title": "Blockquotes"
+  },
+  "schema_version": 1
+}

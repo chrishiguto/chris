@@ -9,3 +9,9 @@ command = "just build"
 # Anything under target/site (including /pkg/*) is served without invoking the worker.
 [assets]
 directory = "./target/site"
+
+# Keys: `snapshot:{sha}:post:{slug}` / `snapshot:{sha}:index` behind the
+# `current` pointer. `wrangler dev` ignores the id.
+[[kv_namespaces]]
+binding = "BLOG"
+id = "86ddce8f97854520bb4c9ec79cd838f0"

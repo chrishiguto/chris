@@ -1,0 +1,15 @@
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+# Linked so check/plan validate against the real component vocabulary.
+app = { workspace = true }
+content = { workspace = true, features = ["parse"] }
+publish = { workspace = true }
+serde_json = { workspace = true }

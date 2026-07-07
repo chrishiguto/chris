@@ -1,0 +1,6 @@
+error: #[post_component] children must be plain `Children` (v1 scope)
+       = help: #[post_component] must sit above #[component] or #[island] (no such attribute was found below it)
+ --> tests/compile_fail/children_type.rs:5:22
+  |
+5 | pub fn Bad(children: Vec<String>) {
+  |                      ^^^

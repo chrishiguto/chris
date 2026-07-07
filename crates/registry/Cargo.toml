@@ -1,0 +1,19 @@
+[package]
+name = "registry"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+content = { workspace = true }
+# The dispatch gate lets manifest-only consumers link this crate leptos-free.
+inventory = { workspace = true, optional = true }
+leptos = { workspace = true, optional = true }
+registry-macro = { workspace = true, optional = true }
+
+[features]
+dispatch = ["dep:inventory", "dep:leptos", "dep:registry-macro"]
+
+[dev-dependencies]
+leptos = { workspace = true, features = ["ssr"] }
+serde_json = { workspace = true }
+trybuild = "1"
