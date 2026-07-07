@@ -5,8 +5,12 @@
 
 use std::path::Path;
 
-use content::{Diagnostic, Manifest};
+use content::{Diagnostic, IndexEntry, Manifest};
 use publish::{ParsedPost, PostSource};
+
+/// What wrangler's `kv key get` prints (to stdout, exit 0) when the key does
+/// not exist — the only non-JSON output [`parse_index`] accepts.
+const WRANGLER_VALUE_NOT_FOUND: &str = "Value not found";
 
 /// Walks a `content/blog` tree (`{slug}/index.mdx`, per CONTENT.md) into
 /// post sources, sorted by slug. Structural problems — a post directory
@@ -65,4 +69,18 @@ pub fn check_tree(
             Err(diags)
         }
     }
+}
+
+/// Parses the KV `index` as captured by `just publish`. Exactly two inputs
+/// mean "no index yet" (the first-ever publish): empty output, or wrangler's
+/// `Value not found` message (`kv key get` prints it and exits 0). Anything
+/// else must parse as the index's JSON array — never a silent fallback,
+/// because a swallowed index would make `plan` rewrite the listing from
+/// scratch, unlisting every post it wasn't given.
+pub fn parse_index(raw: &str) -> Result<Vec<IndexEntry>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
+        return Ok(Vec::new());
+    }
+    serde_json::from_str(trimmed).map_err(|err| format!("index is not valid JSON: {err}"))
 }

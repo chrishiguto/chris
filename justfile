@@ -63,9 +63,10 @@ publish +args:
     set -euo pipefail
     out=target/publish
     mkdir -p "$out"
-    # Missing key prints "Value not found" and exits 0 (xtask treats any
-    # non-JSON as the empty first-publish index); real failures exit non-zero
-    # and abort — a half-read index must never plan deletes.
+    # Missing key prints exactly "Value not found" and exits 0 — the only
+    # non-JSON output xtask accepts (as the empty first-publish index).
+    # Anything else errors, and real wrangler failures exit non-zero and
+    # abort here — a half-read index must never reach `plan`.
     npx wrangler kv key get --binding BLOG {{remote}} index --text > "$out/index.json"
     cargo run -q -p xtask -- plan {{args}} --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"

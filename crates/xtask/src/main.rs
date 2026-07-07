@@ -144,18 +144,14 @@ fn selected_posts(
     publish::check(&selected, manifest).map_err(|diags| render_diags(&diags))
 }
 
-/// Reads the current KV `index`. Absent key tolerated by design: wrangler's
-/// `kv key get` exits 0 printing `Value not found`, so anything that is not
-/// a JSON array (missing file, empty output, that message) means "no index
-/// yet" — the first-ever publish.
+/// Reads the current KV `index`. The sentinel logic lives in
+/// [`xtask::parse_index`]: only empty output or wrangler's exact
+/// `Value not found` mean "first publish" — an unreadable file or any other
+/// non-JSON content fails closed instead of silently planning a fresh index.
 fn read_index(path: &Path) -> Result<Vec<IndexEntry>, String> {
-    let raw = std::fs::read_to_string(path).unwrap_or_default();
-    let trimmed = raw.trim();
-    if !trimmed.starts_with('[') {
-        return Ok(Vec::new());
-    }
-    serde_json::from_str(trimmed)
-        .map_err(|err| format!("{}: index is not valid JSON: {err}", path.display()))
+    let raw = std::fs::read_to_string(path)
+        .map_err(|err| format!("{}: cannot read index: {err}", path.display()))?;
+    xtask::parse_index(&raw).map_err(|err| format!("{}: {err}", path.display()))
 }
 
 fn write_json(dir: &Path, name: &str, value: &serde_json::Value) -> Result<(), String> {
