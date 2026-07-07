@@ -1,4 +1,4 @@
-# The CI half of ADR-0007's code path: the pipeline worker fires this via
+# The CI half of the code path: the pipeline worker fires this via
 # workflow_dispatch when a push contains code, and the step sequence — build,
 # size gate, deploy, purge, /publish callback — is what guarantees
 # deploy-before-publish ordering for mixed commits. No state machine.
@@ -51,7 +51,7 @@ jobs:
           just build
           just build-pipeline
 
-      # Workers caps scripts at 10 MB gzipped; warn early at 5 MB (user story 27)
+      # Workers caps scripts at 10 MB gzipped; warn early at 5 MB
       - name: Enforce the worker size budget
         run: |
           budget() {
@@ -74,10 +74,10 @@ jobs:
       - name: Deploy the pipeline worker
         run: npx wrangler deploy --config workers/pipeline/wrangler.toml
 
-      # Deploys invalidate everything (hashed assets, hydration pairing —
-      # user story 24). purge_everything needs a zone, and workers.dev has
+      # Deploys invalidate everything (hashed assets, hydration pairing).
+      # purge_everything needs a zone, and workers.dev has
       # none: the step only runs once a custom domain lands and its zone id
-      # is set as the CLOUDFLARE_ZONE_ID repo variable (see Slice 8 / #11).
+      # is set as the CLOUDFLARE_ZONE_ID repo variable.
       - name: Purge the cache (custom-domain zones only)
         if: vars.CLOUDFLARE_ZONE_ID != ''
         env:

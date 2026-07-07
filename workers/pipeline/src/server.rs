@@ -26,8 +26,8 @@ const ZONE_ID_VAR: &str = "CLOUDFLARE_ZONE_ID";
 /// Absolute origin the site serves on, e.g. `https://blog.example.com`
 /// (wrangler.toml var) — purge-by-URL needs full URLs, not paths.
 const SITE_ORIGIN_VAR: &str = "SITE_ORIGIN";
-/// API token scoped to Zone → Cache Purge → Purge (ADR-0008's extra
-/// credential; a secret like the GitHub ones).
+/// API token scoped to Zone → Cache Purge → Purge (a secret like the
+/// GitHub ones).
 const PURGE_TOKEN: &str = "CLOUDFLARE_PURGE_TOKEN";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
@@ -66,7 +66,7 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
     }
 }
 
-/// Code path (ADR-0007): deploy must precede publish, so the set is parked
+/// Code path: deploy must precede publish, so the set is parked
 /// under `pending` and CI is dispatched; its `/publish` callback drains.
 async fn park_pending(env: &Env, event: &PushEvent, set: &PublishSet) -> Result<Response> {
     let kv = env.kv(KV_BINDING)?;
@@ -210,7 +210,7 @@ async fn apply_plan(
     Ok(())
 }
 
-/// REST purge-by-URL of the plan's enumerated set, all colos (ADR-0008).
+/// REST purge-by-URL of the plan's enumerated set, all colos.
 /// Best-effort by design: the publish is already applied, KV is the truth,
 /// and the site's 7-day TTL backstops a missed purge — so failures log
 /// loudly instead of failing the publish. Skips (with a log line) until a
@@ -263,7 +263,7 @@ async fn purge_request(url: &str, token: &str, body: String) -> std::result::Res
     }
 }
 
-/// CI's post-deploy callback (ADR-0007): authenticate, drain `pending`,
+/// CI's post-deploy callback: authenticate, drain `pending`,
 /// park validation failures for the next callback, report per pushed SHA.
 async fn publish_callback(req: &mut Request, env: &Env) -> Result<Response> {
     let secret = env.secret(PUBLISH_SECRET)?.to_string();
@@ -394,8 +394,8 @@ async fn fetch_content(
 }
 
 /// Best-effort: a failed status post must not fail an already-applied
-/// publish, so it logs loudly instead of propagating (user story 12 still
-/// holds — GitHub outages aside, the status lands on every path).
+/// publish, so it logs loudly instead of propagating (GitHub outages
+/// aside, the status lands on every path).
 async fn post_status(env: &Env, repo: &str, sha: &str, state: StatusState, description: &str) {
     let url = statuses_url(repo, sha);
     let body = status_payload(state, description);

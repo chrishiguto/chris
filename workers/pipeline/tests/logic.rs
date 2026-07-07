@@ -1,6 +1,6 @@
-//! Native tests for the pipeline worker's pure decision logic (PRD testing
-//! decisions: classification, publish-set computation, pending handling and
-//! status building are plain functions — the wasm shim stays thin).
+//! Native tests for the pipeline worker's pure decision logic:
+//! classification, publish-set computation, pending handling and
+//! status building are plain functions — the wasm shim stays thin.
 
 use pipeline::{
     classify, contents_url, dispatch_payload, dispatch_url, failure_description, merge_pending,
@@ -48,7 +48,7 @@ fn branch_pushes_are_not_default_branch() {
     assert!(!event.is_default_branch());
 }
 
-// --- signature verification (user story 34) ---
+// --- signature verification ---
 
 // GitHub's documented webhook validation example, so the implementation is
 // checked against the spec rather than against itself.
@@ -114,7 +114,7 @@ fn post_path_round_trips_the_slug() {
     assert_eq!(post_slug(&post_path("hello")), Some("hello"));
 }
 
-// --- classification (user stories 3, 5, 30, 31) ---
+// --- classification ---
 
 #[test]
 fn content_only_push_takes_the_fast_path() {
@@ -174,7 +174,7 @@ fn mixed_push_takes_the_code_path_with_the_publish_set() {
 
 #[test]
 fn colocated_components_count_as_code() {
-    // ADR-0004: per-post Rust must ride the deploy path even under content/
+    // Per-post Rust must ride the deploy path even under content/
     let class = classify(&[commit(&["content/blog/hello/components.rs"], &[], &[])]);
     assert_eq!(class, PushClass::Code(PublishSet::default()));
 }
@@ -233,7 +233,7 @@ fn empty_push_is_ignored() {
     assert_eq!(classify(&[]), PushClass::Ignore);
 }
 
-// --- pending stash (user story 31; PRD KV schema `pending`) ---
+// --- pending stash ---
 
 fn entry(slug: &str, sha: &str, removed: bool) -> PendingEntry {
     PendingEntry {
@@ -290,7 +290,7 @@ fn pending_entries_round_trip_as_the_kv_payload() {
     assert_eq!(PENDING_KEY, "pending");
 }
 
-// --- commit status building (user story 12; ADR-0007 amendment) ---
+// --- commit status building ---
 
 #[test]
 fn success_description_lists_published_and_removed_slugs() {
@@ -389,7 +389,7 @@ fn github_urls_pin_repo_path_and_sha() {
     );
 }
 
-// --- workflow dispatch (Slice 7: the ADR-0007 code path) ---
+// --- workflow dispatch (the code path) ---
 
 #[test]
 fn dispatch_url_targets_the_publish_workflow() {
@@ -408,7 +408,7 @@ fn dispatch_payload_carries_branch_ref_and_commit_sha() {
     assert_eq!(json["inputs"]["sha"], "abc123");
 }
 
-// --- /publish auth (user story 35) ---
+// --- /publish auth ---
 
 #[test]
 fn matching_bearer_token_authenticates() {
@@ -435,7 +435,7 @@ fn publish_request_carries_sha_and_repository() {
     assert_eq!(request.repository, "chrishiguto/chris");
 }
 
-// --- drain report (user story 32: the cross-commit retry) ---
+// --- drain report (the cross-commit retry) ---
 
 fn drain_report() -> DrainReport {
     let diag = content::Diagnostic {
@@ -519,7 +519,7 @@ fn manifest_exposes_the_real_app_vocabulary() {
     );
 }
 
-// --- cache purge requests (ADR-0008, Slice 8) ---
+// --- cache purge requests ---
 
 #[test]
 fn purge_url_targets_the_zone_purge_endpoint() {

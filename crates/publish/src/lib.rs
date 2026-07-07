@@ -53,7 +53,7 @@ pub struct PublishPlan {
 
 /// Parses and validates every source against the manifest, collecting
 /// diagnostics across all files — `xtask check` and publish share this gate,
-/// so nothing invalid can reach KV (user stories 13, 14).
+/// so nothing invalid can reach KV.
 pub fn check(
     posts: &[PostSource],
     manifest: &Manifest,

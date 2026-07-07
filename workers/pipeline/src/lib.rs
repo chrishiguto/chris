@@ -1,4 +1,4 @@
-//! The pipeline worker's pure decision core (ADR-0006/0007): webhook
+//! The pipeline worker's pure decision core: webhook
 //! signature verification, push classification, publish-set computation,
 //! pending handling, and commit-status building — all natively testable.
 //! The wasm shim (`server.rs`, behind the `worker` feature) owns transport
@@ -14,9 +14,9 @@ use sha2::Sha256;
 #[cfg(feature = "worker")]
 mod server;
 
-/// The commit-status context both publish paths report under (ADR-0007).
+/// The commit-status context both publish paths report under.
 pub const STATUS_CONTEXT: &str = "blog/publish";
-/// KV key of the parked publish list awaiting a CI callback (PRD KV schema).
+/// KV key of the parked publish list awaiting a CI callback.
 pub const PENDING_KEY: &str = "pending";
 /// The workflow the code path dispatches; its last step calls `/publish`.
 pub const WORKFLOW_FILE: &str = "publish.yml";
@@ -62,7 +62,7 @@ pub struct PushCommit {
     pub removed: Vec<String>,
 }
 
-// --- signature verification (user story 34) ---
+// --- signature verification ---
 
 /// GitHub signs the raw request body with HMAC-SHA256 and sends
 /// `X-Hub-Signature-256: sha256=<hex>`; comparison is constant-time
@@ -93,7 +93,7 @@ fn decode_hex(hex: &str) -> Option<Vec<u8>> {
         .flatten()
 }
 
-// --- classification (user stories 3, 5, 30, 31) ---
+// --- classification ---
 
 /// The posts a push wants published or retired, as slugs.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -118,7 +118,7 @@ pub enum PushClass {
     Ignore,
     /// Webhook fast path: publish immediately.
     ContentOnly(PublishSet),
-    /// Deploy must precede publish: park as pending, CI drains (Slice 7).
+    /// Deploy must precede publish: park as pending, CI drains.
     Code(PublishSet),
 }
 
@@ -172,7 +172,7 @@ pub fn classify(commits: &[PushCommit]) -> PushClass {
 }
 
 /// A path that changes the deployed artifact or its build: any Rust source
-/// (including co-located per-post `components.rs`, ADR-0004), the workspace
+/// (including co-located per-post `components.rs`), the workspace
 /// crates and app, worker configs, or the CI workflows that deploy them.
 pub fn is_code_path(path: &str) -> bool {
     const CODE_ROOTS: [&str; 4] = ["app/", "crates/", "workers/", ".github/workflows/"];
@@ -183,7 +183,7 @@ pub fn is_code_path(path: &str) -> bool {
 }
 
 /// `content/blog/{slug}/index.mdx` → the slug; anything else is not a post
-/// source (CONTENT.md's authoring layout).
+/// source.
 pub fn post_slug(path: &str) -> Option<&str> {
     let (slug, file) = path.strip_prefix("content/blog/")?.split_once('/')?;
     (file == "index.mdx" && !slug.is_empty()).then_some(slug)
@@ -194,7 +194,7 @@ pub fn post_path(slug: &str) -> String {
     format!("content/blog/{slug}/index.mdx")
 }
 
-// --- pending stash (user story 31; PRD KV schema `pending`) ---
+// --- pending stash ---
 
 /// One parked publish awaiting the CI callback.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -228,7 +228,7 @@ pub fn merge_pending(prev: Vec<PendingEntry>, set: &PublishSet, sha: &str) -> Ve
         .collect()
 }
 
-// --- /publish auth (user story 35) ---
+// --- /publish auth ---
 
 /// CI's callback body: which commit triggered the workflow, on which repo
 /// (pending entries carry slugs and SHAs, but not the repo).
@@ -255,7 +255,7 @@ pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
         .is_ok()
 }
 
-// --- drain report (user story 32: the cross-commit retry) ---
+// --- drain report (the cross-commit retry) ---
 
 /// What draining did with one parked entry.
 #[derive(Debug, PartialEq)]
@@ -263,7 +263,7 @@ pub enum DrainEntryOutcome {
     Published,
     Removed,
     /// Validation failed — the entry stays parked and retries on the next
-    /// CI callback (the cross-commit race, ADR-0007).
+    /// CI callback (the cross-commit race).
     Failed(Vec<Diagnostic>),
 }
 
@@ -342,7 +342,7 @@ impl DrainReport {
     }
 }
 
-// --- commit status building (user story 12; ADR-0007 amendment) ---
+// --- commit status building ---
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -354,7 +354,7 @@ pub enum StatusState {
 }
 
 /// Body for `POST /repos/{repo}/statuses/{sha}` (Commit Status API — Checks
-/// API write access is GitHub-App-only, see ADR-0007's amendment).
+/// API write access is GitHub-App-only).
 pub fn status_payload(state: StatusState, description: &str) -> String {
     serde_json::json!({
         "state": state,
@@ -436,7 +436,7 @@ pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
 
-// --- cache purge requests (ADR-0008, Slice 8) ---
+// --- cache purge requests ---
 
 /// The purge-by-URL API caps each request at 30 files (non-Enterprise).
 pub const PURGE_FILES_LIMIT: usize = 30;

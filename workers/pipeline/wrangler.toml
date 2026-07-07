@@ -1,4 +1,4 @@
-# The write-path worker (ADR-0006): webhook in, KV + GitHub API out.
+# The write-path worker: webhook in, KV + GitHub API out.
 # Deploys independently of the site: `just deploy-pipeline`.
 name = "chris-pipeline"
 main = "build/index.js"
@@ -16,14 +16,14 @@ command = "just build-pipeline"
 binding = "BLOG"
 id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
 
-# Secrets (never vars — this worker is the only one allowed to hold them,
-# user story 23). Provision per docs/guides/pipeline-deploy.md:
+# Secrets (never vars — this worker is the only one allowed to hold them).
+# Provision per docs/guides/pipeline-deploy.md:
 #   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
 #   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml
 #   wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml
 #   wrangler secret put CLOUDFLARE_PURGE_TOKEN --config workers/pipeline/wrangler.toml
 
-# Publish-time cache purge (ADR-0008, Slice 8). Empty = skipped, by design:
+# Publish-time cache purge. Empty = skipped, by design:
 # purge-by-URL needs a zone and *.workers.dev has none (its Cache API is
 # inert anyway). Once a custom domain fronts the site, set the zone id and
 # the site's absolute origin here, provision CLOUDFLARE_PURGE_TOKEN (Zone →

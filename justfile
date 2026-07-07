@@ -18,7 +18,7 @@ build:
     CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' cargo leptos build --release
     cd workers/site && LEPTOS_OUTPUT_NAME={{output_name}} CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features ssr
 
-# the write-path worker (webhook + publish op; ADR-0006)
+# the write-path worker (webhook + publish op)
 build-pipeline:
     cd workers/pipeline && CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features worker
 
@@ -50,7 +50,7 @@ check:
     cargo clippy --workspace -- -D warnings
     cargo run -q -p xtask -- check
 
-# break-glass / bulk publish straight to KV through wrangler (ADR-0007):
+# break-glass / bulk publish straight to KV through wrangler:
 # xtask plans, wrangler moves the bytes, auth is wrangler's own (local OAuth
 # session or CLOUDFLARE_API_TOKEN — no extra token setup). Pass slugs or
 # --all; `remote='--local'` targets the `wrangler dev` simulator instead.
