@@ -1,7 +1,5 @@
-//! Thin worker shim: routing, KV I/O, and
-//! the Cache API front only. HTML rendering lives in `app`, feed/sitemap
-//! rendering in [`feeds`], and the cache policy in [`cache`] — all testable
-//! natively with `cargo test`.
+//! Thin worker shim: routing, KV I/O, and the Cache API front. Rendering
+//! lives in `app`, feeds in [`feeds`], cache policy in [`cache`].
 pub mod cache;
 pub mod feeds;
 
@@ -17,7 +15,7 @@ mod server {
         body::Body,
         extract::{FromRef, Path, State},
         http::{
-            header::{CACHE_CONTROL, CONTENT_TYPE},
+            header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
             HeaderValue, Method, Request, Response, StatusCode,
         },
         response::IntoResponse,
@@ -32,12 +30,10 @@ mod server {
     use tower_service::Service;
     use worker::{console_error, Cache, Env};
 
-    /// KV namespace holding `post:{slug}` documents (see wrangler.toml).
     const KV_BINDING: &str = "BLOG";
-    /// Handled by custom axum routes (they need the per-request `Env` for
-    /// KV reads), so they are excluded from the leptos-generated route list.
+    /// Custom axum routes (they need the per-request `Env` for KV), so
+    /// excluded from the leptos-generated route list.
     const POST_ROUTE: &str = "/posts/{slug}";
-    /// Like [`POST_ROUTE`], but 404s on tags no published post carries.
     const TAG_ROUTE: &str = "/tags/{tag}";
 
     #[derive(Clone)]
@@ -58,9 +54,8 @@ mod server {
         env: Env,
         _ctx: worker::Context,
     ) -> worker::Result<Response<Body>> {
-        // Isolates are reused across requests, so cache the config and route
-        // list (generate_route_list runs the App tree). Router assembly stays
-        // per-request: cheap, and it captures the per-request `env`.
+        // Isolates outlive requests: cache the config and route list, but
+        // assemble the router per-request (it captures `env`).
         thread_local! {
             static CONFIG: (LeptosOptions, Vec<AxumRouteListing>) = {
                 let conf = get_configuration(None).unwrap();
@@ -83,47 +78,58 @@ mod server {
             env,
         };
 
+        // Captured before the router consumes the request.
+        let if_none_match = req
+            .headers()
+            .get(IF_NONE_MATCH)
+            .and_then(|value| value.to_str().ok())
+            .map(String::from);
+
         // Cache front: a hit returns before any KV read or render.
         let key = (req.method() == Method::GET)
             .then(|| cache::cache_key(&req.uri().to_string()))
             .flatten();
         let cache = Cache::default();
-        if let Some(key) = &key {
-            if let Some(hit) = cached(&cache, key).await {
-                return Ok(hit);
+        let response = 'response: {
+            if let Some(key) = &key {
+                if let Some(hit) = cached(&cache, key).await {
+                    break 'response hit;
+                }
             }
-        }
 
-        // Listing pages render from the KV `index`; one handler serves them
-        // all — the leptos Router picks the page from the request URL.
-        let mut router = LISTING_PAGES
-            .iter()
-            .fold(
-                Router::new()
-                    .route(POST_ROUTE, get(post_page))
-                    .route(TAG_ROUTE, get(tag_page))
-                    .route("/rss.xml", get(feed_xml))
-                    .route("/sitemap.xml", get(sitemap_xml)),
-                |r, path| r.route(path, get(listing_page)),
-            )
-            .leptos_routes(&state, routes, move || shell(options.clone()))
-            .with_state(state);
+            // One handler serves all listing pages; the leptos Router picks
+            // the page from the URL.
+            let mut router = LISTING_PAGES
+                .iter()
+                .fold(
+                    Router::new()
+                        .route(POST_ROUTE, get(post_page))
+                        .route(TAG_ROUTE, get(tag_page))
+                        .route("/rss.xml", get(feed_xml))
+                        .route("/sitemap.xml", get(sitemap_xml)),
+                    |r, path| r.route(path, get(listing_page)),
+                )
+                .leptos_routes(&state, routes, move || shell(options.clone()))
+                .with_state(state);
 
-        let response = router.call(req).await?;
-        let cache_control = response
-            .headers()
-            .get(CACHE_CONTROL)
-            .and_then(|value| value.to_str().ok());
-        match key {
-            Some(key) if cache::should_cache(response.status().as_u16(), cache_control) => {
-                Ok(store(&cache, key, response).await)
+            let response = router.call(req).await?;
+            let cache_control = response
+                .headers()
+                .get(CACHE_CONTROL)
+                .and_then(|value| value.to_str().ok());
+            match key {
+                Some(key) if cache::should_cache(response.status().as_u16(), cache_control) => {
+                    // The cache keeps the full body; only the client copy
+                    // may thin to a 304 below.
+                    store(&cache, key, response).await
+                }
+                _ => response,
             }
-            _ => Ok(response),
-        }
+        };
+        Ok(revalidated(response, if_none_match.as_deref()))
     }
 
-    /// Cache lookups are best-effort: an error is a loud miss, never a 500 —
-    /// KV still holds the truth and the render path works without the cache.
+    /// Best-effort: a lookup error is a loud miss, never a 500.
     async fn cached(cache: &Cache, key: &str) -> Option<Response<Body>> {
         let hit = match cache.get(key, false).await {
             Ok(hit) => hit?,
@@ -145,9 +151,8 @@ mod server {
         }
     }
 
-    /// Buffers the rendered body so one copy goes to the cache and one to
-    /// the client. A failed put logs loudly but never fails a good render
-    /// (the next request just renders again).
+    /// Buffers the body so one copy goes to the cache, one to the client.
+    /// A failed put logs but never fails a good render.
     async fn store(cache: &Cache, key: String, response: Response<Body>) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let bytes = match axum::body::to_bytes(body, usize::MAX).await {
@@ -175,23 +180,51 @@ mod server {
         response
     }
 
-    /// `x-blog-cache: hit|miss` — sent to the client only, never stored, so
-    /// the hit-vs-miss path is verifiable from response headers alone.
+    /// `x-blog-cache: hit|miss` — sent to the client, never stored.
     fn mark_cache_state(response: &mut Response<Body>, state: &'static str) {
         response
             .headers_mut()
             .insert("x-blog-cache", HeaderValue::from_static(state));
     }
 
-    /// Opts a response into the cache front: the exact `Cache-Control` the
-    /// shim's [`cache::should_cache`] gate looks for. Only handlers call
-    /// this, and only for pages the publish purge set covers — never for
-    /// drafts, 404s, or errors.
-    fn mark_cacheable(response: &mut Response<Body>) {
+    /// Opts a response into the cache front (the exact `Cache-Control` that
+    /// [`cache::should_cache`] gates on) plus the snapshot-sha ETag. Never
+    /// called for drafts, 404s, or errors.
+    fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>) {
         response.headers_mut().insert(
             CACHE_CONTROL,
             HeaderValue::from_static(cache::CACHE_CONTROL),
         );
+        if let Some(value) = sha.and_then(|sha| HeaderValue::from_str(&cache::etag(sha)).ok()) {
+            response.headers_mut().insert(ETAG, value);
+        }
+    }
+
+    /// Downgrades a 200 whose ETag matches the client's `If-None-Match` to a
+    /// bodyless 304; anything without an ETag passes through untouched.
+    fn revalidated(response: Response<Body>, if_none_match: Option<&str>) -> Response<Body> {
+        let etag = response
+            .headers()
+            .get(ETAG)
+            .and_then(|value| value.to_str().ok());
+        let (Some(validators), Some(etag)) = (if_none_match, etag) else {
+            return response;
+        };
+        if response.status() != StatusCode::OK || !cache::not_modified(validators, etag) {
+            return response;
+        }
+        let (mut parts, _) = response.into_parts();
+        parts.status = StatusCode::NOT_MODIFIED;
+        let entity: Vec<_> = parts
+            .headers
+            .keys()
+            .filter(|name| name.as_str().starts_with("content-"))
+            .cloned()
+            .collect();
+        for name in entity {
+            parts.headers.remove(&name);
+        }
+        Response::from_parts(parts, Body::empty())
     }
 
     #[worker::send]
@@ -200,8 +233,8 @@ mod server {
         Path(slug): Path<String>,
         req: Request<Body>,
     ) -> Response<Body> {
-        let post = match load_post(&state.env, &slug).await {
-            Ok(post) => post,
+        let (post, sha) = match load_post(&state.env, &slug).await {
+            Ok(loaded) => loaded,
             Err(err) => {
                 console_error!("failed to load post:{slug}: {err}");
                 return (
@@ -212,8 +245,8 @@ mod server {
             }
         };
         let not_found = post.is_none();
-        // Drafts render (shareable by URL) but must never be
-        // cached: an unpublish would leave them served for the full TTL.
+        // Drafts render (shareable by URL) but are never cached: an
+        // unpublish would leave them served for the full TTL.
         let cacheable = post
             .as_ref()
             .is_some_and(|document| !document.frontmatter.draft);
@@ -223,15 +256,15 @@ mod server {
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
         } else if cacheable {
-            mark_cacheable(&mut response);
+            mark_cacheable(&mut response, sha.as_deref());
         }
         response
     }
 
     #[worker::send]
     async fn listing_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
-        let index = match load_index_or_500(&state.env).await {
-            Ok(index) => index,
+        let (index, sha) = match load_index_or_500(&state.env).await {
+            Ok(loaded) => loaded,
             Err(response) => return response,
         };
 
@@ -239,20 +272,19 @@ mod server {
             provide_context(IndexData(index.clone()))
         })
         .await;
-        mark_cacheable(&mut response);
+        mark_cacheable(&mut response, sha.as_deref());
         response
     }
 
-    /// Unknown tags 404 (no published post carries them); the page body is
-    /// the app's readable empty state either way.
+    /// Unknown tags 404; the body is the app's empty state either way.
     #[worker::send]
     async fn tag_page(
         State(state): State<AppState>,
         Path(tag): Path<String>,
         req: Request<Body>,
     ) -> Response<Body> {
-        let index = match load_index_or_500(&state.env).await {
-            Ok(index) => index,
+        let (index, sha) = match load_index_or_500(&state.env).await {
+            Ok(loaded) => loaded,
             Err(response) => return response,
         };
         let known = index
@@ -264,7 +296,7 @@ mod server {
         })
         .await;
         if known {
-            mark_cacheable(&mut response);
+            mark_cacheable(&mut response, sha.as_deref());
         } else {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
@@ -293,30 +325,25 @@ mod server {
         .await
     }
 
-    /// Renders one of the pure XML builders over the KV index, with absolute
-    /// URLs rooted at the requesting origin.
+    /// Renders a pure XML builder over the KV index.
     async fn index_xml(
         state: &AppState,
         req: &Request<Body>,
         build: fn(&str, &[IndexEntry]) -> String,
         content_type: &'static str,
     ) -> Response<Body> {
-        let index = match load_index_or_500(&state.env).await {
-            Ok(index) => index,
+        let (index, sha) = match load_index_or_500(&state.env).await {
+            Ok(loaded) => loaded,
             Err(response) => return response,
         };
-        (
-            [
-                (CONTENT_TYPE, content_type),
-                (CACHE_CONTROL, cache::CACHE_CONTROL),
-            ],
-            build(&origin(req), &index),
-        )
-            .into_response()
+        let mut response =
+            ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response();
+        mark_cacheable(&mut response, sha.as_deref());
+        response
     }
 
-    /// Scheme + host of the request, no trailing slash. Workers hand axum an
-    /// absolute request URI; the Host header is the dev-server fallback.
+    /// Scheme + host, no trailing slash. Workers hand axum an absolute URI;
+    /// the Host header is the dev-server fallback.
     fn origin(req: &Request<Body>) -> String {
         let uri = req.uri();
         match (uri.scheme_str(), uri.authority()) {
@@ -332,8 +359,7 @@ mod server {
         }
     }
 
-    /// SSRs the full shell for a page; handlers differ only by the per-request
-    /// context they inject, so that is all this takes.
+    /// SSRs the shell; handlers differ only by the context they inject.
     async fn render_page(
         state: &AppState,
         req: Request<Body>,
@@ -345,9 +371,10 @@ mod server {
         render(req).await
     }
 
-    /// The KV index or the shared 500 response — the three index-backed
-    /// handlers (listings, tag pages, feeds) load it under one error contract.
-    async fn load_index_or_500(env: &Env) -> Result<Vec<IndexEntry>, Response<Body>> {
+    /// The KV index (with its snapshot sha) or the shared 500 response.
+    async fn load_index_or_500(
+        env: &Env,
+    ) -> Result<(Vec<IndexEntry>, Option<String>), Response<Body>> {
         load_index(env).await.map_err(|err| {
             console_error!("failed to load index: {err}");
             (
@@ -359,8 +386,7 @@ mod server {
     }
 
     /// The published snapshot's sha; `None` until the first flip. A corrupt
-    /// pointer is an error, never a silent fallback — it would serve a
-    /// stale site while looking healthy.
+    /// pointer is a loud error, never a silent fallback.
     async fn current_sha(kv: &worker::kv::KvStore) -> Result<Option<String>, String> {
         let json = kv
             .get(CURRENT_KEY)
@@ -375,24 +401,45 @@ mod server {
         .transpose()
     }
 
+    /// One snapshot-pinned KV read; the sha rides along because it doubles
+    /// as the page's ETag.
+    async fn snapshot_read<T>(
+        env: &Env,
+        key: impl FnOnce(Option<&str>) -> String,
+        parse: impl FnOnce(&str) -> Result<T, String>,
+    ) -> Result<(Option<T>, Option<String>), String> {
+        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
+        let sha = current_sha(&kv).await?;
+        let json = kv
+            .get(&key(sha.as_deref()))
+            .text()
+            .await
+            .map_err(|err| err.to_string())?;
+        let value = json.as_deref().map(parse).transpose()?;
+        Ok((value, sha))
+    }
+
     /// A missing index means nothing published yet (an empty listing);
     /// corrupt payloads are loud errors.
-    async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
-        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
-        let key = index_key_at(current_sha(&kv).await?.as_deref());
-        let json = kv.get(&key).text().await.map_err(|err| err.to_string())?;
-        json.map(|json| serde_json::from_str(&json).map_err(|err| err.to_string()))
-            .transpose()
-            .map(Option::unwrap_or_default)
+    async fn load_index(env: &Env) -> Result<(Vec<IndexEntry>, Option<String>), String> {
+        let (index, sha) = snapshot_read(env, index_key_at, |json| {
+            serde_json::from_str(json).map_err(|err| err.to_string())
+        })
+        .await?;
+        Ok((index.unwrap_or_default(), sha))
     }
 
     /// A KV miss is `Ok(None)` — a plain 404, never a trigger to rebuild;
     /// corrupt payloads are loud errors.
-    async fn load_post(env: &Env, slug: &str) -> Result<Option<Document>, String> {
-        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
-        let key = post_key_at(current_sha(&kv).await?.as_deref(), slug);
-        let json = kv.get(&key).text().await.map_err(|err| err.to_string())?;
-        json.map(|json| Document::from_json(&json).map_err(|err| err.to_string()))
-            .transpose()
+    async fn load_post(
+        env: &Env,
+        slug: &str,
+    ) -> Result<(Option<Document>, Option<String>), String> {
+        snapshot_read(
+            env,
+            |sha| post_key_at(sha, slug),
+            |json| Document::from_json(json).map_err(|err| err.to_string()),
+        )
+        .await
     }
 }

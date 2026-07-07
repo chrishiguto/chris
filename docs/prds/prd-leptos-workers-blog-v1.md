@@ -185,7 +185,11 @@ the SHA (Commit Status API — Checks API write is GitHub-App-only; see ADR-0007
 `index` rewrites are last-write-wins; accepted.
 
 **Cache & purge:**
-- `site`: `cache.match` first; miss → render → `cache.put` with `Cache-Control: max-age=604800`.
+- `site`: `cache.match` first; miss → render → `cache.put` with `Cache-Control: max-age=0,
+  s-maxage=604800` and a snapshot-sha `ETag` *(amended post-v1: originally a bare
+  `max-age=604800`, which browsers honored too — and no purge reaches a client cache. The
+  `s-maxage` split keeps the 7-day edge backstop while browsers revalidate every view,
+  answered with bodyless 304s; see the ADR-0008 amendment)*.
 - Publish purge set (REST purge-by-URL, all colos): changed post URLs, `/`, `/posts`,
   `/rss.xml`, `/sitemap.xml`, and `/tags/{t}` for each tag on the changed posts (+ `/tags`).
 - Deploy: `purge_everything` as the CI step after `wrangler deploy` (hydration correctness)
