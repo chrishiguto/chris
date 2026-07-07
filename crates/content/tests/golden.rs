@@ -24,7 +24,7 @@ fn valid_fixtures_match_golden_ast_json() {
     assert!(paths.len() >= 11, "fixture corpus shrank: {paths:?}");
     for path in paths {
         let source = fs::read_to_string(&path).unwrap();
-        let doc = content::parse_named(&source, &path.display().to_string())
+        let doc = content::parse(&source, &path.display().to_string())
             .unwrap_or_else(|diags| panic!("{} failed to parse: {diags:#?}", path.display()));
         let actual = serde_json::to_value(&doc).unwrap();
 
@@ -64,7 +64,7 @@ fn invalid_fixtures_all_produce_diagnostics() {
     assert!(paths.len() >= 4, "invalid corpus shrank: {paths:?}");
     for path in paths {
         let source = fs::read_to_string(&path).unwrap();
-        let diags = content::parse_named(&source, &path.display().to_string())
+        let diags = content::parse(&source, &path.display().to_string())
             .expect_err(&format!("{} unexpectedly parsed", path.display()));
         assert!(!diags.is_empty());
         assert!(

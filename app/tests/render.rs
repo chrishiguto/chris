@@ -307,7 +307,7 @@ fn manifest_contains_the_v1_vocabulary() {
 #[test]
 fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/components-demo/index.mdx");
-    let doc = content::parse_validated(source, &registry::manifest())
+    let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("fixture post must validate against the live manifest");
     let html = strip_markers(render_document(&doc).to_html());
     assert!(

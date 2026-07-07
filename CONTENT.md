@@ -15,7 +15,9 @@ content/blog/{slug}/components.rs    # co-located components (optional)
 ```
 
 The directory name is the slug: `content/blog/components-demo/index.mdx` is
-served at `/posts/components-demo`.
+served at `/posts/components-demo`. Slugs are lowercase letters, digits, and
+hyphens, starting with a letter — they name the URL, the KV keys, and the
+co-located component module; `just check` enforces this.
 
 ## Frontmatter
 

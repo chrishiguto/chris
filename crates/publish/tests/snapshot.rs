@@ -281,3 +281,23 @@ fn snapshot_orders_same_date_posts_by_slug() {
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["alpha", "zeta"]);
 }
+
+/// The slug is a directory name the parser never sees; check gates it.
+#[test]
+fn check_rejects_an_invalid_slug() {
+    let bad = |slug: &str| PostSource {
+        slug: slug.into(),
+        file: format!("content/blog/{slug}/index.mdx"),
+        source: "---\ntitle: T\ndate: 2026-01-01\n---\n\nx\n".into(),
+    };
+    for slug in ["Hello", "a_b", "v1.0", "1st", "-x", ""] {
+        let diags = check(&[bad(slug)], &manifest()).unwrap_err();
+        assert_eq!(diags.len(), 1, "slug {slug:?}: {diags:#?}");
+        assert!(
+            diags[0].message.contains("lowercase slug"),
+            "slug {slug:?}: {}",
+            diags[0]
+        );
+    }
+    assert!(check(&[bad("ok-slug-2")], &manifest()).is_ok());
+}

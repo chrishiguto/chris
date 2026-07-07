@@ -79,6 +79,17 @@ pub fn post_key_at(current: Option<&str>, slug: &str) -> String {
     }
 }
 
+/// The slug grammar, shared by everything a slug names: the `/posts/{slug}`
+/// URL, KV keys, and the co-located component module (`-` maps to `_`, so
+/// underscores would collide). Lowercase letters, digits, and `-`, starting
+/// with a letter.
+pub fn valid_slug(slug: &str) -> bool {
+    slug.starts_with(|c: char| c.is_ascii_lowercase())
+        && slug
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
 /// A post's public path (and cache key / purge path).
 pub fn post_path(slug: &str) -> String {
     format!("/posts/{slug}")

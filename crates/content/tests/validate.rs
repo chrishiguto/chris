@@ -3,7 +3,7 @@
 //! source locations, since validation runs at parse time where positions
 //! still exist.
 
-use content::{parse_validated, parse_validated_named, Diagnostic};
+use content::{parse_validated, Diagnostic};
 use content::{ComponentSpec, Manifest, PropSpec, PropType};
 
 fn manifest() -> Manifest {
@@ -55,13 +55,14 @@ fn post(body: &str) -> String {
 }
 
 fn diagnostics(body: &str) -> Vec<Diagnostic> {
-    parse_validated(&post(body), &manifest()).expect_err("expected diagnostics")
+    parse_validated(&post(body), "test.mdx", &manifest()).expect_err("expected diagnostics")
 }
 
 #[test]
 fn valid_post_with_known_components_passes() {
     let doc = parse_validated(
         &post("<Callout kind=\"note\" title=\"Hi\">\n  some *markdown*\n</Callout>\n\n<Counter initial={3} fancy />"),
+        "test.mdx",
         &manifest(),
     )
     .expect("valid post must parse");
@@ -246,9 +247,53 @@ fn nested_components_are_validated_too() {
 
 #[test]
 fn parse_validated_named_stamps_the_file() {
-    let diags = parse_validated_named(&post("<Zorp />"), "content/blog/x/index.mdx", &manifest())
+    let diags = parse_validated(&post("<Zorp />"), "content/blog/x/index.mdx", &manifest())
         .expect_err("expected diagnostics");
     assert!(diags
         .iter()
         .all(|d| d.file.as_deref() == Some("content/blog/x/index.mdx")));
+}
+
+/// A copy-paste-edit mistake, not a last-one-wins silent absorb.
+#[test]
+fn duplicate_props_are_reported() {
+    let diags = diagnostics("<Counter initial={1} initial={2} />");
+    assert_eq!(diags.len(), 1, "{diags:#?}");
+    assert!(
+        diags[0].message.contains("duplicate prop `initial`"),
+        "{}",
+        diags[0]
+    );
+}
+
+/// One authoring mistake, one diagnostic: a prop that was written but
+/// rejected must not also be reported as missing.
+#[test]
+fn rejected_required_prop_does_not_cascade_into_missing() {
+    let diags = diagnostics("<Counter initial={x} />");
+    assert_eq!(diags.len(), 1, "{diags:#?}");
+    assert!(
+        diags[0].message.contains("non-literal prop"),
+        "{}",
+        diags[0]
+    );
+}
+
+/// Frontmatter shape rules ride with validation, at the offending line.
+#[test]
+fn validated_parse_rejects_a_malformed_date() {
+    let source = "---\ntitle: T\ndate: someday\n---\n\nx\n";
+    let diags = parse_validated(source, "test.mdx", &manifest()).expect_err("expected diagnostics");
+    assert_eq!(diags.len(), 1, "{diags:#?}");
+    assert!(diags[0].message.contains("YYYY-MM-DD"), "{}", diags[0]);
+    assert_eq!(diags[0].line, Some(3), "date is declared on line 3");
+}
+
+#[test]
+fn validated_parse_rejects_a_non_slug_tag() {
+    let source = "---\ntitle: T\ndate: 2026-01-01\ntags: [ok, \"Not A Slug\"]\n---\n\nx\n";
+    let diags = parse_validated(source, "test.mdx", &manifest()).expect_err("expected diagnostics");
+    assert_eq!(diags.len(), 1, "{diags:#?}");
+    assert!(diags[0].message.contains("Not A Slug"), "{}", diags[0]);
+    assert_eq!(diags[0].line, Some(4), "tags are declared on line 4");
 }

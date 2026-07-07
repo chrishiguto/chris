@@ -21,7 +21,7 @@ use crate::{Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue
 pub struct Diagnostic {
     /// Human-readable problem description.
     pub message: String,
-    /// File the source came from; set by [`parse_named`].
+    /// File the source came from.
     pub file: Option<String>,
     /// 1-based line in the source file.
     pub line: Option<usize>,
@@ -40,32 +40,24 @@ impl std::fmt::Display for Diagnostic {
     }
 }
 
-/// Parses one `.mdx` source into a [`Document`].
+/// Parses one `.mdx` source into a [`Document`], stamping `file` into every
+/// diagnostic.
 ///
 /// Returns every problem found, not just the first; a non-empty diagnostic
 /// list means the document must not be published.
-pub fn parse(source: &str) -> Result<Document, Vec<Diagnostic>> {
-    parse_impl(source, None)
-}
-
-/// Like [`parse`], but stamps `file` into every diagnostic.
-pub fn parse_named(source: &str, file: &str) -> Result<Document, Vec<Diagnostic>> {
+pub fn parse(source: &str, file: &str) -> Result<Document, Vec<Diagnostic>> {
     parse_impl(source, None).map_err(stamp(file))
 }
 
-/// [`parse`] plus validation against the component manifest:
-/// unknown components (with did-you-mean), missing/mistyped props, and
-/// children handed to childless components all become diagnostics.
+/// [`parse`] plus the full CONTENT.md contract: component validation against
+/// the manifest (unknown components with did-you-mean, missing/mistyped
+/// props, children on childless components) and the frontmatter shape rules
+/// (date format, tag slugs).
 ///
 /// Validation is fused into parsing — not a separate `validate(doc)` pass —
 /// because source positions exist only on the markdown tree; the stored AST
 /// deliberately carries none.
-pub fn parse_validated(source: &str, manifest: &Manifest) -> Result<Document, Vec<Diagnostic>> {
-    parse_impl(source, Some(manifest))
-}
-
-/// Like [`parse_validated`], but stamps `file` into every diagnostic.
-pub fn parse_validated_named(
+pub fn parse_validated(
     source: &str,
     file: &str,
     manifest: &Manifest,
@@ -183,7 +175,15 @@ impl Converter<'_> {
 
     fn frontmatter(&mut self, yaml: &mdast::Yaml) -> Option<Frontmatter> {
         match serde_yaml::from_str::<Frontmatter>(&yaml.value) {
-            Ok(frontmatter) => Some(frontmatter),
+            Ok(frontmatter) => {
+                // Shape rules ride with the manifest gate: `parse` stays
+                // permissive (e.g. `xtask ast` on a work-in-progress date),
+                // validated parses enforce the whole contract.
+                if self.manifest.is_some() {
+                    self.check_frontmatter(&frontmatter, yaml);
+                }
+                Some(frontmatter)
+            }
             Err(err) => {
                 // serde_yaml locations are relative to the YAML block, which
                 // starts one line below the opening `---` fence.
@@ -199,6 +199,48 @@ impl Converter<'_> {
                 });
                 None
             }
+        }
+    }
+
+    /// The CONTENT.md frontmatter shape rules, checked where the source
+    /// positions still exist.
+    fn check_frontmatter(&mut self, frontmatter: &Frontmatter, yaml: &mdast::Yaml) {
+        let date = frontmatter.date.as_bytes();
+        let date_ok = date.len() == 10
+            && date.iter().enumerate().all(|(i, b)| match i {
+                4 | 7 => *b == b'-',
+                _ => b.is_ascii_digit(),
+            });
+        // Index order is lexicographic on `date`, so anything but
+        // YYYY-MM-DD blocks publish.
+        if !date_ok {
+            self.diags.push(Diagnostic {
+                message: format!(
+                    "frontmatter `date` must be YYYY-MM-DD, got \"{}\"",
+                    frontmatter.date
+                ),
+                file: None,
+                line: yaml_key_line(yaml, "date"),
+                column: None,
+            });
+        }
+        // Tags name `/tags/{tag}` URLs verbatim, so they must be lowercase
+        // slugs.
+        for tag in frontmatter.tags.iter().filter(|tag| {
+            tag.is_empty()
+                || !tag
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        }) {
+            self.diags.push(Diagnostic {
+                message: format!(
+                    "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it becomes the \
+                     /tags/{{tag}} URL"
+                ),
+                file: None,
+                line: yaml_key_line(yaml, "tags"),
+                column: None,
+            });
         }
     }
 
@@ -351,9 +393,15 @@ impl Converter<'_> {
         }
 
         if name.starts_with(|c: char| c.is_ascii_uppercase()) {
-            let props = self.component_props(&name, attributes, position.as_ref());
+            let (props, rejected) = self.component_props(&name, attributes, position.as_ref());
             let children = self.blocks(children);
-            self.validate_component(&name, &props, !children.is_empty(), position.as_ref());
+            self.validate_component(
+                &name,
+                &props,
+                &rejected,
+                !children.is_empty(),
+                position.as_ref(),
+            );
             Some(Node::Component {
                 name,
                 props,
@@ -370,10 +418,13 @@ impl Converter<'_> {
     }
 
     /// No-op unless a manifest was supplied (plain [`parse`] stays untyped).
+    /// `rejected` holds props that were written but already errored, so one
+    /// authoring mistake never also reads as "missing".
     fn validate_component(
         &mut self,
         name: &str,
         props: &BTreeMap<String, PropValue>,
+        rejected: &std::collections::BTreeSet<String>,
         has_children: bool,
         position: Option<&Position>,
     ) {
@@ -392,7 +443,7 @@ impl Converter<'_> {
         };
 
         for prop in spec.props.iter().filter(|p| p.required) {
-            if !props.contains_key(&prop.name) {
+            if !props.contains_key(&prop.name) && !rejected.contains(&prop.name) {
                 self.error(
                     format!(
                         "`<{name}>` is missing required prop `{prop_name}` ({ty})",
@@ -435,15 +486,21 @@ impl Converter<'_> {
         }
     }
 
+    /// Returns the parsed props plus the names of props that were written
+    /// but rejected (non-literal values), for [`Self::validate_component`].
     fn component_props(
         &mut self,
         component: &str,
         attributes: Vec<mdast::AttributeContent>,
         position: Option<&Position>,
-    ) -> BTreeMap<String, PropValue> {
-        attributes
-            .into_iter()
-            .filter_map(|attr| match attr {
+    ) -> (
+        BTreeMap<String, PropValue>,
+        std::collections::BTreeSet<String>,
+    ) {
+        let mut props = BTreeMap::new();
+        let mut rejected = std::collections::BTreeSet::new();
+        for attr in attributes {
+            match attr {
                 mdast::AttributeContent::Expression(_) => {
                     self.error(
                         format!(
@@ -452,20 +509,29 @@ impl Converter<'_> {
                         ),
                         position,
                     );
-                    None
                 }
                 mdast::AttributeContent::Property(prop) => {
                     let value = match prop.value {
-                        None => PropValue::Bool(true),
-                        Some(mdast::AttributeValue::Literal(s)) => PropValue::String(s),
+                        None => Some(PropValue::Bool(true)),
+                        Some(mdast::AttributeValue::Literal(s)) => Some(PropValue::String(s)),
                         Some(mdast::AttributeValue::Expression(expr)) => {
-                            self.scalar_literal(component, &prop.name, &expr.value, position)?
+                            self.scalar_literal(component, &prop.name, &expr.value, position)
                         }
                     };
-                    Some((prop.name, value))
+                    let Some(value) = value else {
+                        rejected.insert(prop.name);
+                        continue;
+                    };
+                    if props.insert(prop.name.clone(), value).is_some() {
+                        self.error(
+                            format!("duplicate prop `{}` on `<{component}>`", prop.name),
+                            position,
+                        );
+                    }
                 }
-            })
-            .collect()
+            }
+        }
+        (props, rejected)
     }
 
     /// Braced prop values may only be number or boolean literals: strings use
@@ -510,9 +576,9 @@ impl Converter<'_> {
         attributes: Vec<mdast::AttributeContent>,
         position: Option<&Position>,
     ) -> BTreeMap<String, String> {
-        attributes
-            .into_iter()
-            .filter_map(|attr| match attr {
+        let mut attrs = BTreeMap::new();
+        for attr in attributes {
+            match attr {
                 mdast::AttributeContent::Expression(_) => {
                     self.error(
                         format!(
@@ -521,27 +587,45 @@ impl Converter<'_> {
                         ),
                         position,
                     );
-                    None
                 }
-                mdast::AttributeContent::Property(prop) => match prop.value {
-                    None => Some((prop.name, String::new())),
-                    Some(mdast::AttributeValue::Literal(s)) => Some((prop.name, s)),
-                    Some(mdast::AttributeValue::Expression(expr)) => {
+                mdast::AttributeContent::Property(prop) => {
+                    let value = match prop.value {
+                        None => String::new(),
+                        Some(mdast::AttributeValue::Literal(s)) => s,
+                        Some(mdast::AttributeValue::Expression(expr)) => {
+                            self.error(
+                                format!(
+                                    "non-literal attribute `{name}={{{value}}}` on `<{tag}>`: \
+                                     HTML attributes must be string literals",
+                                    name = prop.name,
+                                    value = expr.value,
+                                ),
+                                position,
+                            );
+                            continue;
+                        }
+                    };
+                    if attrs.insert(prop.name.clone(), value).is_some() {
                         self.error(
-                            format!(
-                                "non-literal attribute `{name}={{{value}}}` on `<{tag}>`: \
-                                 HTML attributes must be string literals",
-                                name = prop.name,
-                                value = expr.value,
-                            ),
+                            format!("duplicate attribute `{}` on `<{tag}>`", prop.name),
                             position,
                         );
-                        None
                     }
-                },
-            })
-            .collect()
+                }
+            }
+        }
+        attrs
     }
+}
+
+/// Document line of the frontmatter line declaring `key`, when findable
+/// (the YAML block starts one line below the opening `---` fence).
+fn yaml_key_line(yaml: &mdast::Yaml, key: &str) -> Option<usize> {
+    let fence = yaml.position.as_ref()?.start.line;
+    yaml.value
+        .lines()
+        .position(|line| line.trim_start().starts_with(&format!("{key}:")))
+        .map(|offset| fence + 1 + offset)
 }
 
 /// Prop value as it would appear in source, for diagnostics.

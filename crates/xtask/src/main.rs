@@ -146,7 +146,7 @@ fn ast(args: &[String]) -> Result<String, String> {
         return Err(USAGE.into());
     };
     let source = std::fs::read_to_string(path).map_err(|err| format!("{path}: {err}"))?;
-    let doc = content::parse_named(&source, path).map_err(|diags| render_diags(&diags))?;
+    let doc = content::parse(&source, path).map_err(|diags| render_diags(&diags))?;
     serde_json::to_string_pretty(&doc).map_err(|err| format!("{path}: failed to serialize: {err}"))
 }
 

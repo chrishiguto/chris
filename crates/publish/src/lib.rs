@@ -97,7 +97,9 @@ pub fn check(
 }
 
 /// The same gate as [`check`], per post: each source passes or fails on its
-/// own, in input order — one broken post must not wedge the rest.
+/// own, in input order — one broken post must not wedge the rest. Frontmatter
+/// and component rules live in `content::parse_validated`; only the slug
+/// (a directory name, invisible to the parser) is checked here.
 pub fn check_each(
     posts: &[PostSource],
     manifest: &Manifest,
@@ -105,63 +107,38 @@ pub fn check_each(
     posts
         .iter()
         .map(|post| {
-            let document = content::parse_validated_named(&post.source, &post.file, manifest)?;
-            let diags: Vec<Diagnostic> = check_date(&document, &post.file)
-                .into_iter()
-                .chain(check_tags(&document, &post.file))
-                .collect();
-            if diags.is_empty() {
-                Ok(ParsedPost {
+            let mut diags: Vec<Diagnostic> = check_slug(post).into_iter().collect();
+            let document = match content::parse_validated(&post.source, &post.file, manifest) {
+                Ok(document) => Some(document),
+                Err(errs) => {
+                    diags.extend(errs);
+                    None
+                }
+            };
+            match (document, diags.is_empty()) {
+                (Some(document), true) => Ok(ParsedPost {
                     slug: post.slug.clone(),
                     document,
-                })
-            } else {
-                Err(diags)
+                }),
+                _ => Err(diags),
             }
         })
         .collect()
 }
 
-/// Index order is lexicographic on `date`, so anything but `YYYY-MM-DD`
-/// blocks publish.
-fn check_date(document: &Document, file: &str) -> Option<Diagnostic> {
-    let date = document.frontmatter.date.as_bytes();
-    let shape_ok = date.len() == 10
-        && date.iter().enumerate().all(|(i, b)| match i {
-            4 | 7 => *b == b'-',
-            _ => b.is_ascii_digit(),
-        });
-    (!shape_ok).then(|| Diagnostic {
+/// Slugs name the post URL, its KV keys, and its co-located component
+/// module — enforce [`content::valid_slug`] before anything consumes them.
+fn check_slug(post: &PostSource) -> Option<Diagnostic> {
+    (!content::valid_slug(&post.slug)).then(|| Diagnostic {
         message: format!(
-            "frontmatter `date` must be YYYY-MM-DD, got \"{}\"",
-            document.frontmatter.date
+            "slug \"{}\" must be a lowercase slug (a-z, 0-9, -) starting with a letter — it \
+             names the /posts/{{slug}} URL and the post's component module",
+            post.slug
         ),
-        file: Some(file.to_string()),
+        file: Some(post.file.clone()),
         line: None,
         column: None,
     })
-}
-
-/// Tags name `/tags/{tag}` URLs verbatim, so they must be lowercase slugs.
-fn check_tags<'a>(document: &'a Document, file: &'a str) -> impl Iterator<Item = Diagnostic> + 'a {
-    document
-        .frontmatter
-        .tags
-        .iter()
-        .filter(|tag| {
-            tag.is_empty()
-                || !tag
-                    .bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        })
-        .map(move |tag| Diagnostic {
-            message: format!(
-                "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it becomes the /tags/{{tag}} URL"
-            ),
-            file: Some(file.to_string()),
-            line: None,
-            column: None,
-        })
 }
 
 /// Lays out one immutable snapshot: every checked post, every carried post,

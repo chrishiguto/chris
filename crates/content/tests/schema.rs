@@ -176,3 +176,17 @@ fn description_round_trips_and_stays_absent_when_unset() {
     let json = serde_json::to_value(content::IndexEntry::new("hello", &frontmatter)).unwrap();
     assert!(json.as_object().unwrap().get("description").is_none());
 }
+
+/// The failure mode versioning exists for: a payload written under an old
+/// version AND an old shape must still say "version mismatch", not
+/// whichever field the current shape misses first.
+#[test]
+fn old_version_with_old_shape_fails_as_a_version_mismatch() {
+    let old_shape =
+        r#"{"schema_version":0,"frontmatter":{"title":"T","published":"2026-01-01"},"ast":[]}"#;
+    let err = Document::from_json(old_shape).unwrap_err();
+    assert!(matches!(
+        err,
+        content::AstError::SchemaVersionMismatch { found: 0, .. }
+    ));
+}

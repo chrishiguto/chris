@@ -22,9 +22,9 @@ pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 mod routes;
 pub use routes::{
     index_key_at, post_key, post_key_at, post_path, post_slug, snapshot_index_key,
-    snapshot_key_sha, snapshot_post_key, source_path, tag_path, CurrentPointer, CONTENT_ROOT,
-    CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POST_FILE, RSS_PATH, SITEMAP_PATH,
-    SNAPSHOT_KEY_SPACE,
+    snapshot_key_sha, snapshot_post_key, source_path, tag_path, valid_slug, CurrentPointer,
+    CONTENT_ROOT, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POST_FILE, RSS_PATH,
+    SITEMAP_PATH, SNAPSHOT_KEY_SPACE,
 };
 
 #[cfg(feature = "parse")]
@@ -89,15 +89,25 @@ impl Document {
 
     /// Deserializes a document, rejecting payloads whose `schema_version`
     /// differs from [`SCHEMA_VERSION`].
+    ///
+    /// The version is probed before the full shape: an old payload written
+    /// under an old *shape* must surface as a version mismatch (migratable),
+    /// not as whichever field the current shape happens to miss first.
     pub fn from_json(json: &str) -> Result<Self, AstError> {
-        let doc: Document = serde_json::from_str(json).map_err(AstError::Json)?;
-        if doc.schema_version != SCHEMA_VERSION {
+        #[derive(Deserialize)]
+        struct Probe {
+            schema_version: u32,
+        }
+        let found = serde_json::from_str::<Probe>(json)
+            .map_err(AstError::Json)?
+            .schema_version;
+        if found != SCHEMA_VERSION {
             return Err(AstError::SchemaVersionMismatch {
-                found: doc.schema_version,
+                found,
                 expected: SCHEMA_VERSION,
             });
         }
-        Ok(doc)
+        serde_json::from_str(json).map_err(AstError::Json)
     }
 }
 

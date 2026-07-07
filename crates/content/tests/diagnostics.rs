@@ -1,7 +1,7 @@
-use content::{parse, parse_named, Diagnostic};
+use content::{parse, Diagnostic};
 
 fn diags(source: &str) -> Vec<Diagnostic> {
-    parse(source).expect_err("expected diagnostics")
+    parse(source, "test.mdx").expect_err("expected diagnostics")
 }
 
 #[test]
@@ -104,11 +104,23 @@ fn multiple_problems_are_all_reported() {
 #[test]
 fn parse_named_stamps_the_file_into_diagnostics() {
     let source = "no frontmatter";
-    let all = parse_named(source, "content/blog/hello/index.mdx").unwrap_err();
+    let all = parse(source, "content/blog/hello/index.mdx").unwrap_err();
     assert_eq!(all[0].file.as_deref(), Some("content/blog/hello/index.mdx"));
     let rendered = all[0].to_string();
     assert!(
         rendered.starts_with("content/blog/hello/index.mdx:1:1: "),
         "{rendered}"
+    );
+}
+
+#[test]
+fn duplicate_html_attributes_are_reported() {
+    let all =
+        diags("---\ntitle: T\ndate: 2026-01-01\n---\n\n<abbr title=\"a\" title=\"b\">x</abbr>\n");
+    assert_eq!(all.len(), 1, "{all:#?}");
+    assert!(
+        all[0].message.contains("duplicate attribute `title`"),
+        "{}",
+        all[0]
     );
 }

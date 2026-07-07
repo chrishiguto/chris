@@ -5,7 +5,7 @@ const MINIMAL: &str = "---\ntitle: Hello\ndate: 2026-07-04\n---\n\nJust prose.\n
 
 #[test]
 fn parses_frontmatter_and_prose() {
-    let doc = parse(MINIMAL).unwrap();
+    let doc = parse(MINIMAL, "test.mdx").unwrap();
     assert_eq!(doc.schema_version, SCHEMA_VERSION);
     assert_eq!(doc.frontmatter.title, "Hello");
     assert_eq!(doc.frontmatter.date, "2026-07-04");
@@ -24,7 +24,7 @@ fn parses_frontmatter_and_prose() {
 #[test]
 fn parses_full_frontmatter() {
     let source = "---\ntitle: T\ndate: 2026-01-01\ndescription: A summary.\ntags: [rust, leptos]\ndraft: true\n---\n\nx\n";
-    let doc = parse(source).unwrap();
+    let doc = parse(source, "test.mdx").unwrap();
     assert_eq!(doc.frontmatter.description.as_deref(), Some("A summary."));
     assert_eq!(doc.frontmatter.tags, vec!["rust", "leptos"]);
     assert!(doc.frontmatter.draft);
@@ -33,7 +33,7 @@ fn parses_full_frontmatter() {
 #[test]
 fn parses_component_with_scalar_props_and_markdown_children() {
     let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Callout kind=\"warning\" level={3} dismissable={true}>\n  Some *emphasis* inside.\n</Callout>\n";
-    let doc = parse(source).unwrap();
+    let doc = parse(source, "test.mdx").unwrap();
     let Node::Component {
         name,
         props,
@@ -69,7 +69,7 @@ fn parses_component_with_scalar_props_and_markdown_children() {
 #[test]
 fn exponent_notation_numbers_are_scalar_literals() {
     let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Demo count={1e3} rate={2.5E-2} />\n";
-    let doc = parse(source).unwrap();
+    let doc = parse(source, "test.mdx").unwrap();
     let Node::Component { props, .. } = &doc.ast[0] else {
         panic!("expected component");
     };
@@ -80,7 +80,7 @@ fn exponent_notation_numbers_are_scalar_literals() {
 #[test]
 fn bare_prop_is_boolean_true() {
     let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Demo autoplay />\n";
-    let doc = parse(source).unwrap();
+    let doc = parse(source, "test.mdx").unwrap();
     let Node::Component { props, .. } = &doc.ast[0] else {
         panic!("expected component");
     };
@@ -91,7 +91,7 @@ fn bare_prop_is_boolean_true() {
 fn lowercase_tags_pass_through_as_html() {
     let source =
         "---\ntitle: T\ndate: 2026-01-01\n---\n\nAn <abbr title=\"HyperText\">HT</abbr> here.\n";
-    let doc = parse(source).unwrap();
+    let doc = parse(source, "test.mdx").unwrap();
     let Node::Paragraph { children } = &doc.ast[0] else {
         panic!("expected paragraph");
     };
