@@ -38,6 +38,11 @@ fn manifest() -> Manifest {
                         ty: PropType::Bool,
                         required: false,
                     },
+                    PropSpec {
+                        name: "ratio".into(),
+                        ty: PropType::Float,
+                        required: false,
+                    },
                 ],
                 accepts_children: false,
             },
@@ -159,6 +164,30 @@ fn arbitrary_string_for_bool_prop_gets_no_braces_hint() {
         "message: {message}"
     );
     assert!(!message.contains("fancy={very}"), "message: {message}");
+}
+
+#[test]
+fn quoted_exponent_for_float_prop_hints_braces() {
+    let diags = diagnostics("<Counter initial={0} ratio=\"1e3\" />");
+    assert_eq!(diags.len(), 1);
+    let message = &diags[0].message;
+    assert!(
+        message.contains("prop `ratio` on `<Counter>` expects a number"),
+        "message: {message}"
+    );
+    assert!(message.contains("ratio={1e3}"), "message: {message}");
+}
+
+#[test]
+fn non_finite_string_for_float_prop_gets_no_braces_hint() {
+    let diags = diagnostics("<Counter initial={0} ratio=\"inf\" />");
+    assert_eq!(diags.len(), 1);
+    let message = &diags[0].message;
+    assert!(
+        message.contains("prop `ratio` on `<Counter>` expects a number"),
+        "message: {message}"
+    );
+    assert!(!message.contains("ratio={inf}"), "message: {message}");
 }
 
 #[test]

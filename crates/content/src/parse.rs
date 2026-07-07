@@ -484,7 +484,8 @@ impl Converter<'_> {
             _ => {}
         }
         if let Ok(number) = value.parse::<f64>() {
-            if number.is_finite() && !value.contains(|c: char| c.is_ascii_alphabetic()) {
+            // Finite only: `inf`/`nan` parse but are not literals.
+            if number.is_finite() {
                 return Some(PropValue::Number(number));
             }
         }
@@ -573,7 +574,7 @@ fn mismatch_hint(prop: &str, expected: PropType, value: &PropValue) -> String {
 fn reads_as(ty: PropType, s: &str) -> bool {
     match ty {
         PropType::Int => s.parse::<i64>().is_ok(),
-        PropType::Float => s.parse::<f64>().is_ok(),
+        PropType::Float => s.parse::<f64>().is_ok_and(f64::is_finite),
         PropType::Bool => matches!(s, "true" | "false"),
         PropType::String => false,
     }

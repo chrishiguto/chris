@@ -70,6 +70,17 @@ fn non_literal_prop_is_rejected_with_location() {
 }
 
 #[test]
+fn non_finite_number_props_are_rejected() {
+    let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Demo count={inf} rate={NaN} />\n";
+    let all = diags(source);
+    assert_eq!(all.len(), 2, "{all:?}");
+    assert!(
+        all.iter().all(|d| d.message.contains("non-literal prop")),
+        "{all:?}"
+    );
+}
+
+#[test]
 fn braced_string_prop_suggests_plain_quotes() {
     let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Callout kind={\"warning\"} />\n";
     let all = diags(source);

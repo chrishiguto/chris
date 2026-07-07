@@ -67,6 +67,17 @@ fn parses_component_with_scalar_props_and_markdown_children() {
 }
 
 #[test]
+fn exponent_notation_numbers_are_scalar_literals() {
+    let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Demo count={1e3} rate={2.5E-2} />\n";
+    let doc = parse(source).unwrap();
+    let Node::Component { props, .. } = &doc.ast[0] else {
+        panic!("expected component");
+    };
+    assert_eq!(props["count"], PropValue::Number(1000.0));
+    assert_eq!(props["rate"], PropValue::Number(0.025));
+}
+
+#[test]
 fn bare_prop_is_boolean_true() {
     let source = "---\ntitle: T\ndate: 2026-01-01\n---\n\n<Demo autoplay />\n";
     let doc = parse(source).unwrap();
