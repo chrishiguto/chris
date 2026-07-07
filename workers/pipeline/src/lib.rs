@@ -459,13 +459,3 @@ pub fn purge_payloads(origin: &str, paths: &[String]) -> Vec<String> {
         })
         .collect()
 }
-
-// --- manifest ---
-
-/// The deployed component vocabulary — publish validation runs against
-/// exactly what the site renders with. `app::manifest()` owns the
-/// linker-anchor dance that keeps the inventory registrations linked
-/// (pinned by the manifest test).
-pub fn manifest() -> content::Manifest {
-    app::manifest()
-}

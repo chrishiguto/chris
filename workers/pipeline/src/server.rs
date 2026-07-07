@@ -7,11 +7,11 @@ use publish::{ParsedPost, PostSource};
 use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response, Result};
 
 use crate::{
-    classify, contents_url, dispatch_payload, dispatch_url, failure_description, manifest,
-    merge_pending, pending_description, post_path, purge_payloads, purge_url, status_payload,
-    statuses_url, success_description, verify_publish_auth, verify_signature, DrainEntryOutcome,
-    DrainReport, PendingEntry, PublishRequest, PublishSet, PushClass, PushEvent, StatusState,
-    PENDING_KEY, STATUS_CONTEXT,
+    classify, contents_url, dispatch_payload, dispatch_url, failure_description, merge_pending,
+    pending_description, post_path, purge_payloads, purge_url, status_payload, statuses_url,
+    success_description, verify_publish_auth, verify_signature, DrainEntryOutcome, DrainReport,
+    PendingEntry, PublishRequest, PublishSet, PushClass, PushEvent, StatusState, PENDING_KEY,
+    STATUS_CONTEXT,
 };
 
 /// Same namespace the site worker reads (wrangler.toml in this directory).
@@ -171,7 +171,7 @@ async fn run_publish(
             source,
         });
     }
-    let parsed = publish::check(&sources, &manifest()).map_err(PublishError::Invalid)?;
+    let parsed = publish::check(&sources, &app::manifest()).map_err(PublishError::Invalid)?;
 
     apply_plan(env, &parsed, &set.removed)
         .await
@@ -302,7 +302,7 @@ async fn drain(
     repo: &str,
     pending: Vec<PendingEntry>,
 ) -> std::result::Result<DrainReport, String> {
-    let manifest = manifest();
+    let manifest = app::manifest();
     let mut outcomes = Vec::new();
     let mut published: Vec<ParsedPost> = Vec::new();
     let mut removed: Vec<String> = Vec::new();

@@ -505,11 +505,13 @@ fn summary_counts_what_landed_and_what_stayed_parked() {
     assert_eq!(clean.summary(), "published hello");
 }
 
-// --- manifest (pins the inventory linkage anchor in app::manifest) ---
+// --- manifest (pins the inventory linkage anchor for this consumer:
+// app::manifest() only yields the vocabulary if the linker kept app's
+// registrations in the binary that calls it) ---
 
 #[test]
 fn manifest_exposes_the_real_app_vocabulary() {
-    let manifest = pipeline::manifest();
+    let manifest = app::manifest();
     let names: Vec<_> = manifest.names().collect();
     assert!(
         names.contains(&"Callout") && names.contains(&"Counter"),

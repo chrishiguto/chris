@@ -35,9 +35,6 @@ mod server {
     /// Handled by custom axum routes (they need the per-request `Env` for
     /// KV reads), so they are excluded from the leptos-generated route list.
     const POST_ROUTE: &str = "/posts/{slug}";
-    /// Listing routes render from the KV `index`; one handler serves them
-    /// all — the leptos Router picks the page from the request URL.
-    const LISTING_ROUTES: [&str; 3] = LISTING_PAGES;
     /// Like [`POST_ROUTE`], but 404s on tags no published post carries.
     const TAG_ROUTE: &str = "/tags/{tag}";
 
@@ -70,7 +67,7 @@ mod server {
                     Some(
                         [POST_ROUTE, TAG_ROUTE]
                             .into_iter()
-                            .chain(LISTING_ROUTES)
+                            .chain(LISTING_PAGES)
                             .map(String::from)
                             .collect(),
                     ),
@@ -95,7 +92,9 @@ mod server {
             }
         }
 
-        let mut router = LISTING_ROUTES
+        // Listing pages render from the KV `index`; one handler serves them
+        // all — the leptos Router picks the page from the request URL.
+        let mut router = LISTING_PAGES
             .iter()
             .fold(
                 Router::new()
