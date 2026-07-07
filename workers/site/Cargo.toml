@@ -9,6 +9,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+# Same minor leptos resolves to; the renderer spawns through its global executor.
+any_spawner = { version = "0.3", features = ["wasm-bindgen"], optional = true }
 app = { workspace = true, features = ["ssr"], optional = true }
 axum = { workspace = true, optional = true }
 # Ungated: the feeds module needs it natively (pure serde types).
@@ -25,6 +27,7 @@ worker = { workspace = true, optional = true }
 # empty lib instead of building wasm-only deps.
 [features]
 ssr = [
+  "dep:any_spawner",
   "dep:app",
   "dep:axum",
   "dep:leptos",

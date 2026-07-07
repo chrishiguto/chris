@@ -48,6 +48,9 @@ mod server {
         env: Env,
         ctx: worker::Context,
     ) -> worker::Result<Response<Body>> {
+        // The async renderer spawns through the global executor; registering
+        // it is once-per-isolate, so later requests hit `AlreadySet`.
+        _ = any_spawner::Executor::init_wasm_bindgen();
         // Isolates outlive requests: cache the config; the router captures
         // `env`, so build it per-request.
         thread_local! {
