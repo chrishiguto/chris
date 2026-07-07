@@ -146,7 +146,7 @@ fn plan_keeps_drafts_in_the_index() {
     assert!(plan.index[0].draft, "drafts are stored, filtered at render");
 }
 
-// Slice 9's publish half of the draft flip: pushing `draft: true → false`
+// The publish half of the draft flip: pushing `draft: true → false`
 // must rewrite the index entry as published AND purge the listing surfaces
 // the post now appears on (plus its own URL and tag pages), so stale cached
 // listings cannot keep hiding it for the TTL.
@@ -257,7 +257,7 @@ fn plan_purges_listings_feeds_and_touched_tag_pages() {
     assert_eq!(plan.purge, expected);
     assert!(
         !plan.purge.iter().any(|p| p.contains("quiet-tag")),
-        "untouched posts' tag pages must not purge (ADR-0008): {:?}",
+        "untouched posts' tag pages must not purge: {:?}",
         plan.purge
     );
 }

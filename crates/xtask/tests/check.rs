@@ -1,4 +1,4 @@
-//! Integration tests over fixture content trees (PRD testing decisions):
+//! Integration tests over fixture content trees:
 //! `check` passes on the valid tree and reports every problem — parse,
 //! validation, date shape, missing index.mdx — on the invalid one.
 

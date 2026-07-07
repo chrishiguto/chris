@@ -1,4 +1,4 @@
-//! The component vocabulary types (ADR-0005): serde data describing which
+//! The component vocabulary types: serde data describing which
 //! components exist, with which props. Defined here — the shared vocabulary
 //! crate — so the parser can validate against them without depending on the
 //! registry; the `registry` crate *produces* a [`Manifest`] from its
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::PropValue;
 
-/// The scalar prop types the v1 macro supports (ADR-0005's bounded scope).
+/// The scalar prop types the v1 macro supports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PropType {

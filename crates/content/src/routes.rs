@@ -1,11 +1,11 @@
-//! The KV-key and public-URL vocabulary, defined once (ADR-0008 amendment).
+//! The KV-key and public-URL vocabulary, defined once.
 //!
 //! The write path's purge set "must mirror how the site keys its cache
 //! entries" — that mirror is enforced here by construction: the site's
 //! router/sitemap, the app's hrefs, and the publish plan's keys and purge
 //! paths all derive from these definitions instead of hand-copied literals.
 
-/// KV key of the ordered post listing (PRD "KV schema").
+/// KV key of the ordered post listing.
 pub const INDEX_KEY: &str = "index";
 
 /// KV key of one post's AST document.

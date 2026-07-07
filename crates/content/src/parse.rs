@@ -1,4 +1,4 @@
-//! Parses the MDX-syntax authoring subset (ADR-0003) into the versioned
+//! Parses the MDX-syntax authoring subset into the versioned
 //! IR defined at this crate's root (behind the `parse` feature).
 //!
 //! Wraps markdown-rs in MDX mode — no custom parser. Everything outside the
@@ -53,13 +53,13 @@ pub fn parse_named(source: &str, file: &str) -> Result<Document, Vec<Diagnostic>
     parse_impl(source, None).map_err(stamp(file))
 }
 
-/// [`parse`] plus validation against the component manifest (ADR-0005):
+/// [`parse`] plus validation against the component manifest:
 /// unknown components (with did-you-mean), missing/mistyped props, and
 /// children handed to childless components all become diagnostics.
 ///
 /// Validation is fused into parsing — not a separate `validate(doc)` pass —
 /// because source positions exist only on the markdown tree; the stored AST
-/// deliberately carries none (ADR-0002).
+/// deliberately carries none.
 pub fn parse_validated(source: &str, manifest: &Manifest) -> Result<Document, Vec<Diagnostic>> {
     parse_impl(source, Some(manifest))
 }
@@ -123,7 +123,7 @@ fn parse_impl(source: &str, manifest: Option<&Manifest>) -> Result<Document, Vec
 
 /// MDX constructs + YAML frontmatter. The permissive esm/expression hooks
 /// exist only so markdown-rs *recognizes* those constructs — the converter
-/// then rejects the resulting nodes with proper diagnostics (ADR-0003).
+/// then rejects the resulting nodes with proper diagnostics.
 fn parse_options() -> ParseOptions {
     ParseOptions {
         constructs: Constructs {
@@ -138,7 +138,7 @@ fn parse_options() -> ParseOptions {
 
 struct Converter<'m> {
     diags: Vec<Diagnostic>,
-    /// When present, component nodes are validated against it (ADR-0005).
+    /// When present, component nodes are validated against it.
     manifest: Option<&'m Manifest>,
 }
 

@@ -1,6 +1,6 @@
-//! The publish operation's pure core (ADR-0007): validate post sources and
-//! turn them into a KV write plan. Shared by the `blog` CLI today and the
-//! pipeline worker (Slice 6) — so it stays wasm-clean: no filesystem, no
+//! The publish operation's pure core: validate post sources and
+//! turn them into a KV write plan. Shared by `xtask` and the
+//! pipeline worker — so it stays wasm-clean: no filesystem, no
 //! HTTP, no clock. Callers own transport (Cloudflare API vs KV binding).
 
 use content::{
@@ -43,11 +43,11 @@ pub struct PublishPlan {
     pub deletes: Vec<String>,
     /// The rewritten index, newest-first; what `writes` serializes last.
     pub index: Vec<IndexEntry>,
-    /// URL paths whose cache entries this publish invalidates (ADR-0008):
+    /// URL paths whose cache entries this publish invalidates:
     /// listings, feeds, the touched posts, and every tag page whose listing
     /// changed — tags on the new frontmatter *and* tags the previous index
     /// had on the touched posts (a dropped tag's page loses an entry too).
-    /// Sorted, deduplicated; callers prefix their origin (Slice 8 purges).
+    /// Sorted, deduplicated; callers prefix their origin when purging.
     pub purge: Vec<String>,
 }
 
@@ -124,7 +124,7 @@ fn check_tags<'a>(document: &'a Document, file: &'a str) -> impl Iterator<Item =
 }
 
 /// Merges changed and removed posts into the previous index and lays out the
-/// KV writes. Last-write-wins on the whole index (single-writer, per PRD).
+/// KV writes. Last-write-wins on the whole index (single-writer).
 pub fn plan(
     prev_index: Vec<IndexEntry>,
     changed: &[ParsedPost],
@@ -168,7 +168,7 @@ pub fn plan(
     })
 }
 
-/// The enumerated invalidation set of ADR-0008: listings and feeds always
+/// The enumerated invalidation set: listings and feeds always
 /// change (dates, counts, order), touched posts change or vanish, and a tag
 /// page changes iff a touched post carries the tag now or carried it before.
 fn purge_paths(

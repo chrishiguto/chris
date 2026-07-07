@@ -55,7 +55,7 @@ pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
 }
 
 /// `xtask check`: discover + parse + validate the whole tree, collecting
-/// every problem (user story 14). Ok means the tree is publishable.
+/// every problem. Ok means the tree is publishable.
 pub fn check_tree(
     content_dir: &Path,
     manifest: &Manifest,

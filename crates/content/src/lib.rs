@@ -3,7 +3,7 @@
 //! behind the `parse` feature (syn-style opt-in, so read-path consumers never
 //! link markdown-rs).
 //!
-//! Per ADR-0002, KV stores a serde-typed semantic AST — never pre-rendered
+//! KV stores a serde-typed semantic AST — never pre-rendered
 //! HTML and never raw markdown. These types are that contract: the pipeline
 //! worker writes them at publish time, the site worker renders them at
 //! request time, and `xtask check` validates against them locally.
@@ -116,7 +116,7 @@ pub struct Frontmatter {
 }
 
 /// One entry of the KV `index` key: the ordered post listing the site
-/// renders from (PRD "KV schema"). Drafts are stored here but filtered out
+/// renders from. Drafts are stored here but filtered out
 /// of every listing/feed at render time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IndexEntry {
@@ -195,7 +195,7 @@ pub enum Node {
         items: Vec<ListItem>,
     },
     /// Fenced code block, stored as raw text + language only — presentation
-    /// (highlighting included) is a renderer concern per ADR-0002.
+    /// (highlighting included) is a renderer concern.
     CodeBlock {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         lang: Option<String>,
@@ -231,7 +231,7 @@ pub struct ListItem {
     pub children: Vec<Node>,
 }
 
-/// A component prop value. Scalar literals only in v1 (ADR-0003): structured
+/// A component prop value. Scalar literals only in v1: structured
 /// data arrives as children or not at all.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]

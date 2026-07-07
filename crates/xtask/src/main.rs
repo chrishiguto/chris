@@ -1,9 +1,9 @@
 //! `xtask` — workspace scripts over the shared content crates (the
 //! cargo-xtask pattern; front door is the justfile):
 //!
-//! - `check` gates a content tree locally (user story 14),
+//! - `check` gates a content tree locally,
 //! - `plan` turns the tree into wrangler-ready KV bulk files — `just publish`
-//!   pipes them into `wrangler kv bulk put/delete` (break-glass, ADR-0007),
+//!   pipes them into `wrangler kv bulk put/delete` (break-glass),
 //! - `ast` prints one post's AST JSON for hand-seeding local KV.
 
 use std::path::Path;
@@ -64,8 +64,8 @@ fn plan(args: &[String]) -> Result<String, String> {
 
     let prev_index = read_index(Path::new(&index_file))?;
     // --all rebuilds the listing from the tree: entries whose posts are gone
-    // locally are pruned and their KV documents deleted (user story 5's
-    // manual counterpart).
+    // locally are pruned and their KV documents deleted (the manual
+    // counterpart of the pipeline's delete-on-push).
     let removed: Vec<String> = if all {
         prev_index
             .iter()
