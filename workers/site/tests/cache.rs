@@ -55,8 +55,7 @@ fn not_modified_handles_lists_weak_prefixes_and_star() {
     assert!(!not_modified("\"a\", \"b\"", &tag));
 }
 
-/// Only a matching 200 thins to a 304 — a 404 or 500 with a stray ETag
-/// must never lose its body.
+/// A 404 or 500 with a stray ETag must never lose its body.
 #[test]
 fn revalidates_only_a_matching_200() {
     let tag = etag("abc123");

@@ -1,7 +1,6 @@
 use leptos::prelude::*;
 use registry::post_component;
 
-/// The v1 interactive demo island: server-rendered, hydrates client-side.
 #[post_component]
 #[island]
 pub fn Counter(initial: i64) -> impl IntoView {

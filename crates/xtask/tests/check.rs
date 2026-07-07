@@ -1,6 +1,5 @@
-//! Integration tests over fixture content trees:
-//! `check` passes on the valid tree and reports every problem — parse,
-//! validation, date shape, missing index.mdx — on the invalid one.
+//! `check` over fixture trees: the valid one passes, the invalid one
+//! reports every problem.
 
 use std::path::PathBuf;
 

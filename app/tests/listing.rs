@@ -1,6 +1,4 @@
-//! Listing pages: `/posts` and `/` render from the KV `index`
-//! provided by the site worker via context; drafts are filtered at render
-//! time. Run with `cargo test -p app --features ssr`.
+//! Listing pages render from the worker-provided index context; drafts filter at render time.
 #![cfg(feature = "ssr")]
 
 use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
@@ -47,7 +45,7 @@ fn posts_page_lists_title_and_date_linking_to_posts() {
         entry("newer", "The newer post", "2026-03-01"),
         entry("older", "The older post", "2026-01-01"),
     ]);
-    // The markup shape main.css styles: ul.post-list > li > a > h2 + p.post-date.
+    // The markup shape the CSS styles: ul.post-list > li > a > h2 + p.post-date.
     assert!(html.contains("<ul class=\"post-list\">"), "{html}");
     assert!(html.contains("<a href=\"/posts/newer\">"), "{html}");
     assert!(html.contains("<h2>The newer post</h2>"), "{html}");
@@ -78,8 +76,7 @@ fn posts_page_with_empty_index_says_so() {
     );
 }
 
-// The home page shares the draft filter — a draft must not leak
-// onto `/` even when it is the newest entry (and thus inside RECENT_POSTS).
+// The draft is the newest entry, so it sits inside the RECENT_POSTS window.
 #[test]
 fn home_page_filters_drafts() {
     let mut draft = entry("wip", "Not yet", "2026-05-01");
@@ -189,16 +186,14 @@ fn tag_listing_excludes_drafts() {
 
 #[test]
 fn tag_listing_for_unknown_tag_renders_a_readable_state() {
-    // The worker sets the 404 status (acceptance: unknown tag → 404); the
-    // body still needs to read as a page.
+    // The worker sets the 404 status; the body still needs to read as a page.
     let html = tag_html("nope", vec![tagged("a", "A", "2026-01-01", &["rust"])]);
     assert!(html.contains("Nothing is tagged"), "{html}");
 }
 
 #[test]
 fn home_page_without_index_context_still_renders() {
-    // A missing IndexData context must degrade to the empty state, never
-    // panic — nothing guarantees every future render site provides it.
+    // A missing IndexData context must degrade to the empty state, never panic.
     let html = ssr(|| (), || leptos::view! { <HomePage /> });
     assert!(html.contains("Nothing published yet"), "{html}");
 }

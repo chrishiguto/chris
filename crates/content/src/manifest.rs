@@ -1,29 +1,24 @@
-//! The component vocabulary types: serde data describing which
-//! components exist, with which props. Defined here — the shared vocabulary
-//! crate — so the parser can validate against them without depending on the
-//! registry; the `registry` crate *produces* a [`Manifest`] from its
-//! `inventory` registrations and re-exports these types.
+//! Serde types describing the registered component vocabulary, defined here
+//! so the parser can validate against them without depending on the registry.
 
 use serde::{Deserialize, Serialize};
 
 use crate::PropValue;
 
-/// The scalar prop types the v1 macro supports.
+/// The scalar prop types the macro supports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PropType {
-    /// `String` — a quoted attribute: `kind="warning"`.
     String,
-    /// `f64` — a braced number: `ratio={1.6}`.
+    /// `f64`.
     Float,
-    /// `i64` — a braced integer: `initial={3}`.
+    /// `i64`.
     Int,
-    /// `bool` — braced `{true}`/`{false}`, or bare (`autoplay` ⇒ true).
+    /// Braced `{true}`/`{false}`, or bare (`autoplay` ⇒ true).
     Bool,
 }
 
 impl PropType {
-    /// Whether a parsed prop value satisfies this declared type.
     pub fn matches(self, value: &PropValue) -> bool {
         match (self, value) {
             (PropType::String, PropValue::String(_)) => true,
@@ -34,7 +29,7 @@ impl PropType {
         }
     }
 
-    /// Human phrase for diagnostics: "expects {describe()}".
+    /// Human phrase for diagnostics.
     pub fn describe(self) -> &'static str {
         match self {
             PropType::String => "a string",
@@ -45,9 +40,8 @@ impl PropType {
     }
 }
 
-/// Converts an exactly-integral `f64` to `i64` (prop numbers arrive as `f64`
-/// from JSON/MDX). Formats through decimal text instead of an `as` cast so
-/// out-of-range values fail instead of silently truncating.
+/// Exactly-integral `f64` → `i64`. Goes through decimal text, not an `as`
+/// cast, so out-of-range values fail instead of silently truncating.
 pub fn integral(n: f64) -> Option<i64> {
     (n.fract() == 0.0)
         .then(|| format!("{n:.0}").parse().ok())
@@ -57,7 +51,7 @@ pub fn integral(n: f64) -> Option<i64> {
 /// The full registered vocabulary; what validation checks posts against.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Manifest {
-    /// Sorted by component name for deterministic output.
+    /// Sorted by name for deterministic output.
     pub components: Vec<ComponentSpec>,
 }
 
@@ -71,7 +65,6 @@ impl Manifest {
     }
 }
 
-/// One registered component: its name, props, and whether it takes children.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ComponentSpec {
     pub name: String,
@@ -85,7 +78,6 @@ impl ComponentSpec {
     }
 }
 
-/// One prop of a registered component.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PropSpec {
     pub name: String,

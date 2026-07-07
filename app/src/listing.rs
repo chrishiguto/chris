@@ -1,7 +1,5 @@
-//! Listing pages: `/` (recent posts), `/posts` (everything), and tag
-//! browsing (`/tags`, `/tags/{tag}`), rendered from the KV `index` the site
-//! worker provides via context. Drafts are stored in the index but filtered
-//! here, at render time.
+//! Listing pages: `/`, `/posts`, and tag browsing, rendered from the index
+//! provided via context. Drafts are in the index but filtered here.
 
 use content::{post_path, tag_path, IndexEntry};
 use leptos::prelude::*;
@@ -9,15 +7,12 @@ use leptos_router::hooks::use_params_map;
 
 use crate::components::page;
 
-/// Per-request payload provided by the site worker: the deserialized KV
-/// `index`, newest-first. Empty when nothing has been published yet.
+/// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
 pub struct IndexData(pub Vec<IndexEntry>);
 
-/// How many posts the home page shows before deferring to `/posts`.
 pub const RECENT_POSTS: usize = 5;
 
-/// Published entries only, in stored (newest-first) order.
 fn listed_entries() -> Vec<IndexEntry> {
     use_context::<IndexData>()
         .map(|data| data.0)
@@ -27,8 +22,7 @@ fn listed_entries() -> Vec<IndexEntry> {
         .collect()
 }
 
-/// The markup shape `main.css` styles:
-/// `ul.post-list > li > a > h2 + p.post-date`.
+/// Markup shape `main.css` styles: `ul.post-list > li > a > h2 + p.post-date`.
 fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
     let items: Vec<_> = entries
         .into_iter()
@@ -63,7 +57,6 @@ pub fn PostsPage() -> impl IntoView {
     page(Some("posts — chris".into()), "posts", listing)
 }
 
-/// Tags across published posts with how many posts carry each, alphabetical.
 fn tag_counts(entries: &[IndexEntry]) -> Vec<(String, usize)> {
     entries
         .iter()
@@ -99,9 +92,8 @@ pub fn TagsPage() -> impl IntoView {
     page(Some("tags — chris".into()), "tags", listing)
 }
 
-/// The body of `/tags/{tag}`, with the tag as a plain prop so tests need no
-/// router; [`TagPage`] reads it from the URL. An empty match renders a
-/// readable state — the worker owns the 404 status for unknown tags.
+/// Tag as a plain prop so tests need no router. An empty match renders a
+/// readable state; the worker owns the 404 status for unknown tags.
 #[component]
 pub fn TagListing(tag: String) -> impl IntoView {
     let matching: Vec<_> = listed_entries()

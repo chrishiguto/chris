@@ -1,5 +1,4 @@
-//! Transport-only routes: verify, route, poke the coordinator. Decisions
-//! are pure functions in `lib.rs`.
+//! Transport-only routes; decisions are pure functions in `lib.rs`.
 
 use worker::{console_error, Env, Method, Request, RequestInit, Response, Result};
 
@@ -108,7 +107,6 @@ async fn trigger_reconcile(env: &Env, config: &ReconcileConfig) -> Result<()> {
     }
 }
 
-/// Fires the publish workflow on the pushed branch with the commit context.
 async fn dispatch_workflow(env: &Env, event: &PushEvent) -> std::result::Result<(), String> {
     let url = dispatch_url(&event.repository.full_name);
     let body = dispatch_payload(&event.repository.default_branch, &event.after);

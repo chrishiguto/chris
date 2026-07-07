@@ -1,42 +1,37 @@
-//! The publish operation's pure core: validate post sources and lay a
-//! snapshot out as KV writes. Wasm-clean — no filesystem, HTTP, or clock;
-//! callers own transport. Snapshots are immutable (`snapshot:{sha}:*`); the
-//! caller flips `current` afterwards, so readers never see a blend.
+//! Pure publish planning: validate post sources, lay a snapshot out as KV
+//! writes. Wasm-clean — no fs, HTTP, or clock; callers own transport.
+//! Snapshots are immutable; the caller flips `current` last, so readers never see a blend.
 
 use content::{
     post_path, snapshot_index_key, snapshot_post_key, tag_path, AstError, Diagnostic, Document,
     IndexEntry, Manifest, FEED_PATHS, LISTING_PAGES,
 };
 
-/// One post's raw authoring input, however the caller obtained it.
 #[derive(Debug, Clone)]
 pub struct PostSource {
     /// Directory name under `content/blog/`; the KV and URL identity.
     pub slug: String,
     /// Path stamped into diagnostics.
     pub file: String,
-    /// Raw `.mdx` text.
     pub source: String,
 }
 
-/// A source that passed parsing and manifest validation.
 #[derive(Debug, Clone)]
 pub struct ParsedPost {
     pub slug: String,
     pub document: Document,
 }
 
-/// A post carried into the new snapshot unchanged: its source at HEAD
-/// failed validation, so the previous entry and payload ride along instead.
+/// A post whose HEAD source failed validation; the previous entry and
+/// payload ride into the new snapshot unchanged.
 #[derive(Debug, Clone)]
 pub struct CarriedPost {
     pub entry: IndexEntry,
-    /// The serialized `Document` exactly as the previous snapshot stored it.
+    /// Serialized `Document` exactly as the previous snapshot stored it.
     pub payload: String,
 }
 
-/// One KV put the caller must perform. Serializes to exactly the
-/// `{"key","value"}` shape `wrangler kv bulk put` consumes.
+/// One KV put; serializes to the `{"key","value"}` shape `wrangler kv bulk put` consumes.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct KvWrite {
     pub key: String,
@@ -46,26 +41,24 @@ pub struct KvWrite {
 /// The purge-by-URL API caps each request at 30 files (non-Enterprise).
 pub const PURGE_FILES_LIMIT: usize = 30;
 
-/// Everything one snapshot publish must do to KV. The caller flips
-/// `current` after all writes, then purges.
+/// All KV writes for one snapshot publish; the caller flips `current`
+/// after all writes, then purges.
 #[derive(Debug, Clone)]
 pub struct SnapshotPlan {
-    /// `snapshot:{sha}:post:*` payloads; land these first, in any order.
+    /// Land these first, in any order.
     pub post_writes: Vec<KvWrite>,
-    /// `snapshot:{sha}:index`, written only after every post write — a torn
-    /// write must never leave an index naming missing posts.
+    /// Write only after every post write — a torn publish must never leave
+    /// an index naming missing posts.
     pub index_write: KvWrite,
     /// The new index, newest-first.
     pub index: Vec<IndexEntry>,
-    /// URL paths this publish invalidates: the whole enumerated set of the
-    /// previous and new indexes — a full rebuild records no body deltas.
-    /// Sorted, deduplicated; callers prefix their origin.
+    /// URL paths to invalidate, sorted and deduplicated; callers prefix
+    /// their origin.
     pub purge: Vec<String>,
 }
 
 impl SnapshotPlan {
-    /// The purge set as absolute URLs, chunked to the API's per-request
-    /// cap; transports wrap each chunk in their own wire format.
+    /// The purge set as absolute URLs, chunked to the API's per-request cap.
     pub fn purge_chunks(&self, origin: &str) -> Vec<Vec<String>> {
         let origin = origin.trim_end_matches('/');
         self.purge
@@ -75,8 +68,8 @@ impl SnapshotPlan {
     }
 }
 
-/// Validates every source against the manifest, collecting diagnostics
-/// across all files — nothing invalid can reach KV.
+/// Validates every source, collecting diagnostics across all files —
+/// nothing invalid can reach KV.
 pub fn check(
     posts: &[PostSource],
     manifest: &Manifest,
@@ -96,10 +89,8 @@ pub fn check(
     }
 }
 
-/// The same gate as [`check`], per post: each source passes or fails on its
-/// own, in input order — one broken post must not wedge the rest. Frontmatter
-/// and component rules live in `content::parse_validated`; only the slug
-/// (a directory name, invisible to the parser) is checked here.
+/// Per-post [`check`]: each source passes or fails on its own, in input
+/// order — one broken post must not wedge the rest.
 pub fn check_each(
     posts: &[PostSource],
     manifest: &Manifest,
@@ -126,8 +117,8 @@ pub fn check_each(
         .collect()
 }
 
-/// Slugs name the post URL, its KV keys, and its co-located component
-/// module — enforce [`content::valid_slug`] before anything consumes them.
+/// The slug is a directory name the parser never sees; gate it here before
+/// URLs, KV keys, and module names consume it.
 fn check_slug(post: &PostSource) -> Option<Diagnostic> {
     (!content::valid_slug(&post.slug)).then(|| Diagnostic {
         message: format!(
@@ -141,9 +132,8 @@ fn check_slug(post: &PostSource) -> Option<Diagnostic> {
     })
 }
 
-/// Lays out one immutable snapshot: every checked post, every carried post,
-/// and the index built from exactly those — absent from both means retired.
-/// `prev_index` feeds only the purge set.
+/// Lays out one immutable snapshot: the index is exactly checked + carried
+/// posts — absent from both means retired. `prev_index` feeds only the purge set.
 pub fn snapshot(
     prev_index: &[IndexEntry],
     posts: &[ParsedPost],
@@ -186,8 +176,8 @@ pub fn snapshot(
     })
 }
 
-/// Listings and feeds always change; every post and tag URL either side of
-/// the publish knows about may have changed or vanished.
+/// A full rebuild records no body deltas, so purge every URL either index
+/// knows about, plus listings and feeds.
 fn purge_paths(prev_index: &[IndexEntry], index: &[IndexEntry]) -> Vec<String> {
     let entries = prev_index.iter().chain(index);
     LISTING_PAGES

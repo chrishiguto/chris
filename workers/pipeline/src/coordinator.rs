@@ -1,12 +1,6 @@
-//! The publish coordinator: a single Durable Object that owns every content
-//! mutation. Triggers only mark it dirty and schedule its alarm; the alarm
-//! runs one serialized reconcile-to-HEAD at a time, so concurrent or
-//! out-of-order triggers can never interleave writes.
-//!
-//! A reconcile is a full rebuild: validate every post at HEAD, write an
-//! immutable `snapshot:{sha}:*` set, flip the `current` pointer, purge.
-//! Posts failing validation carry forward as their previously published
-//! version. The alarm re-arms itself as a cron backstop.
+//! The publish coordinator: one Durable Object owns every content mutation.
+//! Triggers only mark it dirty and schedule the alarm; the alarm runs one
+//! serialized reconcile-to-HEAD at a time, so triggers never interleave writes.
 
 use std::collections::BTreeSet;
 
@@ -34,8 +28,7 @@ pub(crate) const COORDINATOR_NAME: &str = "publish";
 /// Same namespace the site worker reads.
 const KV_BINDING: &str = "BLOG";
 
-/// DO storage: reconcile target, coalescing flag, snapshot history, last
-/// posted commit status.
+/// DO storage keys; `dirty` coalesces triggers that land mid-reconcile.
 const CONFIG_KEY: &str = "config";
 const DIRTY_KEY: &str = "dirty";
 const HISTORY_KEY: &str = "history";
@@ -45,7 +38,6 @@ const LAST_STATUS_KEY: &str = "last-status";
 const KEEP_SNAPSHOTS: usize = 10;
 /// How long until the alarm re-fires on its own, healing missed triggers.
 const BACKSTOP_MS: i64 = 6 * 60 * 60 * 1000;
-/// Bound on concurrent GitHub contents fetches.
 const FETCH_CONCURRENCY: usize = 8;
 
 #[durable_object]
@@ -89,10 +81,8 @@ impl DurableObject for PublishCoordinator {
             console_error!("reconcile of {} failed: {err}", config.repository);
             return Err(worker::Error::RustError(err));
         }
-        // A trigger landed mid-reconcile: run again now. Belt-and-braces —
-        // the trigger's own set_alarm(0) should already land after the
-        // backstop re-arm above, but the platform docs don't pin down
-        // alarm-overwrite ordering during a running handler.
+        // A trigger landed mid-reconcile: run again now (alarm-overwrite
+        // ordering during a running handler isn't guaranteed).
         if storage.get::<bool>(DIRTY_KEY).await?.unwrap_or(false) {
             storage.set_alarm(0_i64).await?;
         }
@@ -169,8 +159,7 @@ impl PublishCoordinator {
                         payload,
                     }),
                     // The previous index named it, so a missing payload is
-                    // infra trouble; the post drops from the new index (and
-                    // gets purged) — never silently.
+                    // infra trouble; the post drops from the index, loudly.
                     None => console_error!(
                         "carry-forward of {slug} lost: {key} missing — the post drops from the index"
                     ),
@@ -239,9 +228,8 @@ impl PublishCoordinator {
         }
     }
 
-    /// Remembers the flipped snapshot, then sweeps snapshot keys outside the
-    /// history and whatever `current` points at right now (protecting a
-    /// concurrent break-glass flip). Best-effort.
+    /// Sweeps snapshot keys outside the history and whatever `current`
+    /// points at now (protects a concurrent break-glass flip). Best-effort.
     async fn retain(&self, kv: &KvStore, head: &str) {
         let storage = self.state.storage();
         let mut history: Vec<String> = storage
@@ -290,7 +278,6 @@ impl PublishCoordinator {
     }
 }
 
-/// One snapshot-plan write, executed.
 async fn kv_put(kv: &KvStore, write: &publish::KvWrite) -> std::result::Result<(), String> {
     kv.put(&write.key, write.value.as_str())
         .map_err(|err| err.to_string())?
@@ -306,7 +293,6 @@ async fn head_sha(env: &Env, repo: &str, branch: &str) -> std::result::Result<St
     parse_head_ref(&json).map_err(|err| format!("head of {branch}: {err}"))
 }
 
-/// Every post slug in the repository tree at `sha`.
 async fn tree_post_slugs_at(
     env: &Env,
     repo: &str,

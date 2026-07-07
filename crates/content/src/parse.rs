@@ -1,11 +1,6 @@
-//! Parses the MDX-syntax authoring subset into the versioned
-//! IR defined at this crate's root (behind the `parse` feature).
-//!
-//! Wraps markdown-rs in MDX mode — no custom parser. Everything outside the
-//! authoring subset (`import`/`export`, `{expressions}`, non-literal props,
-//! reference-style links, …) is reported as a [`Diagnostic`] with a source
-//! location instead of silently passing through. The fixture corpus under
-//! `fixtures/` doubles as the format specification.
+//! Parses the MDX-syntax authoring subset into the versioned IR. Wraps
+//! markdown-rs in MDX mode; anything outside the subset becomes a
+//! [`Diagnostic`] with a source location instead of passing through.
 
 use std::collections::BTreeMap;
 
@@ -19,13 +14,11 @@ use crate::{Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue
 /// A parse or validation error, with a source location when known.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Diagnostic {
-    /// Human-readable problem description.
     pub message: String,
-    /// File the source came from.
     pub file: Option<String>,
-    /// 1-based line in the source file.
+    /// 1-based.
     pub line: Option<usize>,
-    /// 1-based column in the source file.
+    /// 1-based.
     pub column: Option<usize>,
 }
 
@@ -41,22 +34,13 @@ impl std::fmt::Display for Diagnostic {
 }
 
 /// Parses one `.mdx` source into a [`Document`], stamping `file` into every
-/// diagnostic.
-///
-/// Returns every problem found, not just the first; a non-empty diagnostic
-/// list means the document must not be published.
+/// diagnostic. Returns every problem found, not just the first.
 pub fn parse(source: &str, file: &str) -> Result<Document, Vec<Diagnostic>> {
     parse_impl(source, None).map_err(stamp(file))
 }
 
-/// [`parse`] plus the full CONTENT.md contract: component validation against
-/// the manifest (unknown components with did-you-mean, missing/mistyped
-/// props, children on childless components) and the frontmatter shape rules
-/// (date format, tag slugs).
-///
-/// Validation is fused into parsing — not a separate `validate(doc)` pass —
-/// because source positions exist only on the markdown tree; the stored AST
-/// deliberately carries none.
+/// [`parse`] plus manifest validation and frontmatter shape rules. Fused into
+/// parsing because source positions exist only on the markdown tree.
 pub fn parse_validated(
     source: &str,
     file: &str,
@@ -113,9 +97,8 @@ fn parse_impl(source: &str, manifest: Option<&Manifest>) -> Result<Document, Vec
     }
 }
 
-/// MDX constructs + YAML frontmatter. The permissive esm/expression hooks
-/// exist only so markdown-rs *recognizes* those constructs — the converter
-/// then rejects the resulting nodes with proper diagnostics.
+/// The permissive esm/expression hooks only make markdown-rs recognize those
+/// constructs; the converter rejects the resulting nodes with diagnostics.
 fn parse_options() -> ParseOptions {
     ParseOptions {
         constructs: Constructs {
@@ -176,17 +159,15 @@ impl Converter<'_> {
     fn frontmatter(&mut self, yaml: &mdast::Yaml) -> Option<Frontmatter> {
         match serde_yaml::from_str::<Frontmatter>(&yaml.value) {
             Ok(frontmatter) => {
-                // Shape rules ride with the manifest gate: `parse` stays
-                // permissive (e.g. `xtask ast` on a work-in-progress date),
-                // validated parses enforce the whole contract.
+                // Shape rules only on validated parses; plain `parse` stays permissive.
                 if self.manifest.is_some() {
                     self.check_frontmatter(&frontmatter, yaml);
                 }
                 Some(frontmatter)
             }
             Err(err) => {
-                // serde_yaml locations are relative to the YAML block, which
-                // starts one line below the opening `---` fence.
+                // serde_yaml locations are relative to the YAML block, one
+                // line below the opening `---` fence.
                 let fence_line = yaml.position.as_ref().map_or(1, |p| p.start.line);
                 let (line, column) = err.location().map_or((Some(fence_line), None), |loc| {
                     (Some(fence_line + loc.line()), Some(loc.column()))
@@ -202,8 +183,7 @@ impl Converter<'_> {
         }
     }
 
-    /// The CONTENT.md frontmatter shape rules, checked where the source
-    /// positions still exist.
+    /// Frontmatter shape rules, checked while source positions still exist.
     fn check_frontmatter(&mut self, frontmatter: &Frontmatter, yaml: &mdast::Yaml) {
         let date = frontmatter.date.as_bytes();
         let date_ok = date.len() == 10
@@ -211,8 +191,7 @@ impl Converter<'_> {
                 4 | 7 => *b == b'-',
                 _ => b.is_ascii_digit(),
             });
-        // Index order is lexicographic on `date`, so anything but
-        // YYYY-MM-DD blocks publish.
+        // Index order is lexicographic on `date`.
         if !date_ok {
             self.diags.push(Diagnostic {
                 message: format!(
@@ -224,8 +203,6 @@ impl Converter<'_> {
                 column: None,
             });
         }
-        // Tags name `/tags/{tag}` URLs verbatim, so they must be lowercase
-        // slugs.
         for tag in frontmatter.tags.iter().filter(|tag| {
             tag.is_empty()
                 || !tag
@@ -417,9 +394,8 @@ impl Converter<'_> {
         }
     }
 
-    /// No-op unless a manifest was supplied (plain [`parse`] stays untyped).
-    /// `rejected` holds props that were written but already errored, so one
-    /// authoring mistake never also reads as "missing".
+    /// No-op without a manifest. `rejected` holds props that were written but
+    /// already errored, so one mistake never also reads as "missing".
     fn validate_component(
         &mut self,
         name: &str,
@@ -486,8 +462,8 @@ impl Converter<'_> {
         }
     }
 
-    /// Returns the parsed props plus the names of props that were written
-    /// but rejected (non-literal values), for [`Self::validate_component`].
+    /// Also returns the names of props written but rejected, for
+    /// [`Self::validate_component`].
     fn component_props(
         &mut self,
         component: &str,
@@ -534,8 +510,8 @@ impl Converter<'_> {
         (props, rejected)
     }
 
-    /// Braced prop values may only be number or boolean literals: strings use
-    /// plain quotes, and anything else is code, which the subset forbids.
+    /// Braced values may only be number/bool literals: strings use plain
+    /// quotes, anything else is code.
     fn scalar_literal(
         &mut self,
         component: &str,
@@ -618,8 +594,8 @@ impl Converter<'_> {
     }
 }
 
-/// Document line of the frontmatter line declaring `key`, when findable
-/// (the YAML block starts one line below the opening `---` fence).
+/// Document line declaring `key` in the frontmatter (the YAML block starts
+/// one line below the opening `---` fence).
 fn yaml_key_line(yaml: &mdast::Yaml, key: &str) -> Option<usize> {
     let fence = yaml.position.as_ref()?.start.line;
     yaml.value
@@ -637,8 +613,7 @@ fn show_prop_value(value: &PropValue) -> String {
     }
 }
 
-/// Syntax nudge for the two classic quoting mistakes: quoting a number/bool
-/// (needs braces) or bracing what should be a plain quoted string.
+/// Nudges the two classic quoting mistakes: quoted number/bool, braced string.
 fn mismatch_hint(prop: &str, expected: PropType, value: &PropValue) -> String {
     match (expected, value) {
         (PropType::String, PropValue::Number(n)) => {
@@ -665,7 +640,7 @@ fn reads_as(ty: PropType, s: &str) -> bool {
 }
 
 /// Closest candidate within edit distance 2 (case-insensitive), for
-/// "did you mean" suggestions.
+/// did-you-mean suggestions.
 fn suggest<'a>(target: &str, candidates: impl Iterator<Item = &'a str>) -> Option<&'a str> {
     candidates
         .map(|candidate| {

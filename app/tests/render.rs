@@ -1,6 +1,4 @@
-//! Snapshot tests for the AST renderer: every prose node type in
-//! the content IR must render, plus the Slice-3 component placeholder.
-//! Run with `cargo test -p app --features ssr`.
+//! Snapshot tests for the AST renderer: every node type in the content IR must render.
 #![cfg(feature = "ssr")]
 
 use std::collections::BTreeMap;
@@ -270,8 +268,7 @@ fn unknown_component_renders_loud_error() {
 
 #[test]
 fn dispatch_error_renders_loud_error() {
-    // `kind` is required; content like this can only reach KV by skipping
-    // publish validation, and must still fail visibly.
+    // `kind` is required; this shape only reaches KV by skipping publish validation.
     let html = html_of(vec![Node::Component {
         name: "Callout".into(),
         props: BTreeMap::new(),
@@ -299,8 +296,7 @@ fn manifest_contains_the_v1_vocabulary() {
     assert!(counter.prop("initial").is_some_and(|p| p.required));
 }
 
-// The full read path minus KV transport: the fixture post parses under
-// the real manifest and renders through real registry dispatch.
+// The full read path minus KV transport.
 #[test]
 fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/components-demo/index.mdx");
@@ -325,7 +321,6 @@ fn fixture_post_renders_end_to_end() {
     );
 }
 
-// Renders `PostPage` the way the worker does (see `common::ssr`).
 fn page_html(post: Option<Document>) -> String {
     use leptos::prelude::provide_context;
     ssr(
@@ -334,8 +329,7 @@ fn page_html(post: Option<Document>) -> String {
     )
 }
 
-// The worker provides `PostData(None)` on a KV miss; the page must still be
-// a proper error page (heading + way home), never a blank body.
+// `PostData(None)` is what the worker provides on a KV miss.
 #[test]
 fn post_page_without_post_renders_404_content() {
     let html = page_html(None);
@@ -362,9 +356,7 @@ fn post_page_with_post_renders_article() {
     assert!(html.contains("<p>body text</p>"), "missing body: {html}");
 }
 
-// Drafts stay reachable by slug (device testing / sharing the URL)
-// — the page renders the article like any published post; only listings,
-// feeds, and the cache treat drafts specially.
+// Drafts stay reachable by slug; only listings, feeds, and the cache treat them specially.
 #[test]
 fn post_page_renders_a_draft_document() {
     let html = page_html(Some(Document {

@@ -1,5 +1,4 @@
-//! Pins `xtask plan`'s output files — the wire contract `just publish`
-//! feeds into wrangler and curl.
+//! Pins `xtask plan`'s output files — the wire contract fed to wrangler and curl.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -58,8 +57,7 @@ fn plan_writes_bulk_puts_with_the_index_last_and_chunked_purge_urls() {
         String::from_utf8_lossy(&run.stderr)
     );
 
-    // writes.json is wrangler `kv bulk put` input: [{"key","value"}] with
-    // the index write last.
+    // writes.json is wrangler `kv bulk put` input: [{"key","value"}], index last
     let writes = read_json(&out.join("writes.json"));
     let writes = writes.as_array().expect("writes.json must be an array");
     for write in writes {
@@ -87,8 +85,7 @@ fn plan_writes_bulk_puts_with_the_index_last_and_chunked_purge_urls() {
     std::fs::remove_dir_all(&out).unwrap();
 }
 
-/// A re-plan into the same directory must not leave a previous, larger
-/// plan's purge chunks behind — the justfile purges every purge-*.json.
+/// A re-plan must not leave a previous, larger plan's purge chunks behind.
 #[test]
 fn plan_removes_stale_purge_chunks() {
     let out = out_dir("stale");
@@ -115,8 +112,7 @@ fn plan_removes_stale_purge_chunks() {
     std::fs::remove_dir_all(&out).unwrap();
 }
 
-/// A typo'd flag in a break-glass publish must fail, never silently plan
-/// against a default.
+/// A typo'd flag must fail, never silently plan against a default.
 #[test]
 fn unrecognized_flags_are_rejected() {
     let run = xtask(&["check", "--contnet-dir", "somewhere"]);

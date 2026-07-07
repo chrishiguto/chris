@@ -1,5 +1,4 @@
-# the build pipeline lives in `just build`; wrangler.toml calls it too, so dev,
-# deploy, and ci all go through the same recipe.
+# wrangler.toml's [build] also calls `just build` — dev, deploy, and ci share one recipe.
 
 wasm_rustflags := '--cfg getrandom_backend="wasm_js"'
 
@@ -29,9 +28,8 @@ deploy:
 deploy-pipeline:
     npx wrangler deploy --config workers/pipeline/wrangler.toml
 
-# gzipped wasm sizes — worker scripts fail past the 10 MB Workers limit and
-# warn past 5 MB; client islands are assets with no script limit. The
-# ::error::/::warning:: prefixes surface as annotations in GitHub Actions.
+# gzipped wasm sizes — worker scripts fail past the 10 MB Workers limit, warn
+# past 5 MB; client islands are assets with no script limit.
 size:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -50,30 +48,26 @@ size:
     echo "client islands: $(gzip -9 -c target/site/pkg/{{output_name}}.wasm | wc -c) bytes gzipped"
     budget "pipeline worker" workers/pipeline/build/index_bg.wasm
 
-# format everything (leptosfmt handles view! macros, rustfmt the rest;
-# content/ holds co-located per-post components — rustfmt can't see them
-# through the build.rs include!, so leptosfmt covers them here)
+# format everything; leptosfmt covers content/ because rustfmt can't see the
+# build.rs-included per-post components
 fmt:
     leptosfmt app workers content
     cargo fmt --all
 
-# fmt-check + clippy (native target; ssr deps are feature-gated so this compiles)
-# + content-tree validation against the compiled component vocabulary
+# fmt-check + clippy + content validation (native target — compiles only
+# because ssr deps are feature-gated)
 check:
     leptosfmt --check app workers content
     cargo fmt --all --check
     cargo clippy --workspace -- -D warnings
     cargo run -q -p xtask -- check
 
-# native test suite; workspace feature unification (app enables registry's
-# `dispatch`) keeps the feature-gated suites in this run
+# native test suite; feature unification keeps the gated suites in this run
 test:
     cargo test --workspace
 
-# break-glass publish straight to KV through wrangler: xtask plans the whole
-# tree as one snapshot, wrangler moves the bytes and flips `current` last.
-# Deliberately bypasses the coordinator — the escape hatch for when the
-# pipeline worker itself is the problem; the next reconcile supersedes it.
+# break-glass publish straight to KV, bypassing the coordinator — for when the
+# pipeline itself is broken; the next reconcile supersedes it.
 # `remote='--local'` targets the `wrangler dev` simulator instead.
 remote := '--remote'
 
@@ -82,20 +76,18 @@ publish:
     set -euo pipefail
     out=target/publish
     mkdir -p "$out"
-    # Missing keys print "Value not found" and exit 0 — the only non-JSON
-    # output xtask accepts; anything else fails before reaching `plan`.
+    # missing keys print "Value not found" with exit 0 — the only non-JSON output xtask accepts
     npx wrangler kv key get --binding BLOG {{remote}} current --text > "$out/current.json"
-    # xtask names the key holding the previous index; bash just reads it.
+    # xtask names the key so its grammar stays out of bash
     prev_index_key=$(cargo run -q -p xtask -- pointer "$out/current.json")
     npx wrangler kv key get --binding BLOG {{remote}} "$prev_index_key" --text > "$out/index.json"
     sha="manual-$(git rev-parse --short=12 HEAD)-$(date +%s)"
     cargo run -q -p xtask -- plan --sha "$sha" --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
-    # The pointer flips only after every snapshot key landed.
+    # the pointer flips only after every snapshot key landed
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
     if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${SITE_ORIGIN:-}" ]; then
-        # xtask chunks the URL list to the API's 30-file cap — one request
-        # per chunk. A failed purge only means the 7-day TTL backstop.
+        # one request per API-capped chunk; a failed purge just leaves the 7-day TTL backstop
         purged=1
         for chunk in "$out"/purge-*.json; do
             curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \

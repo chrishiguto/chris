@@ -1,10 +1,6 @@
-//! Feed and sitemap rendering from the KV `index` — pure
-//! string builders over [`IndexEntry`], natively testable; the wasm shim in
-//! `server` only wires them to `/rss.xml` and `/sitemap.xml`.
-//!
-//! The feed is Atom (RFC 4287), served at `/rss.xml`:
-//! Atom takes ISO-8601 timestamps directly, so frontmatter dates need no
-//! RFC-822 weekday arithmetic.
+//! Feed and sitemap rendering over the KV index — pure string builders,
+//! natively testable. The feed is Atom served at `/rss.xml` (Atom takes
+//! ISO-8601 dates directly, unlike RSS's RFC-822).
 
 use content::{post_path, tag_path, IndexEntry, LISTING_PAGES, RSS_PATH};
 
@@ -13,12 +9,11 @@ const AUTHOR: &str = "chris";
 /// Feed-level `updated` when nothing is published yet (Atom requires one).
 const EPOCH: &str = "1970-01-01";
 
-/// Published entries only, in stored (newest-first) order.
+/// Published entries in stored (newest-first) order.
 fn published(index: &[IndexEntry]) -> impl Iterator<Item = &IndexEntry> {
     index.iter().filter(|entry| entry.is_listed())
 }
 
-/// Escapes text for XML element content and attribute values.
 fn xml_escape(text: &str) -> String {
     text.chars()
         .map(|c| match c {
@@ -48,8 +43,8 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
     let entries = published(index)
         .map(|entry| {
             let url = format!("{origin}{}", post_path(&entry.slug));
-            // RFC 4287 §4.1.2: with no atom:content, atom:summary is
-            // required — fall back to the title when there is no description.
+            // With no atom:content, Atom requires atom:summary — fall back
+            // to the title when there is no description.
             let summary = entry.description.as_deref().unwrap_or(&entry.title);
             format!(
                 "<entry>\
@@ -83,8 +78,8 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
     )
 }
 
-/// `/sitemap.xml`: home, the post list, tag pages, and every published post
-/// (with its publication date as `lastmod`).
+/// Home, listing pages, tag pages, and every published post (publication
+/// date as `lastmod`).
 pub fn sitemap(origin: &str, index: &[IndexEntry]) -> String {
     let tags: std::collections::BTreeSet<&str> = published(index)
         .flat_map(|entry| entry.tags.iter())

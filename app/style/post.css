@@ -1,12 +1,9 @@
-/* Prose styling for the AST renderer's output. `render_node` emits bare
-   semantic elements (presentation lives here, not in KV) inside the
-   `.post-body` wrapper, so every node type is styled through flat
-   `.post-body <element>` selectors — the shape app/tests/theme.rs pins
-   down — and none of them can reach the post header chrome. */
+/* Prose for the AST renderer: bare semantic elements inside `.post-body`,
+   styled via flat `.post-body <element>` selectors so nothing reaches the
+   post header chrome. */
 
 @layer components {
-  /* The container geometry is the shared `mx-auto max-w-2xl px-6`
-     utilities on the article itself; only rhythm lives here. */
+  /* Width/centering come from utilities on the article; only rhythm lives here. */
   .post {
     padding-block: 3rem 5rem;
     font-size: 1.0625rem;
@@ -159,9 +156,8 @@
     border-top: 1px solid var(--color-line);
   }
 
-  /* Frontmatter tags — shared by the post header and the listing and
-     tag pages; prose rules are scoped to `.post-body`, so nothing here
-     competes with them. */
+  /* Tag pills, shared by the post header and the listing/tag pages;
+     prose rules are scoped to `.post-body`, so nothing bleeds in here. */
 
   .post-tags {
     display: flex;
@@ -192,8 +188,7 @@
     color: var(--color-accent);
   }
 
-  /* Listing pages only need this markup shape:
-     <ul class="post-list"><li><a><h2>title</h2><p class="post-date">…</p></a></li>… */
+  /* Listing markup shape: ul.post-list > li > a > h2 + p.post-date */
 
   .post-list {
     margin-block: 2rem;
@@ -267,8 +262,7 @@
     margin-bottom: 0;
   }
 
-  /* Bad KV data must fail loudly on the page, so the error surface
-     is deliberately jarring in both modes. */
+  /* Bad KV data must fail loudly; deliberately jarring in both modes. */
   .component-error {
     font-family: var(--font-mono);
     font-size: 0.875em;

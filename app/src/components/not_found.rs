@@ -2,8 +2,6 @@ use leptos::prelude::*;
 
 use crate::components::page;
 
-/// The router fallback for URLs no route matches; other 404 surfaces
-/// (like an unknown post slug) reuse it with their own message.
 #[component]
 pub fn NotFound(
     #[prop(default = "This page does not exist.")] message: &'static str,

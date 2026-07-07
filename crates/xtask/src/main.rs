@@ -1,13 +1,5 @@
-//! `xtask` — workspace scripts over the shared content crates (the
-//! cargo-xtask pattern; front door is the justfile):
-//!
-//! - `check` gates a content tree locally,
-//! - `plan` lays the whole tree out as one immutable snapshot — `just
-//!   publish` pipes the files into `wrangler kv bulk put` and flips the
-//!   `current` pointer (break-glass),
-//! - `pointer` resolves a captured `current` pointer to the previous
-//!   snapshot's index key,
-//! - `ast` prints one post's AST JSON for hand-seeding local KV.
+//! Workspace scripts binary (cargo-xtask); the justfile is the front door
+//! and wrangler moves the bytes.
 
 use std::path::Path;
 use std::process::ExitCode;
@@ -52,8 +44,8 @@ fn check(args: &[String]) -> Result<String, String> {
     Ok(format!("checked {} posts — all valid", posts.len()))
 }
 
-/// Break-glass publish plan: the whole local tree becomes one snapshot — a
-/// broken post blocks the plan. The previous index feeds only the purge set.
+/// The whole tree becomes one snapshot — a broken post blocks the plan.
+/// The previous index feeds only the purge set.
 fn plan(args: &[String]) -> Result<String, String> {
     let flags = parse_flags(
         args,
@@ -81,9 +73,8 @@ fn plan(args: &[String]) -> Result<String, String> {
 
     let out = Path::new(&out_dir);
     std::fs::create_dir_all(out).map_err(|err| format!("creating {out_dir}: {err}"))?;
-    // `KvWrite` serializes to wrangler's `kv bulk put` shape; posts first,
-    // index last, so a torn bulk put never leaves an index naming missing
-    // posts (the pointer flip afterwards is the real gate).
+    // Posts first, index last: a torn bulk put must never leave an index
+    // naming missing posts.
     let writes: Vec<_> = plan
         .post_writes
         .iter()
@@ -95,9 +86,8 @@ fn plan(args: &[String]) -> Result<String, String> {
     let pointer = serde_json::to_value(CurrentPointer { sha: sha.clone() })
         .map_err(|err| format!("serializing pointer: {err}"))?;
     write_json(out, "pointer.json", &pointer)?;
-    // One purge-N.json per API-capped chunk of full URLs (with --origin;
-    // bare paths otherwise — the purge gets skipped anyway). Stale chunks
-    // from a previous, larger plan must not ride along.
+    // One purge-N.json per API-capped chunk; stale chunks from a previous,
+    // larger plan must not ride along.
     for stale in purge_files(out)? {
         std::fs::remove_file(&stale).map_err(|err| format!("removing stale purge file: {err}"))?;
     }
@@ -115,7 +105,6 @@ fn plan(args: &[String]) -> Result<String, String> {
     ))
 }
 
-/// The `purge-N.json` files already in the plan directory.
 fn purge_files(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
     let entries = std::fs::read_dir(dir).map_err(|err| format!("reading {dir:?}: {err}"))?;
     let mut files = Vec::new();
@@ -130,8 +119,8 @@ fn purge_files(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
     Ok(files)
 }
 
-/// Prints the KV key holding the previous snapshot's index, resolved from a
-/// captured `current` pointer — the key grammar never leaks into bash.
+/// Resolves a captured `current` pointer to the previous index's KV key —
+/// the key grammar never leaks into bash.
 fn pointer(args: &[String]) -> Result<String, String> {
     let [path] = args else {
         return Err(USAGE.into());
@@ -150,8 +139,8 @@ fn ast(args: &[String]) -> Result<String, String> {
     serde_json::to_string_pretty(&doc).map_err(|err| format!("{path}: failed to serialize: {err}"))
 }
 
-/// Reads the previous snapshot's index; anything unexpected fails closed
-/// (see [`xtask::parse_index`]) instead of silently planning a fresh index.
+/// Reads the previous index; unexpected content fails closed rather than
+/// silently planning a fresh index.
 fn read_index(path: &Path) -> Result<Vec<IndexEntry>, String> {
     let raw = std::fs::read_to_string(path)
         .map_err(|err| format!("{}: cannot read index: {err}", path.display()))?;
@@ -168,8 +157,8 @@ fn default_content_dir() -> String {
     content::CONTENT_ROOT.into()
 }
 
-/// `--flag VALUE` pairs; anything unrecognized is an error — a typo'd flag
-/// in a break-glass publish must never silently fall back to a default.
+/// `--flag VALUE` pairs; a typo'd flag errors rather than silently falling
+/// back to a default.
 fn parse_flags(
     args: &[String],
     known: &[&str],

@@ -1,5 +1,4 @@
-//! Native tests for feed/sitemap rendering over a fixture index — the pure
-//! half of the site worker (the wasm shim only wires these to routes).
+//! Native tests for feed/sitemap rendering over a fixture index.
 
 use content::IndexEntry;
 use site::feeds;
@@ -69,7 +68,7 @@ fn feed_is_a_well_formed_atom_document() {
     );
     assert!(xml.contains("<author><name>"), "{xml}");
     assert!(xml.trim_end().ends_with("</feed>"), "{xml}");
-    // Every entry needs an id and — absent atom:content — a summary (RFC 4287).
+    // Every entry needs an id and, absent atom:content, a summary.
     assert_eq!(xml.matches("<entry>").count(), 2, "{xml}");
     assert_eq!(xml.matches("<id>").count(), 3, "{xml}");
     assert_eq!(xml.matches("<summary>").count(), 2, "{xml}");

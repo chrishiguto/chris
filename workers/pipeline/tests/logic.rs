@@ -1,6 +1,4 @@
-//! Native tests for the pipeline worker's pure decision logic:
-//! classification, reconcile vocabulary, and status building are plain
-//! functions — the wasm shim stays thin.
+//! Native tests for the pipeline worker's pure decision logic.
 
 use pipeline::{
     classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
@@ -98,8 +96,7 @@ fn missing_or_malformed_signature_headers_fail() {
 }
 
 // --- classification ---
-// (the `content/blog/{slug}/index.mdx` grammar itself is content's:
-// post_slug/source_path are defined and tested in content::routes)
+// (the source-path grammar is content's; post_slug is tested there)
 
 #[test]
 fn content_only_push_takes_the_fast_path() {
@@ -113,8 +110,7 @@ fn content_only_push_takes_the_fast_path() {
 
 #[test]
 fn removed_post_source_still_takes_the_fast_path() {
-    // A removal is a content change like any other: the reconcile rebuilds
-    // to HEAD, where the post no longer exists.
+    // A removal reconciles like any content change: the rebuild targets HEAD.
     let class = classify(&[commit(&[], &[], &["content/blog/hello/index.mdx"])]);
     assert_eq!(class, PushClass::ContentOnly);
 }
@@ -170,9 +166,8 @@ fn build_defining_files_count_as_code() {
 
 #[test]
 fn a_slug_touched_by_many_commits_counts_once() {
-    // added, modified, and removed across one push is one touched post —
-    // the count only feeds the status message; the reconcile rebuilds to
-    // HEAD regardless of what the delta says.
+    // one slug across added/modified/removed counts once; the count only
+    // feeds the status message
     let class = classify(&[
         commit(&["content/blog/hello/index.mdx"], &[], &[]),
         commit(&[], &["app/src/lib.rs"], &["content/blog/hello/index.mdx"]),
@@ -431,17 +426,16 @@ fn publish_request_carries_repository_and_branch() {
     assert_eq!(request.repository, "chrishiguto/chris");
     assert_eq!(request.branch, "main");
 
-    // a caller predating the branch field parses (and is rejected by the
-    // handler with a clear message rather than a serde error)
+    // a caller predating the branch field still parses; the handler rejects it
     let legacy: PublishRequest =
         serde_json::from_str(r#"{"sha":"abc123","repository":"chrishiguto/chris"}"#)
             .expect("legacy request still parses");
     assert!(legacy.branch.is_empty());
 }
 
-// --- manifest (pins the inventory linkage anchor for this consumer:
+// --- manifest ---
 // app::manifest() only yields the vocabulary if the linker kept app's
-// registrations in the binary that calls it) ---
+// inventory registrations in this binary.
 
 #[test]
 fn manifest_exposes_the_real_app_vocabulary() {
@@ -463,8 +457,8 @@ fn purge_url_targets_the_zone_purge_endpoint() {
     );
 }
 
-/// Origin-prefixing and chunking live on `SnapshotPlan::purge_chunks`
-/// (tested in publish); the pipeline only wraps a chunk in the API body.
+/// Origin-prefixing and chunking are `purge_chunks`' job; the pipeline only
+/// wraps a chunk in the API body.
 #[test]
 fn purge_body_wraps_a_chunk_in_the_files_field() {
     let files = vec![

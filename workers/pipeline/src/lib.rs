@@ -1,6 +1,5 @@
-//! The pipeline worker's pure decision core: signature verification, push
-//! classification, reconcile vocabulary, status building — all natively
-//! testable. The wasm shim behind the `worker` feature owns transport only.
+//! Pure decision core: signature verification, push classification, status
+//! building — natively testable. Transport lives behind the `worker` feature.
 
 use std::collections::BTreeSet;
 
@@ -29,7 +28,7 @@ pub struct PushEvent {
     pub git_ref: String,
     /// Head SHA of the push: statuses and content fetches pin to it.
     pub after: String,
-    /// True when the push deletes the ref itself (branch deletion).
+    /// The push deletes the ref itself (branch deletion).
     #[serde(default)]
     pub deleted: bool,
     pub repository: Repository,
@@ -99,9 +98,8 @@ pub enum PushClass {
     Code { touched_posts: usize },
 }
 
-/// Classifies a push from its commits' paths. The reconcile is a full
-/// rebuild, so only two facts matter: does the push touch code, and how
-/// many post sources it touches (for the status message).
+/// The reconcile is a full rebuild, so only two facts matter: does the push
+/// touch code, and how many post sources (for the status message).
 pub fn classify(commits: &[PushCommit]) -> PushClass {
     let paths = commits.iter().flat_map(|commit| {
         commit
@@ -132,8 +130,8 @@ pub fn is_code_path(path: &str) -> bool {
         || CODE_FILES.contains(&path)
 }
 
-/// Which repository and branch a reconcile converges to. The coordinator
-/// persists it so alarm-driven reconciles can run without a request in hand.
+/// Reconcile target; persisted so alarm-driven reconciles can run without
+/// a request in hand.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ReconcileConfig {
     /// `owner/repo`, as GitHub API paths want it.
@@ -141,8 +139,8 @@ pub struct ReconcileConfig {
     pub branch: String,
 }
 
-/// CI's callback body: which repo and branch to reconcile. CI also sends
-/// the triggering `sha`; serde ignores it — a reconcile converges to HEAD.
+/// CI's callback body. CI also sends the triggering `sha`; serde ignores
+/// it — a reconcile converges to HEAD.
 #[derive(Debug, Deserialize)]
 pub struct PublishRequest {
     /// `owner/repo`, as GitHub API paths want it.
@@ -187,8 +185,8 @@ pub fn parse_head_ref(json: &serde_json::Value) -> Result<String, String> {
         .ok_or_else(|| "ref response carries no object.sha".to_string())
 }
 
-/// [`tree_post_slugs`] over a tree listing response's blob entries. A
-/// truncated listing is an error — it would silently retire omitted posts.
+/// Post slugs from a tree listing's blob entries. A truncated listing is an
+/// error — it would silently retire omitted posts.
 pub fn parse_tree_listing(json: &serde_json::Value) -> Result<Vec<String>, String> {
     if json["truncated"].as_bool().unwrap_or(false) {
         return Err("tree listing is truncated".to_string());
@@ -234,8 +232,7 @@ fn clamp(text: &str) -> String {
     }
 }
 
-/// One concise line for the status; the API clamps descriptions to ~140
-/// chars, full detail stays `check`'s job.
+/// One concise line for the status; the API clamps descriptions to ~140 chars.
 pub fn failure_description(diags: &[Diagnostic]) -> String {
     let first = diags
         .first()
@@ -262,8 +259,7 @@ pub enum WebhookAction {
     DispatchCi { description: String },
 }
 
-/// The whole push decision tree, transport-free: deleted refs and
-/// non-default branches are ignored, then [`classify`] picks the path.
+/// The whole push decision tree, transport-free.
 pub fn decide_push(event: &PushEvent) -> WebhookAction {
     if event.deleted || !event.is_default_branch() {
         return WebhookAction::Ignore("ignored: not a default-branch push");
@@ -288,10 +284,8 @@ pub fn code_push_description(touched_posts: usize) -> String {
     }
 }
 
-/// One reconcile's status: success when every post validated, failure
-/// naming the count that rode in as previous versions. `carried` is how
-/// many of the failures actually had a previous version to keep — claiming
-/// "kept" for a dropped post would be a lie.
+/// One reconcile's status. `carried` is how many failures actually had a
+/// previous version to keep — claiming "kept" for a dropped post would lie.
 pub fn reconcile_description(
     published: usize,
     failed: usize,
@@ -322,8 +316,8 @@ pub fn reconcile_description(
     }
 }
 
-/// Raw-content fetch for one post, pinned to the observed HEAD — every
-/// source in one snapshot comes from one commit.
+/// Raw-content fetch pinned to the observed HEAD — every source in one
+/// snapshot comes from one commit.
 pub fn contents_url(repo: &str, slug: &str, sha: &str) -> String {
     format!(
         "https://api.github.com/repos/{repo}/contents/{}?ref={sha}",
@@ -331,12 +325,10 @@ pub fn contents_url(repo: &str, slug: &str, sha: &str) -> String {
     )
 }
 
-/// Resolves the branch HEAD.
 pub fn head_ref_url(repo: &str, branch: &str) -> String {
     format!("https://api.github.com/repos/{repo}/git/ref/heads/{branch}")
 }
 
-/// Recursive tree listing at a commit — the post inventory for a reconcile.
 pub fn tree_url(repo: &str, sha: &str) -> String {
     format!("https://api.github.com/repos/{repo}/git/trees/{sha}?recursive=1")
 }
@@ -349,8 +341,7 @@ pub fn dispatch_url(repo: &str) -> String {
     format!("https://api.github.com/repos/{repo}/actions/workflows/{WORKFLOW_FILE}/dispatches")
 }
 
-/// `workflow_dispatch` body: run on the pushed branch, carrying the commit
-/// SHA so CI can report back on it.
+/// Runs on the pushed branch, carrying the SHA so CI can report back on it.
 pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
@@ -359,8 +350,7 @@ pub fn purge_url(zone: &str) -> String {
     format!("https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache")
 }
 
-/// Purge-by-URL request body for one chunk of absolute URLs; the plan owns
-/// origin-prefixing and chunking (`SnapshotPlan::purge_chunks`).
+/// One chunk of absolute URLs; the plan owns origin-prefixing and chunking.
 pub fn purge_body(files: &[String]) -> String {
     serde_json::json!({ "files": files }).to_string()
 }

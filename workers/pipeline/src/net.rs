@@ -1,5 +1,5 @@
-//! Shared transport for the wasm shim: GitHub API, commit statuses, cache
-//! purge. No decisions live here.
+//! Outbound transport: GitHub API, commit statuses, cache purge. No
+//! decisions live here.
 
 use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response};
 
@@ -15,7 +15,6 @@ const PURGE_TOKEN: &str = "CLOUDFLARE_PURGE_TOKEN";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
 
-/// The one request-building path for every outbound fetch.
 async fn send(
     method: Method,
     url: &str,
@@ -38,7 +37,6 @@ async fn send(
         .map_err(|err| err.to_string())
 }
 
-/// The one status-check shape: anything but `want` is an error naming the URL.
 fn expect_status(response: &Response, want: u16, url: &str) -> std::result::Result<(), String> {
     let status = response.status_code();
     (status == want)
@@ -70,7 +68,6 @@ pub(crate) async fn github(
     send(method, url, &headers, body).await
 }
 
-/// One GitHub GET expected to answer 200 with a JSON body.
 pub(crate) async fn github_json(
     env: &Env,
     url: &str,
@@ -81,7 +78,7 @@ pub(crate) async fn github_json(
     serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))
 }
 
-/// Raw post source at the given sha via the contents API.
+/// Raw post source via the contents API; 404 is `Ok(None)`.
 pub(crate) async fn fetch_content(
     env: &Env,
     url: &str,

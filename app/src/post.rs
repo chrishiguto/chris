@@ -1,5 +1,4 @@
-//! Post page: the `/posts/{slug}` route over a [`Document`] the site worker
-//! read from KV, rendered through [`crate::render`].
+//! The `/posts/{slug}` page, rendered through [`crate::render`].
 
 use content::Document;
 use leptos::prelude::*;
@@ -8,9 +7,8 @@ use leptos_meta::{Meta, Title};
 use crate::components::NotFound;
 use crate::render::render_document;
 
-/// Per-request payload provided by the site worker via context.
-/// `None` means the slug had no KV entry — rendered as a plain 404
-/// (never a rebuild trigger).
+/// Per-request post from the site worker; `None` means no such slug
+/// and renders as a plain 404.
 #[derive(Clone)]
 pub struct PostData(pub Option<Document>);
 

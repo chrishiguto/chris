@@ -1,12 +1,10 @@
-//! The AST renderer: turns a content-IR [`Document`] (read from KV by the
-//! site worker) into Leptos views. The stored AST is semantic; every
-//! presentational decision lives here.
+//! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
+//! every presentational decision lives here.
 
 use content::{Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-/// Renders a full post document: header (title, date, tags) plus body.
 pub fn render_document(doc: &Document) -> impl IntoView {
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
         let tags: Vec<_> = doc
@@ -17,8 +15,7 @@ pub fn render_document(doc: &Document) -> impl IntoView {
             .collect();
         view! { <ul class="post-tags">{tags}</ul> }
     });
-    // Prose lives in `.post-body`, so `.post-body <element>` selectors can
-    // never bleed into the header chrome above it.
+    // Prose sits in `.post-body` so its element selectors never hit the header.
     view! {
         <article class="post mx-auto max-w-2xl px-6">
             <header>
@@ -31,7 +28,6 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     }
 }
 
-/// Renders a slice of AST nodes; the recursion point for all children.
 pub fn render_nodes(nodes: &[Node]) -> Vec<AnyView> {
     nodes.iter().map(render_node).collect()
 }
@@ -124,9 +120,8 @@ fn render_node(node: &Node) -> AnyView {
                     .into_any()
             })
         }
-        // Publish-time validation makes both error arms unreachable for
-        // content that went through the pipeline; if bad data lands in KV
-        // anyway it must fail visibly, never silently.
+        // Publish-time validation makes both error arms unreachable, but
+        // bad KV data must fail visibly, never silently.
         Node::Component {
             name,
             props,

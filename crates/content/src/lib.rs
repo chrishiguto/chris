@@ -1,16 +1,6 @@
-//! The shared content crate: the versioned AST IR plus the component
-//! vocabulary types (always available, wasm-lean), and the MDX-subset parser
-//! behind the `parse` feature (syn-style opt-in, so read-path consumers never
-//! link markdown-rs).
-//!
-//! KV stores a serde-typed semantic AST — never pre-rendered
-//! HTML and never raw markdown. These types are that contract: the pipeline
-//! worker writes them at publish time, the site worker renders them at
-//! request time, and `xtask check` validates against them locally.
-//!
-//! The schema is versioned via [`SCHEMA_VERSION`]. [`Document::from_json`]
-//! rejects entries written under a different version so stale KV data is
-//! detectable (and migratable) instead of silently misrendered.
+//! Versioned AST IR and component vocabulary types; MDX-subset parser behind
+//! the `parse` feature so read-path consumers never link markdown-rs.
+//! KV stores this typed AST — never pre-rendered HTML or raw markdown.
 
 use std::collections::BTreeMap;
 
@@ -32,18 +22,13 @@ mod parse;
 #[cfg(feature = "parse")]
 pub use parse::*;
 
-/// Version stamped into every serialized [`Document`].
-///
-/// Bump on any change to the shape of [`Document`], [`Frontmatter`],
-/// [`Node`], or [`PropValue`] that alters the serialized form.
+/// Stamped into every serialized [`Document`]; bump on any change to the
+/// serialized shape.
 pub const SCHEMA_VERSION: u32 = 1;
 
-/// Errors from (de)serializing a [`Document`].
 #[derive(Debug)]
 pub enum AstError {
-    /// The payload was written under a different [`SCHEMA_VERSION`].
     SchemaVersionMismatch { found: u32, expected: u32 },
-    /// The payload is not valid JSON for this schema.
     Json(serde_json::Error),
 }
 
@@ -73,26 +58,18 @@ impl std::error::Error for AstError {
 /// A fully parsed post: the unit stored under `post:{slug}` in KV.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {
-    /// Schema version this document was serialized under; see [`SCHEMA_VERSION`].
     pub schema_version: u32,
-    /// Post metadata extracted from the YAML frontmatter block.
     pub frontmatter: Frontmatter,
-    /// The post body as a sequence of block-level nodes.
     pub ast: Vec<Node>,
 }
 
 impl Document {
-    /// Serializes the document to JSON.
     pub fn to_json(&self) -> Result<String, AstError> {
         serde_json::to_string(self).map_err(AstError::Json)
     }
 
-    /// Deserializes a document, rejecting payloads whose `schema_version`
-    /// differs from [`SCHEMA_VERSION`].
-    ///
-    /// The version is probed before the full shape: an old payload written
-    /// under an old *shape* must surface as a version mismatch (migratable),
-    /// not as whichever field the current shape happens to miss first.
+    /// Probes `schema_version` before the full shape so an old payload
+    /// surfaces as a version mismatch, not a missing-field error.
     pub fn from_json(json: &str) -> Result<Self, AstError> {
         #[derive(Deserialize)]
         struct Probe {
@@ -111,18 +88,14 @@ impl Document {
     }
 }
 
-/// Post metadata; drives listings, tag pages, and feeds.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Frontmatter {
-    /// Post title, shown in listings and the page `<title>`.
     pub title: String,
-    /// Publication date as an ISO `YYYY-MM-DD` string; listings sort on it.
+    /// ISO `YYYY-MM-DD`; listings sort lexicographically on it.
     pub date: String,
-    /// One-line summary for feeds. Optional and skipped when absent, so
-    /// pre-description payloads round-trip unchanged (no schema bump).
+    /// Skipped when absent so pre-description payloads round-trip unchanged.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    /// Tags for tag pages and feeds; empty when omitted.
     #[serde(default)]
     pub tags: Vec<String>,
     /// Drafts stay reachable by slug but are filtered from listings/feeds.
@@ -130,16 +103,14 @@ pub struct Frontmatter {
     pub draft: bool,
 }
 
-/// One entry of the KV `index` key: the ordered post listing the site
-/// renders from. Drafts are stored here but filtered out
-/// of every listing/feed at render time.
+/// One entry of the KV `index` key: the ordered post listing.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IndexEntry {
     pub slug: String,
     pub title: String,
     /// ISO `YYYY-MM-DD`; the index is ordered newest-first on this.
     pub date: String,
-    /// One-line summary for feeds; skipped when absent (see [`Frontmatter`]).
+    /// Skipped when absent (see [`Frontmatter`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     #[serde(default)]
@@ -149,9 +120,8 @@ pub struct IndexEntry {
 }
 
 impl IndexEntry {
-    /// The one draft-visibility rule: a draft renders by slug but appears in
-    /// no listing, feed, sitemap, or tag page. Every index consumer must
-    /// filter through this, never `!draft` by hand.
+    /// Drafts render by slug but appear in no listing, feed, sitemap, or tag
+    /// page; consumers must filter through this, never `!draft` by hand.
     pub fn is_listed(&self) -> bool {
         !self.draft
     }
@@ -168,70 +138,68 @@ impl IndexEntry {
     }
 }
 
-/// One semantic node of the post body.
-///
-/// Prose maps to HTML-shaped variants; [`Node::Component`] references a
-/// registered Leptos component *by name*, resolved through the registry at
-/// render time — the stored content never knows how a component renders.
+/// One semantic node of the post body. [`Node::Component`] is resolved by
+/// name through the registry at render time.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Node {
-    /// `# Heading` through `###### Heading`; `level` is 1–6.
-    Heading { level: u8, children: Vec<Node> },
-    /// A paragraph of inline content.
-    Paragraph { children: Vec<Node> },
-    /// Literal text.
-    Text { value: String },
-    /// `*emphasis*`.
-    Emphasis { children: Vec<Node> },
-    /// `**strong**`.
-    Strong { children: Vec<Node> },
-    /// `` `inline code` ``.
-    InlineCode { value: String },
-    /// `[children](url "title")`.
+    /// `level` is 1–6.
+    Heading {
+        level: u8,
+        children: Vec<Node>,
+    },
+    Paragraph {
+        children: Vec<Node>,
+    },
+    Text {
+        value: String,
+    },
+    Emphasis {
+        children: Vec<Node>,
+    },
+    Strong {
+        children: Vec<Node>,
+    },
+    InlineCode {
+        value: String,
+    },
     Link {
         url: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         title: Option<String>,
         children: Vec<Node>,
     },
-    /// `![alt](url "title")`.
     Image {
         url: String,
         alt: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         title: Option<String>,
     },
-    /// Ordered or bullet list; `start` is the first ordinal of ordered lists.
     List {
         ordered: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         start: Option<u32>,
         items: Vec<ListItem>,
     },
-    /// Fenced code block, stored as raw text + language only — presentation
-    /// (highlighting included) is a renderer concern.
+    /// Raw text + language only; highlighting is a renderer concern.
     CodeBlock {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         lang: Option<String>,
         text: String,
     },
-    /// `> quoted` block content.
-    Blockquote { children: Vec<Node> },
-    /// `---` horizontal rule.
+    Blockquote {
+        children: Vec<Node>,
+    },
     ThematicBreak,
-    /// Hard line break (trailing-backslash or double-space).
     Break,
-    /// Lowercase-tag HTML passthrough, e.g. `<abbr title="...">`; children
-    /// are markdown, parsed recursively.
+    /// Lowercase-tag HTML passthrough; children are markdown, not raw HTML.
     Html {
         tag: String,
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
         attrs: BTreeMap<String, String>,
         children: Vec<Node>,
     },
-    /// PascalCase component invocation, resolved by name through the
-    /// registry at render time; children are markdown, parsed recursively.
+    /// PascalCase invocation; children are markdown, parsed recursively.
     Component {
         name: String,
         #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -240,14 +208,12 @@ pub enum Node {
     },
 }
 
-/// One item of a [`Node::List`]; its children are block-level nodes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ListItem {
     pub children: Vec<Node>,
 }
 
-/// A component prop value. Scalar literals only in v1: structured
-/// data arrives as children or not at all.
+/// Scalar literals only; structured data goes in children.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum PropValue {

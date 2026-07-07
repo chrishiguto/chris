@@ -1,12 +1,7 @@
-//! `#[post_component]`: reads a Leptos component signature and
-//! generates the registry glue — string-attr → typed-prop conversion plus an
-//! `inventory` registration carrying the component's manifest entry.
-//!
-//! v1 scope is deliberately bounded: scalar props (`String`, `f64`, `i64`,
-//! `bool`), `Option<…>` of those for MDX-optional props, and markdown
-//! `children`. The macro must sit *above* `#[component]`/`#[island]` so it
-//! sees the original signature, and the consuming crate must depend on
-//! `registry` (with the `dispatch` feature) and `leptos` under those names.
+//! `#[post_component]`: generates prop-conversion glue and an `inventory`
+//! registration from a Leptos component signature. Must sit *above*
+//! `#[component]`/`#[island]`; the consuming crate needs `registry` (with
+//! `dispatch`) and `leptos` under those names.
 
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -36,10 +31,8 @@ pub fn post_component(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
-/// The most likely authoring mistake is putting `#[post_component]` *below*
-/// `#[component]` — the macro then sees leptos's expanded output and rejects
-/// it with a baffling prop-type error. When no component/island attribute
-/// remains below us, say so.
+/// Below `#[component]` the macro sees leptos's expanded output and rejects
+/// it with a baffling prop-type error; hint when no such attribute remains below us.
 fn ordering_hint(component: &ItemFn, err: Error) -> Error {
     let has_component_attr = component.attrs.iter().any(|attr| {
         attr.path()
@@ -59,8 +52,8 @@ fn ordering_hint(component: &ItemFn, err: Error) -> Error {
     )
 }
 
-/// Emits the error alongside the untouched fn so the only diagnostic the
-/// author sees is ours (no cascading unknown-identifier noise).
+/// Emits the error alongside the untouched fn so there is no cascading
+/// unknown-identifier noise.
 fn compile_error(component: &ItemFn, err: Error) -> TokenStream {
     let err = err.to_compile_error();
     quote! {
@@ -74,9 +67,8 @@ struct Prop {
     ident: Ident,
     /// The declared type, e.g. `Option<i64>`.
     ty: Type,
-    /// The scalar inside an `Option`, or the declared type itself; its
-    /// `FromPropValue::TYPE` is the manifest entry, so macro and dispatch
-    /// can never disagree about a prop's type.
+    /// The scalar inside an `Option`, or `ty` itself; its `FromPropValue::TYPE`
+    /// feeds the manifest, so macro and dispatch can never disagree.
     inner: Type,
     required: bool,
 }
@@ -192,7 +184,6 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
     })
 }
 
-/// `Option<T>` → `Some(T)`; anything else → `None`.
 fn option_inner(ty: &Type) -> Option<&Type> {
     let Type::Path(path) = ty else { return None };
     let segment = path.path.segments.last()?;
@@ -208,7 +199,7 @@ fn option_inner(ty: &Type) -> Option<&Type> {
     }
 }
 
-/// The curated-error allowlist; the manifest type itself comes from
+/// Allowlist for the curated error only; the manifest type comes from
 /// `FromPropValue::TYPE` in the generated code.
 fn is_supported_scalar(ty: &Type) -> bool {
     let Type::Path(path) = ty else { return false };

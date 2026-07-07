@@ -1,8 +1,6 @@
 use leptos::prelude::*;
 use registry::post_component;
 
-/// Highlighted aside wrapping markdown children; `kind` picks the visual
-/// treatment.
 #[post_component]
 #[component]
 pub fn Callout(kind: String, title: Option<String>, children: Children) -> impl IntoView {

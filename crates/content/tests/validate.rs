@@ -1,7 +1,5 @@
-//! Manifest validation diagnostics: unknown component (with did-you-mean),
-//! missing/mistyped required props, unknown props, children rules — all with
-//! source locations, since validation runs at parse time where positions
-//! still exist.
+//! Manifest validation diagnostics: unknown components/props, type
+//! mismatches, children rules — all with source locations.
 
 use content::{parse_validated, Diagnostic};
 use content::{ComponentSpec, Manifest, PropSpec, PropType};
@@ -254,7 +252,6 @@ fn parse_validated_named_stamps_the_file() {
         .all(|d| d.file.as_deref() == Some("content/blog/x/index.mdx")));
 }
 
-/// A copy-paste-edit mistake, not a last-one-wins silent absorb.
 #[test]
 fn duplicate_props_are_reported() {
     let diags = diagnostics("<Counter initial={1} initial={2} />");
@@ -266,8 +263,6 @@ fn duplicate_props_are_reported() {
     );
 }
 
-/// One authoring mistake, one diagnostic: a prop that was written but
-/// rejected must not also be reported as missing.
 #[test]
 fn rejected_required_prop_does_not_cascade_into_missing() {
     let diags = diagnostics("<Counter initial={x} />");
@@ -279,7 +274,6 @@ fn rejected_required_prop_does_not_cascade_into_missing() {
     );
 }
 
-/// Frontmatter shape rules ride with validation, at the offending line.
 #[test]
 fn validated_parse_rejects_a_malformed_date() {
     let source = "---\ntitle: T\ndate: someday\n---\n\nx\n";

@@ -1,6 +1,5 @@
 use leptos::prelude::*;
 
-/// The site-wide header: branding plus top-level navigation.
 #[component]
 pub fn Header() -> impl IntoView {
     view! {

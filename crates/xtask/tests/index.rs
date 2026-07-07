@@ -1,6 +1,5 @@
-//! `parse_index`/`parse_pointer` boundary tests: the first-publish sentinel
-//! is explicit — empty output or wrangler's exact `Value not found` — and
-//! everything else fails closed rather than silently planning from scratch.
+//! `parse_index`/`parse_pointer` boundaries: the first-publish sentinel is
+//! explicit, everything else fails closed.
 
 use xtask::{parse_index, parse_pointer};
 
@@ -12,8 +11,7 @@ fn empty_output_means_first_publish() {
 
 #[test]
 fn wranglers_value_not_found_means_first_publish() {
-    // Verified against wrangler: `kv key get` on a missing key prints
-    // exactly this to stdout and exits 0.
+    // wrangler prints exactly this to stdout and exits 0 on a missing key
     assert_eq!(parse_index("Value not found\n").unwrap(), vec![]);
 }
 
@@ -33,8 +31,7 @@ fn a_real_index_round_trips() {
 
 #[test]
 fn unexpected_content_fails_closed() {
-    // An HTML error page, a changed wrangler message, truncated JSON: all
-    // must error rather than plan a from-scratch index.
+    // all must error rather than plan a from-scratch index
     for garbage in [
         "<html><body>502 Bad Gateway</body></html>",
         "value not found",
@@ -64,8 +61,7 @@ fn a_real_pointer_yields_its_sha() {
 
 #[test]
 fn a_garbled_pointer_fails_closed() {
-    // Falling back to "no snapshot" on garbage would make `just publish`
-    // read the legacy index and compute a wrong purge set.
+    // falling back to "no snapshot" on garbage would compute a wrong purge set
     for garbage in ["<html>502</html>", r#"{"sha""#, "value not found"] {
         assert!(
             parse_pointer(garbage).is_err(),

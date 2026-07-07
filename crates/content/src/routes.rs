@@ -1,25 +1,21 @@
-//! The KV-key and public-URL vocabulary, defined once: the site's router
-//! and sitemap, the app's hrefs, and the publish plan's keys and purge
-//! paths all derive from here instead of hand-copied literals.
+//! KV keys and public URL paths, defined once so routers, sitemaps, and
+//! publish plans never hand-copy literals.
 
 use serde::{Deserialize, Serialize};
 
-/// The pointer naming the published snapshot — the only mutable content
-/// key. Publishing writes the full `snapshot:{sha}:*` set and flips this
-/// last, so readers see whole snapshots, never a blend.
+/// The only mutable content key: names the published snapshot. Flipped last,
+/// after the full `snapshot:{sha}:*` set, so readers never see a blend.
 pub const CURRENT_KEY: &str = "current";
 
 /// Value stored under [`CURRENT_KEY`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CurrentPointer {
-    /// The snapshot's identity: the commit SHA it was built from (or a
-    /// `manual-*` label for break-glass publishes).
+    /// Commit SHA the snapshot was built from, or a `manual-*` label.
     pub sha: String,
 }
 
 impl CurrentPointer {
-    /// Fail-closed for every reader: a corrupt pointer is an error, never a
-    /// fallback to the wrong snapshot.
+    /// Fail-closed: a corrupt pointer is an error, never a fallback.
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
         serde_json::from_str(json)
     }
@@ -35,34 +31,30 @@ pub fn snapshot_post_key(sha: &str, slug: &str) -> String {
     format!("{}post:{slug}", snapshot_prefix(sha))
 }
 
-/// Common prefix of every key in one snapshot.
 fn snapshot_prefix(sha: &str) -> String {
     format!("{SNAPSHOT_KEY_SPACE}{sha}:")
 }
 
-/// The sha a `snapshot:{sha}:…` key belongs to; anything else is not a
-/// snapshot key. The inverse of the key builders above.
+/// Inverse of the snapshot key builders; `None` for non-snapshot keys.
 pub fn snapshot_key_sha(key: &str) -> Option<&str> {
     let rest = key.strip_prefix(SNAPSHOT_KEY_SPACE)?;
     let (sha, _) = rest.split_once(':')?;
     (!sha.is_empty()).then_some(sha)
 }
 
-/// Prefix shared by every snapshot key of any sha.
 pub const SNAPSHOT_KEY_SPACE: &str = "snapshot:";
 
-/// The ordered post listing (pre-snapshot layout; readers fall back to it
-/// until the first pointer flip).
+/// Pre-snapshot flat listing key; readers fall back to it until the first
+/// pointer flip.
 pub const INDEX_KEY: &str = "index";
 
-/// One post's AST document (pre-snapshot layout, as [`INDEX_KEY`]).
+/// Pre-snapshot flat post key; see [`INDEX_KEY`].
 pub fn post_key(slug: &str) -> String {
     format!("post:{slug}")
 }
 
-/// Where the index lives given the resolved pointer: the snapshot's, or the
-/// pre-snapshot flat key before the first flip. Read and write paths share
-/// this rule so the fallback can be retired in one place.
+/// Index key for the resolved pointer, falling back to the flat pre-snapshot
+/// key; read and write paths share this rule.
 pub fn index_key_at(current: Option<&str>) -> String {
     match current {
         Some(sha) => snapshot_index_key(sha),
@@ -70,8 +62,7 @@ pub fn index_key_at(current: Option<&str>) -> String {
     }
 }
 
-/// Where a post's payload lives given the resolved `current` pointer, as
-/// [`index_key_at`].
+/// As [`index_key_at`], for one post's payload.
 pub fn post_key_at(current: Option<&str>, slug: &str) -> String {
     match current {
         Some(sha) => snapshot_post_key(sha, slug),
@@ -79,10 +70,8 @@ pub fn post_key_at(current: Option<&str>, slug: &str) -> String {
     }
 }
 
-/// The slug grammar, shared by everything a slug names: the `/posts/{slug}`
-/// URL, KV keys, and the co-located component module (`-` maps to `_`, so
-/// underscores would collide). Lowercase letters, digits, and `-`, starting
-/// with a letter.
+/// Slug grammar: lowercase letters, digits, and `-`, starting with a letter.
+/// No underscores — `-` maps to `_` for the component module name.
 pub fn valid_slug(slug: &str) -> bool {
     slug.starts_with(|c: char| c.is_ascii_lowercase())
         && slug
@@ -100,8 +89,7 @@ pub fn tag_path(tag: &str) -> String {
     format!("/tags/{tag}")
 }
 
-/// The index-backed HTML listing pages: routed by the site, listed in the
-/// sitemap, and purged on every publish.
+/// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
 pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
 
 /// The Atom feed's public path (and cache key / purge path).
@@ -113,21 +101,17 @@ pub const SITEMAP_PATH: &str = "/sitemap.xml";
 /// The index-backed XML feeds; purged on every publish (not sitemap-listed).
 pub const FEED_PATHS: [&str; 2] = [RSS_PATH, SITEMAP_PATH];
 
-/// Root of the authoring tree: one `{CONTENT_ROOT}/{slug}/{POST_FILE}` per
-/// post (the CONTENT.md contract).
+/// Authoring tree root: one `{CONTENT_ROOT}/{slug}/{POST_FILE}` per post.
 pub const CONTENT_ROOT: &str = "content/blog";
 
-/// A post's entry file inside its slug directory.
 pub const POST_FILE: &str = "index.mdx";
 
-/// Repo path of a post source — the inverse of [`post_slug`] (not the
-/// public URL; that is [`post_path`]).
+/// Repo path of a post source; inverse of [`post_slug`], not the public URL.
 pub fn source_path(slug: &str) -> String {
     format!("{CONTENT_ROOT}/{slug}/{POST_FILE}")
 }
 
-/// `content/blog/{slug}/index.mdx` → the slug; anything else is not a post
-/// source.
+/// `content/blog/{slug}/index.mdx` → the slug; `None` otherwise.
 pub fn post_slug(path: &str) -> Option<&str> {
     let rest = path.strip_prefix(CONTENT_ROOT)?.strip_prefix('/')?;
     let (slug, file) = rest.split_once('/')?;

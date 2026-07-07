@@ -1,7 +1,5 @@
-//! Pins the co-location contract: build.rs discovers
-//! `content/blog/{slug}/components.rs` files, their components join the
-//! compiled registry, and the post shipping them validates and renders.
-//! Run with `cargo test -p app --features ssr`.
+//! Co-location contract: build.rs-discovered `content/blog/{slug}/components.rs`
+//! components join the compiled registry and their post renders.
 #![cfg(feature = "ssr")]
 
 use app::render::render_document;
@@ -19,8 +17,6 @@ fn colocated_components_join_the_manifest() {
     assert!(!stages.accepts_children);
 }
 
-// The mixed-commit demo's local half: the post referencing its co-located
-// island validates against the live manifest and renders through dispatch.
 #[test]
 fn the_ci_code_path_post_renders_its_colocated_island() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");

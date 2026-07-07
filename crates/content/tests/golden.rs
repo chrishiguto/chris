@@ -1,7 +1,4 @@
-//! Golden tests over the fixture corpus. The corpus doubles as the authoring
-//! format spec: every construct of the subset appears in `fixtures/valid`,
-//! every rejected construct in `fixtures/invalid`.
-//!
+//! Golden tests over the fixture corpus (`fixtures/valid`, `fixtures/invalid`).
 //! Regenerate goldens with `UPDATE_GOLDEN=1 cargo test -p content --features parse`.
 
 use std::fs;

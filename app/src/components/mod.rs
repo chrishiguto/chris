@@ -1,5 +1,4 @@
-//! Site-wide UI components. Post-embeddable components (the registry
-//! vocabulary) live under [`blog`]; everything else here is app chrome.
+//! Site-wide UI components; post-embeddable ones live under [`blog`].
 
 use leptos::prelude::*;
 use leptos_meta::Title;
@@ -11,8 +10,7 @@ pub mod not_found;
 pub use header::Header;
 pub use not_found::NotFound;
 
-/// The one page scaffold — shared container and heading, with an optional
-/// `<Title>`. Every page except the post article renders through this.
+/// Shared page scaffold; every page except the post article renders through it.
 pub(crate) fn page(
     title: Option<String>,
     heading: impl IntoView,

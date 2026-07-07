@@ -1,6 +1,5 @@
-//! Macro → registry behavior: manifest emission for a representative
-//! signature, prop conversion, and dispatch errors.
-//! Run with `cargo test -p registry --features dispatch`.
+//! Macro → registry behavior: manifest emission, prop conversion, dispatch
+//! errors. Compiles to nothing without `--features dispatch`.
 #![cfg(feature = "dispatch")]
 
 use std::collections::BTreeMap;

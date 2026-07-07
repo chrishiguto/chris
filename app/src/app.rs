@@ -9,9 +9,8 @@ use crate::components::{Header, NotFound};
 use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
 
-/// Critical faces (body, headings, code) preloaded so they reliably beat the
-/// first paint — with `font-display: optional` (main.css) a face that misses
-/// it is skipped for the page's whole life, never swapped in.
+/// Preloaded to beat first paint: with `font-display: optional` (main.css)
+/// a face that misses it is never swapped in.
 pub const PRELOADED_FONTS: [&str; 3] = [
     "/fonts/lora-latin-400-normal.woff2",
     "/fonts/libre-baskerville-latin-700-normal.woff2",
@@ -19,7 +18,7 @@ pub const PRELOADED_FONTS: [&str; 3] = [
 ];
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
-    // id="leptos" on the link below is what cargo-leptos targets for CSS hot-reload.
+    // cargo-leptos targets id="leptos" on the link below for CSS hot-reload.
     let css_href = format!("/pkg/{}.css", options.output_name);
     view! {
         <!DOCTYPE html>

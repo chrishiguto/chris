@@ -123,18 +123,16 @@ fn snapshot_writes_posts_then_index_under_snapshot_keys() {
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["newer", "older"]);
 
-    // Post payloads must round-trip through the schema-versioned Document.
+    // Payloads must round-trip through the schema-versioned Document.
     let doc = content::Document::from_json(&plan.post_writes[0].value).unwrap();
     assert_eq!(doc.frontmatter.title, "Older");
 
-    // The index write is the serialized new index.
     let index: Vec<IndexEntry> = serde_json::from_str(&plan.index_write.value).unwrap();
     assert_eq!(index, plan.index);
 }
 
-/// Full-rebuild semantics: the index is exactly the posts given — an entry
-/// in the previous index with no post at HEAD is retired, with no explicit
-/// removed list.
+/// An entry in the previous index with no post at HEAD is retired — there is
+/// no explicit removed list.
 #[test]
 fn snapshot_retires_posts_absent_from_the_rebuild() {
     let prev = vec![
@@ -161,8 +159,8 @@ fn snapshot_retires_posts_absent_from_the_rebuild() {
     );
 }
 
-/// A post whose HEAD source failed validation rides in unchanged: previous
-/// entry in the index, previous payload under the new snapshot's key.
+/// A failed post rides in unchanged: previous entry, previous payload,
+/// keyed under the new snapshot.
 #[test]
 fn snapshot_carries_failed_posts_previous_versions() {
     let parsed = check(&[post("good", "Good", "2026-05-01", "Fine.")], &manifest()).unwrap();
@@ -194,10 +192,8 @@ fn snapshot_keeps_drafts_in_the_index() {
     assert!(plan.index[0].draft, "drafts are stored, filtered at render");
 }
 
-/// A full rebuild cannot know which post bodies changed, so the purge set is
-/// the whole URL surface of both indexes: listings, feeds, every post, and
-/// every tag page either side knows about (previous covers dropped tags and
-/// retired posts).
+/// A rebuild can't know which bodies changed, so the purge set is the whole
+/// URL surface of both indexes (previous covers dropped tags, retired posts).
 #[test]
 fn snapshot_purges_the_full_url_set_of_both_indexes() {
     let prev = vec![
@@ -249,8 +245,7 @@ fn purge_chunks_prefix_the_origin_and_normalize_a_trailing_slash() {
         .all(|url| url.starts_with("https://blog.example.com/") && !url.contains("com//")));
 }
 
-/// The purge-by-URL API caps each request at 30 files; a bigger publish
-/// must split, never truncate.
+/// Past the 30-file API cap the purge must split, never truncate.
 #[test]
 fn purge_chunks_split_at_the_api_file_limit() {
     let prev: Vec<IndexEntry> = (0..40)

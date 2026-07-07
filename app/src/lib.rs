@@ -4,14 +4,9 @@ pub mod listing;
 pub mod post;
 pub mod render;
 
-/// The deployed component vocabulary, collected from this crate's inventory
-/// registrations — publish validation and `xtask check` validate against
-/// exactly what the site renders with.
-///
-/// Lives here, beside the anchor symbol it references: the registrations
-/// only link if at least one `app` symbol is referenced from the consuming
-/// binary — with zero references the linker drops the rlib and the
-/// vocabulary comes back empty (pinned by consumers' manifest tests).
+/// The component vocabulary from this crate's inventory registrations.
+/// The `black_box` anchor is load-bearing: without a referenced `app` symbol
+/// the linker drops the rlib and the vocabulary comes back empty.
 pub fn manifest() -> content::Manifest {
     std::hint::black_box(app::PRELOADED_FONTS);
     registry::manifest()

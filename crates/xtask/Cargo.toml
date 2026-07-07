@@ -8,8 +8,7 @@ name = "xtask"
 path = "src/main.rs"
 
 [dependencies]
-# Linked for its inventory registrations: `check` and `plan` validate against
-# the real deployed vocabulary via `app::manifest()`.
+# Linked so check/plan validate against the real component vocabulary.
 app = { workspace = true }
 content = { workspace = true, features = ["parse"] }
 publish = { workspace = true }

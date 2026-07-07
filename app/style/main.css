@@ -1,15 +1,12 @@
 @import "tailwindcss";
-/* Everything post-shaped (prose, tags, listings, component surfaces)
-   lives in its own sheet; this file owns the foundations: fonts, tokens,
-   and the base layer. */
+/* post.css owns everything post-shaped; this file owns fonts, tokens, base layer. */
 @import "./post.css";
 
 @source "../src";
 
-/* Self-hosted faces (Fontsource, OFL-1.1), latin subset only. The deliberate
-   zero-layout-shift strategy is `optional` display + preload (see shell): a
-   face either makes the first paint or the fallback serves the whole page
-   life — text never swaps mid-read. */
+/* Self-hosted faces (Fontsource, OFL-1.1), latin only. `optional` display +
+   preload: a face makes the first paint or the fallback serves the whole page
+   — text never swaps mid-read. */
 
 @font-face {
   font-family: "Lora";
@@ -66,10 +63,9 @@
     U+2212, U+2215, U+FEFF, U+FFFD;
 }
 
-/* Semantic palette: warm paper in light, deep slate in dark. Plain vars
-   flipped by `prefers-color-scheme`, mapped to utilities via `@theme inline`
-   below. Callout kinds derive their surfaces from one hue via color-mix, so
-   both modes stay in tune automatically. */
+/* Semantic palette: plain vars flipped by `prefers-color-scheme`, mapped to
+   utilities via `@theme inline`. Callout surfaces derive from one hue via
+   color-mix so both modes stay in tune. */
 
 :root {
   color-scheme: light dark;

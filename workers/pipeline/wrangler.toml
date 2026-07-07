@@ -1,24 +1,21 @@
-# The write-path worker: webhook in, KV + GitHub API out.
-# Deploys independently of the site: `just deploy-pipeline`.
+# The write-path worker; deploys independently of the site.
 name = "chris-pipeline"
 main = "build/index.js"
 compatibility_date = "2026-07-03"
 
 [build]
-# Same policy as the site: the pipeline lives in the justfile (just walks up
-# to the repo-root justfile), so dev, deploy, and ci share one definition.
+# Build lives in the repo-root justfile so dev, deploy, and CI share one
+# definition.
 command = "just build-pipeline"
 
-# Must be the SAME namespace the site worker binds (root wrangler.toml) —
-# the pipeline writes what the site reads. Paste the real id into both
-# configs; deploys fail loudly on the placeholder by design.
+# Must be the SAME namespace the site worker binds — the pipeline writes
+# what the site reads. The placeholder makes deploys fail loudly by design.
 [[kv_namespaces]]
 binding = "BLOG"
 id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
 
-# The publish coordinator: one Durable Object instance serializes every
-# content mutation. The migration ships with the deploy; SQLite-backed is
-# the only kind available on the Workers Free plan.
+# One Durable Object instance serializes every content mutation.
+# SQLite-backed is the only kind available on the Workers Free plan.
 [durable_objects]
 bindings = [{ name = "COORDINATOR", class_name = "PublishCoordinator" }]
 
@@ -26,18 +23,12 @@ bindings = [{ name = "COORDINATOR", class_name = "PublishCoordinator" }]
 tag = "v1"
 new_sqlite_classes = ["PublishCoordinator"]
 
-# Secrets (never vars — this worker is the only one allowed to hold them):
-#   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
-#   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml
-#   wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml
-#   wrangler secret put CLOUDFLARE_PURGE_TOKEN --config workers/pipeline/wrangler.toml
+# Secrets (wrangler secret put, never vars): GITHUB_WEBHOOK_SECRET,
+# GITHUB_TOKEN, PUBLISH_SHARED_SECRET, CLOUDFLARE_PURGE_TOKEN.
 
-# Publish-time cache purge. Empty = skipped, by design:
-# purge-by-URL needs a zone and *.workers.dev has none (its Cache API is
-# inert anyway). Once a custom domain fronts the site, set the zone id and
-# the site's absolute origin here, provision CLOUDFLARE_PURGE_TOKEN (Zone →
-# Cache Purge → Purge), and set the CLOUDFLARE_ZONE_ID repo variable so the
-# CI deploy nuke runs too.
+# Publish-time cache purge; empty = skipped (purge-by-URL needs a zone and
+# *.workers.dev has none). With a custom domain, set both here and the
+# CLOUDFLARE_ZONE_ID repo variable so the CI purge runs too.
 [vars]
 CLOUDFLARE_ZONE_ID = ""
 SITE_ORIGIN = ""

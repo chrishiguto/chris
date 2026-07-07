@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-# Linked for its inventory registrations (via app::manifest): publish
-# validation runs against the real deployed vocabulary.
+# Linked for its inventory registrations: publish validation runs against
+# the real deployed vocabulary via app::manifest().
 app = { workspace = true }
 content = { workspace = true, features = ["parse"] }
 futures-util = { workspace = true, optional = true }
@@ -17,13 +17,11 @@ publish = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
-# The #[durable_object] macro's generated bindgen glue references bare
-# `wasm_bindgen::` paths, so the crate hosting a Durable Object must depend
-# on wasm-bindgen directly.
+# The #[durable_object] macro emits glue with bare `wasm_bindgen::` paths,
+# so this crate needs a direct wasm-bindgen dependency.
 wasm-bindgen = { workspace = true, optional = true }
 worker = { workspace = true, optional = true }
 
-# The shim is wasm-only; native builds and tests (`cargo test -p pipeline`)
-# compile the pure decision logic without it.
+# The shim is wasm-only; native tests compile the pure logic without it.
 [features]
 worker = ["dep:worker", "dep:wasm-bindgen", "dep:futures-util"]

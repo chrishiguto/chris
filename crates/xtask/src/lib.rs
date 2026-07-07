@@ -1,19 +1,15 @@
-//! The workspace's scripts crate (the cargo-xtask pattern): content-tree
-//! discovery and check, testable natively. The binary (`main.rs`) stays a
-//! thin shim, and transport belongs to `just` recipes piping into wrangler —
-//! this crate never talks to the network.
+//! Content-tree discovery and checks, natively testable. Transport belongs
+//! to wrangler via `just` — this crate never talks to the network.
 
 use std::path::Path;
 
 use content::{Diagnostic, IndexEntry, Manifest};
 use publish::{ParsedPost, PostSource};
 
-/// What wrangler's `kv key get` prints (to stdout, exit 0) when the key does
-/// not exist — the only non-JSON output [`parse_index`] accepts.
+/// Wrangler's `kv key get` prints this (stdout, exit 0) on a missing key.
 const WRANGLER_VALUE_NOT_FOUND: &str = "Value not found";
 
-/// Walks a `content/blog` tree (`{slug}/index.mdx`) into post sources,
-/// sorted by slug. Structural problems come back as diagnostics.
+/// Walks a `content/blog` tree (`{slug}/index.mdx`) into post sources, sorted by slug.
 pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
     let mut posts = Vec::new();
     let mut diags = Vec::new();
@@ -56,8 +52,7 @@ pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
     (posts, diags)
 }
 
-/// `xtask check`: discover + parse + validate the whole tree, collecting
-/// every problem. Ok means the tree is publishable.
+/// Discover + parse + validate the whole tree; Ok means publishable.
 pub fn check_tree(
     content_dir: &Path,
     manifest: &Manifest,
@@ -73,10 +68,8 @@ pub fn check_tree(
     }
 }
 
-/// Parses a captured snapshot index. Exactly two inputs mean "no index yet":
-/// empty output, or wrangler's `Value not found` (printed with exit 0).
-/// Anything else must parse — a swallowed index would compute an empty
-/// purge set.
+/// Empty output or wrangler's `Value not found` means "no index yet";
+/// anything else must parse — a swallowed index would empty the purge set.
 pub fn parse_index(raw: &str) -> Result<Vec<IndexEntry>, String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
@@ -85,8 +78,7 @@ pub fn parse_index(raw: &str) -> Result<Vec<IndexEntry>, String> {
     serde_json::from_str(trimmed).map_err(|err| format!("index is not valid JSON: {err}"))
 }
 
-/// Parses a captured `current` pointer into its sha. Same sentinel contract
-/// as [`parse_index`] — anything else must parse, never fall back.
+/// Parses a captured `current` pointer into its sha; same sentinel contract as [`parse_index`].
 pub fn parse_pointer(raw: &str) -> Result<Option<String>, String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {

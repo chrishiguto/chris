@@ -6,8 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-# Parser-only deps (syn-style opt-in): read-path consumers take the default
-# feature set and never link markdown-rs.
+# Parser-only; default-feature consumers never link markdown-rs.
 markdown = { workspace = true, optional = true }
 serde_yaml = { workspace = true, optional = true }
 

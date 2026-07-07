@@ -170,16 +170,14 @@ fn description_round_trips_and_stays_absent_when_unset() {
     let json = serde_json::to_value(&entry).unwrap();
     assert_eq!(json["description"], "A summary for feeds.");
 
-    // Unset descriptions must not appear in the serialized form at all, so
-    // pre-description KV payloads and new ones stay byte-identical.
+    // Unset descriptions must not serialize, so old and new payloads stay byte-identical.
     frontmatter.description = None;
     let json = serde_json::to_value(content::IndexEntry::new("hello", &frontmatter)).unwrap();
     assert!(json.as_object().unwrap().get("description").is_none());
 }
 
-/// The failure mode versioning exists for: a payload written under an old
-/// version AND an old shape must still say "version mismatch", not
-/// whichever field the current shape misses first.
+/// Old version + old shape must still read as a version mismatch, not a
+/// missing-field error.
 #[test]
 fn old_version_with_old_shape_fails_as_a_version_mismatch() {
     let old_shape =

@@ -18,14 +18,13 @@ pub fn not_modified(if_none_match: &str, etag: &str) -> bool {
 }
 
 /// Lookup key: the absolute URL, matching the bare URLs the purge set
-/// names. Callers pass `Uri::path()`, which already excludes the query
-/// (and request URIs carry no fragment). `None` for relative URIs.
+/// names. `None` for relative URIs.
 pub fn cache_key(scheme: Option<&str>, authority: Option<&str>, path: &str) -> Option<String> {
     Some(format!("{}://{}{path}", scheme?, authority?))
 }
 
-/// Whether a response may thin to a bodyless 304: a 200 whose ETag matches
-/// the client's `If-None-Match`.
+/// A 200 whose ETag matches the client's `If-None-Match` may thin to a
+/// bodyless 304.
 pub fn revalidates(status: u16, if_none_match: Option<&str>, etag: Option<&str>) -> bool {
     status == 200
         && match (if_none_match, etag) {

@@ -11,17 +11,17 @@ use crate::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 pub use inventory;
 pub use registry_macro::post_component;
 
-/// One `#[post_component]` registration. Constructed by the macro; not by hand.
+/// One `#[post_component]` registration; constructed by the macro, not by hand.
 pub struct RegisteredComponent {
     pub name: &'static str,
     pub props: &'static [PropInfo],
     pub accepts_children: bool,
-    /// Converts string-keyed scalar props and pre-rendered children into a
-    /// typed component call.
+    /// Converts string-keyed props and pre-rendered children into a typed
+    /// component call.
     pub render: fn(&BTreeMap<String, PropValue>, AnyView) -> Result<AnyView, DispatchError>,
 }
 
-/// Static (const-constructible) prop metadata carried by a registration.
+/// Const-constructible prop metadata, so registrations can be `static`.
 pub struct PropInfo {
     pub name: &'static str,
     pub ty: PropType,
@@ -30,7 +30,6 @@ pub struct PropInfo {
 
 inventory::collect!(RegisteredComponent);
 
-/// Finds a registered component by its PascalCase name.
 pub fn lookup(name: &str) -> Option<&'static RegisteredComponent> {
     inventory::iter::<RegisteredComponent>().find(|c| c.name == name)
 }
@@ -57,9 +56,8 @@ pub fn manifest() -> Manifest {
     Manifest { components }
 }
 
-/// A prop conversion failure at dispatch time. Publish-time validation makes
-/// these unreachable for content that went through the pipeline; they exist
-/// so bad KV data fails loudly, never silently.
+/// Unreachable for content validated at publish time; exists so bad KV data
+/// fails loudly, never silently.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DispatchError {
     MissingProp {
@@ -84,7 +82,7 @@ impl std::fmt::Display for DispatchError {
 
 impl std::error::Error for DispatchError {}
 
-/// A Rust prop type the v1 macro can convert a [`PropValue`] into.
+/// A prop type the macro can convert a [`PropValue`] into.
 pub trait FromPropValue: Sized {
     const TYPE: PropType;
     fn from_prop(value: &PropValue) -> Option<Self>;

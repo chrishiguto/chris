@@ -1,8 +1,5 @@
-//! Theme guards: the stylesheet is data these tests pin down —
-//! every element the AST renderer emits must have a `.post` selector, the
-//! tokens must be oklch with light and dark values, and every font the CSS
-//! references must exist on disk and load without layout shift.
-//! Run with `cargo test -p app --features ssr`.
+//! Theme guards: every rendered element gets a `.post` selector, tokens are
+//! oklch in light and dark, and referenced fonts exist and load without layout shift.
 #![cfg(feature = "ssr")]
 
 use std::fs;
@@ -14,10 +11,8 @@ use leptos::prelude::{LeptosOptions, RenderHtml};
 
 mod common;
 
-/// `main.css` (foundations) plus every local sheet it `@import`s — the guards
-/// below pin the combined sheet, wherever a rule lives. Deriving the list from
-/// the `@import` lines means a dropped or added import shifts what the guards
-/// see, instead of silently diverging from what Tailwind bundles.
+/// main.css plus every local sheet it `@import`s — derived from the import lines
+/// so the guards track what Tailwind bundles instead of silently diverging.
 fn stylesheet() -> String {
     let style = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/style"));
     let main = fs::read_to_string(style.join("main.css")).unwrap();
@@ -33,10 +28,8 @@ fn assets_dir() -> &'static Path {
     Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/assets"))
 }
 
-// Every element `render_node` can emit needs a deliberate prose style; a new
-// AST node type added without theming must fail here, not on a live page.
-// Matching requires a selector boundary after the element name so `.post-body
-// p` can never be satisfied by `.post-body pre`.
+// A new AST node type without theming must fail here, not on a live page.
+// The boundary characters stop `.post-body p` matching `.post-body pre`.
 #[test]
 fn stylesheet_styles_every_rendered_element() {
     let css = stylesheet();
@@ -106,8 +99,6 @@ fn callout_and_error_surfaces_are_styled() {
     }
 }
 
-// The theme defines the listing pages' treatment; the pages themselves
-// only need markup.
 #[test]
 fn listing_and_tag_surfaces_are_styled() {
     let css = stylesheet();
@@ -119,9 +110,8 @@ fn listing_and_tag_surfaces_are_styled() {
     }
 }
 
-// Zero-layout-shift contract: every face is self-hosted, uses
-// `font-display: optional` (fallback never swaps mid-read), and the critical
-// faces are preloaded so they reliably make the first paint.
+// Zero layout shift: `optional` display means the fallback never swaps mid-read,
+// and preloading gets critical faces into the first paint.
 #[test]
 fn fonts_are_self_hosted_and_never_shift_layout() {
     let css = stylesheet();
@@ -155,10 +145,8 @@ fn fonts_are_self_hosted_and_never_shift_layout() {
     }
 }
 
-// The theme QA page: one long real post exercising every AST node type and
-// every Callout kind, validated against the live manifest and rendered
-// through real dispatch — if it renders, the whole vocabulary has markup for
-// the selectors above to style.
+// One real post exercising every node type and Callout kind — if it renders,
+// the whole vocabulary has markup for the selectors above to style.
 #[test]
 fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
@@ -202,8 +190,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
 fn shell_preloads_critical_fonts() {
     use leptos::prelude::{provide_context, Owner};
 
-    // The shell mounts the full App; the router needs the request URL that
-    // leptos_axum would provide per-request.
+    // The router needs the RequestUrl leptos_axum would provide per-request.
     let owner = Owner::new();
     owner.set();
     provide_context(leptos_router::location::RequestUrl::new("/"));

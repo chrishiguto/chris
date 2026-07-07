@@ -1,17 +1,14 @@
-//! Component discovery: each `content/blog/{slug}/components.rs` becomes a
-//! `#[path]` module under `app::components::blog`, so per-post code is real
-//! workspace Rust (full rust-analyzer) that joins the registry inventory.
+//! Declares each `content/blog/{slug}/components.rs` as a `#[path]` module
+//! under `app::components::blog`.
 
 use std::path::Path;
 use std::{env, fs};
 
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("cargo sets this");
-    // The `content/blog/{slug}` grammar is content::routes's; hardcoded
-    // rather than pulling content in as a build-dependency for one literal.
+    // Path hardcoded rather than pulling `content` in as a build-dependency.
     let blog = Path::new(&manifest_dir).join("../content/blog");
-    // A directory path makes cargo scan it recursively, so new posts and
-    // edited components both trigger a rebuild.
+    // A directory path makes cargo scan recursively, so new posts and edits rebuild.
     println!("cargo:rerun-if-changed={}", blog.display());
 
     let posts = fs::read_dir(&blog)
@@ -31,9 +28,8 @@ fn main() {
 }
 
 /// `content/blog/orbit-demo/components.rs` → `pub mod post_orbit_demo`.
-/// The slug grammar (content::valid_slug) is re-checked here because this
-/// build runs on trees publish never gated, and a bad slug would otherwise
-/// surface as an opaque rustc error in generated code.
+/// Slugs are re-validated so a bad one fails here, not as an opaque
+/// rustc error in generated code.
 fn declaration(slug: &str, file: &Path) -> String {
     let valid = slug.starts_with(|c: char| c.is_ascii_lowercase())
         && slug
