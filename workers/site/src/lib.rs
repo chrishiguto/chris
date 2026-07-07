@@ -24,7 +24,9 @@ mod server {
         routing::get,
         Router,
     };
-    use content::{post_key, Document, IndexEntry, INDEX_KEY, LISTING_PAGES};
+    use content::{
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY, LISTING_PAGES,
+    };
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
     use tower_service::Service;
@@ -356,31 +358,40 @@ mod server {
         })
     }
 
-    /// A missing `index` key just means nothing has been published yet —
-    /// rendered as an empty listing. Corrupt payloads are errors so pipeline
-    /// bugs surface loudly.
-    async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
-        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
+    /// The published snapshot's sha; `None` until the first flip. A corrupt
+    /// pointer is an error, never a silent fallback — it would serve a
+    /// stale site while looking healthy.
+    async fn current_sha(kv: &worker::kv::KvStore) -> Result<Option<String>, String> {
         let json = kv
-            .get(INDEX_KEY)
+            .get(CURRENT_KEY)
             .text()
             .await
             .map_err(|err| err.to_string())?;
+        json.map(|json| {
+            CurrentPointer::from_json(&json)
+                .map(|pointer| pointer.sha)
+                .map_err(|err| err.to_string())
+        })
+        .transpose()
+    }
+
+    /// A missing index means nothing published yet (an empty listing);
+    /// corrupt payloads are loud errors.
+    async fn load_index(env: &Env) -> Result<Vec<IndexEntry>, String> {
+        let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
+        let key = index_key_at(current_sha(&kv).await?.as_deref());
+        let json = kv.get(&key).text().await.map_err(|err| err.to_string())?;
         json.map(|json| serde_json::from_str(&json).map_err(|err| err.to_string()))
             .transpose()
             .map(Option::unwrap_or_default)
     }
 
-    /// A KV miss is `Ok(None)` — served as a plain 404, never a trigger to
-    /// rebuild. Corrupt or wrong-schema payloads
-    /// are errors so pipeline bugs surface loudly.
+    /// A KV miss is `Ok(None)` — a plain 404, never a trigger to rebuild;
+    /// corrupt payloads are loud errors.
     async fn load_post(env: &Env, slug: &str) -> Result<Option<Document>, String> {
         let kv = env.kv(KV_BINDING).map_err(|err| err.to_string())?;
-        let json = kv
-            .get(&post_key(slug))
-            .text()
-            .await
-            .map_err(|err| err.to_string())?;
+        let key = post_key_at(current_sha(&kv).await?.as_deref(), slug);
+        let json = kv.get(&key).text().await.map_err(|err| err.to_string())?;
         json.map(|json| Document::from_json(&json).map_err(|err| err.to_string()))
             .transpose()
     }

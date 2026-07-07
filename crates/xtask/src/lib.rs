@@ -12,9 +12,8 @@ use publish::{ParsedPost, PostSource};
 /// not exist — the only non-JSON output [`parse_index`] accepts.
 const WRANGLER_VALUE_NOT_FOUND: &str = "Value not found";
 
-/// Walks a `content/blog` tree (`{slug}/index.mdx`, per CONTENT.md) into
-/// post sources, sorted by slug. Structural problems — a post directory
-/// without `index.mdx`, unreadable files — come back as diagnostics.
+/// Walks a `content/blog` tree (`{slug}/index.mdx`) into post sources,
+/// sorted by slug. Structural problems come back as diagnostics.
 pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
     let mut posts = Vec::new();
     let mut diags = Vec::new();
@@ -71,16 +70,26 @@ pub fn check_tree(
     }
 }
 
-/// Parses the KV `index` as captured by `just publish`. Exactly two inputs
-/// mean "no index yet" (the first-ever publish): empty output, or wrangler's
-/// `Value not found` message (`kv key get` prints it and exits 0). Anything
-/// else must parse as the index's JSON array — never a silent fallback,
-/// because a swallowed index would make `plan` rewrite the listing from
-/// scratch, unlisting every post it wasn't given.
+/// Parses a captured snapshot index. Exactly two inputs mean "no index yet":
+/// empty output, or wrangler's `Value not found` (printed with exit 0).
+/// Anything else must parse — a swallowed index would compute an empty
+/// purge set.
 pub fn parse_index(raw: &str) -> Result<Vec<IndexEntry>, String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
         return Ok(Vec::new());
     }
     serde_json::from_str(trimmed).map_err(|err| format!("index is not valid JSON: {err}"))
+}
+
+/// Parses a captured `current` pointer into its sha. Same sentinel contract
+/// as [`parse_index`] — anything else must parse, never fall back.
+pub fn parse_pointer(raw: &str) -> Result<Option<String>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
+        return Ok(None);
+    }
+    content::CurrentPointer::from_json(trimmed)
+        .map(|pointer| Some(pointer.sha))
+        .map_err(|err| format!("current pointer is not valid JSON: {err}"))
 }

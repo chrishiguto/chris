@@ -50,32 +50,31 @@ check:
     cargo clippy --workspace -- -D warnings
     cargo run -q -p xtask -- check
 
-# break-glass / bulk publish straight to KV through wrangler:
-# xtask plans, wrangler moves the bytes, auth is wrangler's own (local OAuth
-# session or CLOUDFLARE_API_TOKEN — no extra token setup). Pass slugs or
-# --all; `remote='--local'` targets the `wrangler dev` simulator instead.
-# Purge needs CLOUDFLARE_ZONE_ID + SITE_ORIGIN + CLOUDFLARE_API_TOKEN and is
-# skipped otherwise (correct on workers.dev, where the Cache API is inert).
+# break-glass publish straight to KV through wrangler: xtask plans the whole
+# tree as one snapshot, wrangler moves the bytes and flips `current` last.
+# Deliberately bypasses the coordinator — the escape hatch for when the
+# pipeline worker itself is the problem; the next reconcile supersedes it.
+# `remote='--local'` targets the `wrangler dev` simulator instead.
 remote := '--remote'
 
-publish +args:
+publish:
     #!/usr/bin/env bash
     set -euo pipefail
     out=target/publish
     mkdir -p "$out"
-    # Missing key prints exactly "Value not found" and exits 0 — the only
-    # non-JSON output xtask accepts (as the empty first-publish index).
-    # Anything else errors, and real wrangler failures exit non-zero and
-    # abort here — a half-read index must never reach `plan`.
-    npx wrangler kv key get --binding BLOG {{remote}} index --text > "$out/index.json"
-    cargo run -q -p xtask -- plan {{args}} --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
+    # Missing keys print "Value not found" and exit 0 — the only non-JSON
+    # output xtask accepts; anything else fails before reaching `plan`.
+    npx wrangler kv key get --binding BLOG {{remote}} current --text > "$out/current.json"
+    # xtask names the key holding the previous index; bash just reads it.
+    prev_index_key=$(cargo run -q -p xtask -- pointer "$out/current.json")
+    npx wrangler kv key get --binding BLOG {{remote}} "$prev_index_key" --text > "$out/index.json"
+    sha="manual-$(git rev-parse --short=12 HEAD)-$(date +%s)"
+    cargo run -q -p xtask -- plan --sha "$sha" --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
-    if [ "$(cat "$out/deletes.json")" != "[]" ]; then
-        npx wrangler kv bulk delete --binding BLOG {{remote}} --force "$out/deletes.json"
-    fi
+    # The pointer flips only after every snapshot key landed.
+    npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
     if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${SITE_ORIGIN:-}" ]; then
-        # Purge-by-URL caps at 30 files per call; a break-glass publish stays
-        # well under it, and a failed purge only means the 7-day TTL backstop.
+        # A failed purge only means the 7-day TTL backstop.
         curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             -H "Content-Type: application/json" \

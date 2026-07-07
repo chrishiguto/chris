@@ -33,6 +33,14 @@ router/sitemap, the app's hrefs, and the publish plan's purge list — adding an
 page in one place makes it routed, listed, and purged by construction. The draft-visibility
 filter is likewise one helper (`IndexEntry::is_listed`) instead of per-consumer `!draft`.
 
+*Amendment (2026-07-07, ADR-0009):* publishes are now full snapshot rebuilds, which cannot
+know which post *bodies* changed — so the publish purge set widened from "touched posts and
+their tags" to the whole enumerated URL surface of the previous and new indexes (listings,
+feeds, every post URL, every tag page either index knows about). Still purge-by-URL, still
+chunked to the 30-file cap, still "never trust the cache, only invalidate it"; the
+"post N never evicts post M" efficiency invariant is relaxed at blog scale in exchange for
+convergent publishes. Revisit with per-post source hashes if the purge volume ever matters.
+
 ## Options considered
 
 1. **No caching** — fine (single-digit ms renders) but leaves free performance unclaimed.

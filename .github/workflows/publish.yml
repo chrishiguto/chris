@@ -1,7 +1,8 @@
 # The CI half of the code path: the pipeline worker fires this via
 # workflow_dispatch when a push contains code, and the step sequence — build,
-# size gate, deploy, purge, /publish callback — is what guarantees
-# deploy-before-publish ordering for mixed commits. No state machine.
+# size gate, deploy, purge, /publish callback — makes the deploy precede the
+# publish. The callback triggers a reconcile-to-HEAD, so a stale or
+# duplicate run can never publish old content.
 name: publish
 
 on:
@@ -13,7 +14,7 @@ on:
         type: string
 
 # Overlapping dispatches serialize; a superseded queued run is fine because
-# the newest run's /publish callback drains the whole pending list.
+# every /publish callback reconciles to HEAD — later runs are idempotent.
 concurrency:
   group: publish
   cancel-in-progress: false
@@ -88,14 +89,15 @@ jobs:
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}'
 
-      # Deploy is live; drain the pending content this push (and any earlier
-      # parked failures) queued. PIPELINE_URL (repo variable) overrides the
-      # derived workers.dev URL once a custom domain lands.
-      - name: Publish pending content
+      # Deploy is live; trigger the coordinator's reconcile so content lands
+      # against the freshly deployed manifest. PIPELINE_URL (repo variable)
+      # overrides the derived workers.dev URL once a custom domain lands.
+      - name: Trigger the publish reconcile
         env:
           PUBLISH_SHARED_SECRET: ${{ secrets.PUBLISH_SHARED_SECRET }}
           PIPELINE_URL: ${{ vars.PIPELINE_URL }}
           SHA: ${{ inputs.sha }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           if [ -z "$PIPELINE_URL" ]; then
             subdomain=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
@@ -106,4 +108,4 @@ jobs:
           curl -sf -X POST "$PIPELINE_URL/publish" \
             -H "Authorization: Bearer $PUBLISH_SHARED_SECRET" \
             -H "Content-Type: application/json" \
-            --data "{\"sha\":\"$SHA\",\"repository\":\"$GITHUB_REPOSITORY\"}"
+            --data "{\"sha\":\"$SHA\",\"repository\":\"$GITHUB_REPOSITORY\",\"branch\":\"$BRANCH\"}"

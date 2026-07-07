@@ -1,20 +1,19 @@
-//! The publish operation's pure core: validate post sources and
-//! turn them into a KV write plan. Shared by `xtask` and the
-//! pipeline worker — so it stays wasm-clean: no filesystem, no
-//! HTTP, no clock. Callers own transport (Cloudflare API vs KV binding).
+//! The publish operation's pure core: validate post sources and lay a
+//! snapshot out as KV writes. Wasm-clean — no filesystem, HTTP, or clock;
+//! callers own transport. Snapshots are immutable (`snapshot:{sha}:*`); the
+//! caller flips `current` afterwards, so readers never see a blend.
 
 use content::{
-    post_key, post_path, tag_path, AstError, Diagnostic, Document, IndexEntry, Manifest,
-    FEED_PATHS, INDEX_KEY, LISTING_PAGES,
+    post_path, snapshot_index_key, snapshot_post_key, tag_path, AstError, Diagnostic, Document,
+    IndexEntry, Manifest, FEED_PATHS, LISTING_PAGES,
 };
 
-/// One post's raw authoring input, however the caller obtained it
-/// (filesystem for the CLI, GitHub contents API for the pipeline).
+/// One post's raw authoring input, however the caller obtained it.
 #[derive(Debug, Clone)]
 pub struct PostSource {
     /// Directory name under `content/blog/`; the KV and URL identity.
     pub slug: String,
-    /// Path stamped into diagnostics, e.g. `content/blog/{slug}/index.mdx`.
+    /// Path stamped into diagnostics.
     pub file: String,
     /// Raw `.mdx` text.
     pub source: String,
@@ -27,6 +26,15 @@ pub struct ParsedPost {
     pub document: Document,
 }
 
+/// A post carried into the new snapshot unchanged: its source at HEAD
+/// failed validation, so the previous entry and payload ride along instead.
+#[derive(Debug, Clone)]
+pub struct CarriedPost {
+    pub entry: IndexEntry,
+    /// The serialized `Document` exactly as the previous snapshot stored it.
+    pub payload: String,
+}
+
 /// One KV put the caller must perform.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KvWrite {
@@ -34,42 +42,32 @@ pub struct KvWrite {
     pub value: String,
 }
 
-/// Everything a publish must do to KV, in order: puts, then deletes.
+/// Everything one snapshot publish must do to KV, in order: post payloads,
+/// then the index last — a torn write must never leave an index naming
+/// missing posts. The caller flips `current` after all writes, then purges.
 #[derive(Debug, Clone)]
-pub struct PublishPlan {
-    /// `post:{slug}` payloads for every changed post, then the `index` key.
+pub struct SnapshotPlan {
+    /// `snapshot:{sha}:post:*` payloads, then `snapshot:{sha}:index`.
     pub writes: Vec<KvWrite>,
-    /// `post:{slug}` keys of removed posts.
-    pub deletes: Vec<String>,
-    /// The rewritten index, newest-first; what `writes` serializes last.
+    /// The new index, newest-first.
     pub index: Vec<IndexEntry>,
-    /// URL paths whose cache entries this publish invalidates:
-    /// listings, feeds, the touched posts, and every tag page whose listing
-    /// changed — tags on the new frontmatter *and* tags the previous index
-    /// had on the touched posts (a dropped tag's page loses an entry too).
-    /// Sorted, deduplicated; callers prefix their origin when purging.
+    /// URL paths this publish invalidates: the whole enumerated set of the
+    /// previous and new indexes — a full rebuild records no body deltas.
+    /// Sorted, deduplicated; callers prefix their origin.
     pub purge: Vec<String>,
 }
 
-/// Parses and validates every source against the manifest, collecting
-/// diagnostics across all files — `xtask check` and publish share this gate,
-/// so nothing invalid can reach KV.
+/// Validates every source against the manifest, collecting diagnostics
+/// across all files — nothing invalid can reach KV.
 pub fn check(
     posts: &[PostSource],
     manifest: &Manifest,
 ) -> Result<Vec<ParsedPost>, Vec<Diagnostic>> {
     let mut parsed = Vec::new();
     let mut diags = Vec::new();
-    for post in posts {
-        match content::parse_validated_named(&post.source, &post.file, manifest) {
-            Ok(document) => {
-                diags.extend(check_date(&document, &post.file));
-                diags.extend(check_tags(&document, &post.file));
-                parsed.push(ParsedPost {
-                    slug: post.slug.clone(),
-                    document,
-                });
-            }
+    for result in check_each(posts, manifest) {
+        match result {
+            Ok(post) => parsed.push(post),
             Err(errs) => diags.extend(errs),
         }
     }
@@ -80,8 +78,34 @@ pub fn check(
     }
 }
 
-/// The index orders lexicographically on `date`, which is only correct for
-/// ISO `YYYY-MM-DD` — anything else is a publish-blocking diagnostic.
+/// The same gate as [`check`], per post: each source passes or fails on its
+/// own, in input order — one broken post must not wedge the rest.
+pub fn check_each(
+    posts: &[PostSource],
+    manifest: &Manifest,
+) -> Vec<Result<ParsedPost, Vec<Diagnostic>>> {
+    posts
+        .iter()
+        .map(|post| {
+            let document = content::parse_validated_named(&post.source, &post.file, manifest)?;
+            let diags: Vec<Diagnostic> = check_date(&document, &post.file)
+                .into_iter()
+                .chain(check_tags(&document, &post.file))
+                .collect();
+            if diags.is_empty() {
+                Ok(ParsedPost {
+                    slug: post.slug.clone(),
+                    document,
+                })
+            } else {
+                Err(diags)
+            }
+        })
+        .collect()
+}
+
+/// Index order is lexicographic on `date`, so anything but `YYYY-MM-DD`
+/// blocks publish.
 fn check_date(document: &Document, file: &str) -> Option<Diagnostic> {
     let date = document.frontmatter.date.as_bytes();
     let shape_ok = date.len() == 10
@@ -100,8 +124,7 @@ fn check_date(document: &Document, file: &str) -> Option<Diagnostic> {
     })
 }
 
-/// Each tag names a `/tags/{tag}` URL verbatim (pages, feeds, purge set), so
-/// tags must be lowercase slugs — no escaping layer exists or is wanted.
+/// Tags name `/tags/{tag}` URLs verbatim, so they must be lowercase slugs.
 fn check_tags<'a>(document: &'a Document, file: &'a str) -> impl Iterator<Item = Diagnostic> + 'a {
     document
         .frontmatter
@@ -123,76 +146,66 @@ fn check_tags<'a>(document: &'a Document, file: &'a str) -> impl Iterator<Item =
         })
 }
 
-/// Merges changed and removed posts into the previous index and lays out the
-/// KV writes. Last-write-wins on the whole index (single-writer).
-pub fn plan(
-    prev_index: Vec<IndexEntry>,
-    changed: &[ParsedPost],
-    removed: &[String],
-) -> Result<PublishPlan, AstError> {
-    let replaced =
-        |slug: &str| removed.iter().any(|r| r == slug) || changed.iter().any(|p| p.slug == slug);
-    let purge = purge_paths(&prev_index, changed, removed, &replaced);
-
-    let mut index: Vec<IndexEntry> = prev_index
-        .into_iter()
-        .filter(|entry| !replaced(&entry.slug))
-        .chain(
-            changed
-                .iter()
-                .map(|post| IndexEntry::new(&post.slug, &post.document.frontmatter)),
-        )
+/// Lays out one immutable snapshot: every checked post, every carried post,
+/// and the index built from exactly those — absent from both means retired.
+/// `prev_index` feeds only the purge set.
+pub fn snapshot(
+    prev_index: &[IndexEntry],
+    posts: &[ParsedPost],
+    carried: Vec<CarriedPost>,
+    sha: &str,
+) -> Result<SnapshotPlan, AstError> {
+    let mut index: Vec<IndexEntry> = posts
+        .iter()
+        .map(|post| IndexEntry::new(&post.slug, &post.document.frontmatter))
+        .chain(carried.iter().map(|post| post.entry.clone()))
         .collect();
     index.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.slug.cmp(&b.slug)));
+    let purge = purge_paths(prev_index, &index);
 
     let index_json = serde_json::to_string(&index).map_err(AstError::Json)?;
-    let writes = changed
+    let writes = posts
         .iter()
         .map(|post| {
             Ok(KvWrite {
-                key: post_key(&post.slug),
+                key: snapshot_post_key(sha, &post.slug),
                 value: post.document.to_json()?,
             })
         })
+        .chain(carried.into_iter().map(|post| {
+            Ok(KvWrite {
+                key: snapshot_post_key(sha, &post.entry.slug),
+                value: post.payload,
+            })
+        }))
         .chain(std::iter::once(Ok(KvWrite {
-            key: INDEX_KEY.to_string(),
+            key: snapshot_index_key(sha),
             value: index_json,
         })))
         .collect::<Result<Vec<_>, AstError>>()?;
 
-    Ok(PublishPlan {
+    Ok(SnapshotPlan {
         writes,
-        deletes: removed.iter().map(|slug| post_key(slug)).collect(),
         index,
         purge,
     })
 }
 
-/// The enumerated invalidation set: listings and feeds always
-/// change (dates, counts, order), touched posts change or vanish, and a tag
-/// page changes iff a touched post carries the tag now or carried it before.
-fn purge_paths(
-    prev_index: &[IndexEntry],
-    changed: &[ParsedPost],
-    removed: &[String],
-    replaced: &impl Fn(&str) -> bool,
-) -> Vec<String> {
-    let touched_tags = prev_index
-        .iter()
-        .filter(|entry| replaced(&entry.slug))
-        .flat_map(|entry| entry.tags.iter())
-        .chain(
-            changed
-                .iter()
-                .flat_map(|post| post.document.frontmatter.tags.iter()),
-        );
+/// Listings and feeds always change; every post and tag URL either side of
+/// the publish knows about may have changed or vanished.
+fn purge_paths(prev_index: &[IndexEntry], index: &[IndexEntry]) -> Vec<String> {
+    let entries = prev_index.iter().chain(index);
     LISTING_PAGES
         .into_iter()
         .chain(FEED_PATHS)
         .map(String::from)
-        .chain(touched_tags.map(|tag| tag_path(tag)))
-        .chain(changed.iter().map(|post| post_path(&post.slug)))
-        .chain(removed.iter().map(|slug| post_path(slug)))
+        .chain(entries.flat_map(|entry| {
+            entry
+                .tags
+                .iter()
+                .map(|tag| tag_path(tag))
+                .chain(std::iter::once(post_path(&entry.slug)))
+        }))
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect()

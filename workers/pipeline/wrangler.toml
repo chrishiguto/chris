@@ -16,8 +16,17 @@ command = "just build-pipeline"
 binding = "BLOG"
 id = "REPLACE_WITH_PRODUCTION_NAMESPACE_ID"
 
-# Secrets (never vars — this worker is the only one allowed to hold them).
-# Provision per docs/guides/pipeline-deploy.md:
+# The publish coordinator: one Durable Object instance serializes every
+# content mutation. The migration ships with the deploy; SQLite-backed is
+# the only kind available on the Workers Free plan.
+[durable_objects]
+bindings = [{ name = "COORDINATOR", class_name = "PublishCoordinator" }]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PublishCoordinator"]
+
+# Secrets (never vars — this worker is the only one allowed to hold them):
 #   wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml
 #   wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml
 #   wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml

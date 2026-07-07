@@ -1,9 +1,8 @@
-//! `parse_index` boundary tests: the first-publish sentinel is explicit —
-//! empty output or wrangler's exact `Value not found` — and everything else
-//! fails closed. A swallowed index would make `plan` rewrite the listing to
-//! only the posts it was given, silently unlisting the rest of the site.
+//! `parse_index`/`parse_pointer` boundary tests: the first-publish sentinel
+//! is explicit — empty output or wrangler's exact `Value not found` — and
+//! everything else fails closed rather than silently planning from scratch.
 
-use xtask::parse_index;
+use xtask::{parse_index, parse_pointer};
 
 #[test]
 fn empty_output_means_first_publish() {
@@ -45,6 +44,32 @@ fn unexpected_content_fails_closed() {
         assert!(
             parse_index(garbage).is_err(),
             "must reject as non-index: {garbage:?}"
+        );
+    }
+}
+
+#[test]
+fn missing_pointer_means_no_snapshot_yet() {
+    assert_eq!(parse_pointer("").unwrap(), None);
+    assert_eq!(parse_pointer("Value not found\n").unwrap(), None);
+}
+
+#[test]
+fn a_real_pointer_yields_its_sha() {
+    assert_eq!(
+        parse_pointer(r#"{"sha":"abc123"}"#).unwrap(),
+        Some("abc123".to_string())
+    );
+}
+
+#[test]
+fn a_garbled_pointer_fails_closed() {
+    // Falling back to "no snapshot" on garbage would make `just publish`
+    // read the legacy index and compute a wrong purge set.
+    for garbage in ["<html>502</html>", r#"{"sha""#, "value not found"] {
+        assert!(
+            parse_pointer(garbage).is_err(),
+            "must reject as non-pointer: {garbage:?}"
         );
     }
 }

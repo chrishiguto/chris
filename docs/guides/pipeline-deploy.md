@@ -6,41 +6,52 @@ the worker just runs.
 
 ## What it does
 
+Every content mutation runs through one **publish coordinator** — a single
+Durable Object instance (ADR-0009) that serializes reconciles. The route
+handlers never touch content KV themselves; they verify, classify, and poke
+the coordinator.
+
 `POST /webhook` receives GitHub push events and:
 
 1. Verifies the `X-Hub-Signature-256` HMAC against `GITHUB_WEBHOOK_SECRET`
    (401 on mismatch); acknowledges and ignores non-default-branch pushes.
 2. Classifies the push from the commits' `added/modified/removed` paths:
    - **content-only** (`content/blog/{slug}/index.mdx` changes, no code) →
-     publishes immediately: fetches the changed sources from the GitHub
-     contents API at the pushed SHA, validates against the compiled component
-     manifest, writes `post:{slug}` + rewrites `index` in KV, deletes removed
-     posts.
+     triggers the coordinator's reconcile; live within seconds. A failed
+     trigger is a 500, so GitHub webhook redelivery is the retry path.
    - **code-bearing** (any `.rs`, `app/`, `crates/`, `workers/`, `Cargo.*`,
-     `justfile`, `wrangler.toml`, or workflow change) → parks the publish set
-     under the KV `pending` key and fires the `publish.yml` workflow via
-     `workflow_dispatch` with the pushed SHA; a failed dispatch is a 500, so
-     GitHub webhook redelivery is the retry path.
+     `justfile`, `wrangler.toml`, or workflow change) → fires the
+     `publish.yml` workflow via `workflow_dispatch` with the pushed SHA and
+     posts a `pending` status; the deploy must land before content
+     referencing new code can validate, so CI's callback does the trigger.
    - **neither** → no-op.
-3. Posts a `blog/publish` commit status on the pushed SHA: `success` with the
-   published slugs, `failure` with a concise error (the Commit Status API caps
-   descriptions at 140 chars — full diagnostics via `just check`), `pending`
-   for parked code pushes.
 
-`POST /publish` is CI's post-deploy callback (ADR-0007's ordering guarantee):
+`POST /publish` is CI's post-deploy callback: it authenticates the
+`Authorization: Bearer` token against `PUBLISH_SHARED_SECRET` (401
+otherwise), reads `{"repository", "branch"}` (CI also sends `sha`; it is
+ignored — a reconcile always converges to HEAD), and triggers the same
+reconcile — now against the freshly deployed manifest.
 
-1. Authenticates the `Authorization: Bearer` token against
-   `PUBLISH_SHARED_SECRET` (401 otherwise; user story 35). The body carries
-   `{"sha", "repository"}` from the workflow run.
-2. Drains the KV `pending` list: each changed entry's source is fetched at
-   its *own* pushed SHA and validated individually; removals become KV
-   deletes. One merged plan rewrites `post:*` keys and `index`.
-3. Entries that fail validation stay parked and retry on the next callback —
-   this is the cross-commit race resolution (user story 32). A source that
-   404s at its SHA (force-push) parks the same way instead of wedging the
-   rest; any later push touching that slug supersedes it.
-4. Posts a `blog/publish` status per pushed SHA in the drained set, so every
-   parked commit's page reflects its own content's fate.
+A **reconcile** (the coordinator's alarm handler, one at a time, always
+converging to HEAD as observed at its start):
+
+1. Resolves the branch HEAD sha, lists the post tree at that commit, and
+   fetches + validates every source against the compiled component manifest.
+   Reconciles are full rebuilds — there is no delta to mis-apply, so late,
+   duplicate, or out-of-order triggers are harmless by construction.
+2. Writes an immutable snapshot (`snapshot:{sha}:post:*`, then
+   `snapshot:{sha}:index`) and flips the single `current` pointer — the
+   publish is atomic from the reader's side. A post that fails validation
+   rides in as its previously published payload (or stays out if it never
+   published); the next reconcile after a deploy retries it for free.
+3. Retains the last 10 snapshots (rollback depth), sweeps older ones from
+   KV, purges the enumerated URL set, and posts one `blog/publish` status on
+   the reconciled HEAD: `success` with the post count, `failure` naming how
+   many posts kept previous versions plus the first diagnostic (the Commit
+   Status API caps descriptions at 140 chars — full diagnostics via
+   `just check`). Identical repeat statuses are skipped.
+4. Re-arms its own alarm as a ~6 h cron backstop, so a missed webhook or a
+   failed run self-heals without anyone pushing.
 
 The CI half lives in `.github/workflows/publish.yml`: build both workers →
 enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy site +
@@ -58,13 +69,13 @@ Two purge layers, different scopes, deliberately ordered:
   markup coupled to the deployed binary, so a deploy invalidates all of it.
   On the CI code path this runs *before* the `/publish` callback, so the
   callback's targeted purge is never undone by the nuke.
-- **Publish** (this worker): after every applied KV plan, REST purge-by-URL
-  of exactly the plan's enumerated set (`publish::PublishPlan::purge`):
-  `/`, `/posts`, `/rss.xml`, `/sitemap.xml`, `/tags`, the touched posts'
-  URLs, and the tag pages they appear on (old and new tags). Publishing
-  post N never evicts post M. Requests are chunked to the API's 30-files
-  cap; failures log loudly but never fail the already-applied publish — the
-  site's 7-day TTL backstops a missed purge.
+- **Publish** (this worker): after every snapshot flip, REST purge-by-URL of
+  the plan's enumerated set (`publish::SnapshotPlan::purge`): listings,
+  feeds, and every post and tag URL the previous or new index knows about —
+  a full rebuild can't know which post bodies changed, so the whole surface
+  purges (ADR-0008 as amended by ADR-0009). Requests are chunked to the
+  API's 30-files cap; failures log loudly but never fail the already-applied
+  publish — the site's 7-day TTL backstops a missed purge.
 
 Publish purge configuration (all in `workers/pipeline/wrangler.toml` /
 worker secrets; empty = purge skipped with a log line, correct for
@@ -99,6 +110,10 @@ observable with `curl -sI`.
 
 - The KV namespace id is pasted into **both** `wrangler.toml` (site) and
   `workers/pipeline/wrangler.toml` — the pipeline writes what the site reads.
+- The coordinator Durable Object needs no manual provisioning: its binding
+  and `new_sqlite_classes` migration live in `workers/pipeline/wrangler.toml`
+  and ship with the deploy (SQLite-backed classes are the recommended kind
+  and the only kind on the Workers Free plan).
 - Local secret files (gitignored, see `.secrets/`):
   - `.secrets/github_webhook_secret` — shared with the GitHub webhook config.
   - `.secrets/github_pipeline_token` — fine-grained PAT: Commit statuses RW,
@@ -137,11 +152,16 @@ delivery in the hook's "Recent Deliveries" confirms the signature wiring).
 
 1. Edit `content/blog/{slug}/index.mdx` on `main` and push.
 2. The commit on GitHub gets a `blog/publish` status within seconds
-   (`success — published {slug}`); the PRD's p95 budget is ≤ 5 s push-to-live.
+   (`success — reconciled: N posts published`); the PRD's p95 budget is
+   ≤ 5 s push-to-live.
 3. The post renders at `/posts/{slug}` with the change.
-4. Delete a post directory and push: the post 404s and leaves `/posts`.
+4. Delete a post directory and push: the post 404s and leaves `/posts` (a
+   reconcile is a full rebuild — a post absent from HEAD is retired, no
+   removal bookkeeping involved).
 5. Push a commit with a broken component (`<OrbitSimulatr>`): the commit gets
-   a red `failure` status with the first diagnostic; KV is untouched.
+   a red `failure` status with the first diagnostic; the post keeps serving
+   its previously published version (carry-forward), or stays unpublished if
+   it never published — the rest of the tree publishes normally.
 
 Deliveries (payload + response) are replayable from the webhook's "Recent
 Deliveries" tab, which is the fastest debugging loop.
@@ -176,16 +196,39 @@ a `miss`, so freshness holds trivially.
 1. Push a mixed commit: a new post plus its co-located
    `content/blog/{slug}/components.rs` island (see
    `content/blog/ci-code-path/` and CONTENT.md). The commit immediately gets
-   a yellow `pending` status ("parked for CI publish") and a `publish`
+   a yellow `pending` status ("publish after the CI deploy") and a `publish`
    workflow run appears on it.
 2. The run builds, gates the size, deploys both workers, and calls
-   `/publish`; the status flips to `success` and the post is live with its
-   island hydrating. The PRD's p95 budget is ≤ 10 min push-to-live; both the
-   Actions check and the `blog/publish` status sit on the same commit.
+   `/publish`; the reconcile posts `success` on HEAD and the post is live
+   with its island hydrating. The PRD's p95 budget is ≤ 10 min push-to-live;
+   both the Actions check and the `blog/publish` status sit on the same
+   commit.
 3. Cross-commit race drill: push a post referencing a component whose deploy
-   is still in flight from a previous commit — its validation fails, the
-   entry stays parked (`failure` status, "parked for retry"), and the next
-   callback (that deploy's own workflow run) publishes it.
+   is still in flight from a previous commit — its validation fails against
+   the not-yet-deployed manifest (`failure` status, previous version kept),
+   and the next reconcile (that deploy's own `/publish` callback) publishes
+   it without ceremony: reconciles always rebuild from HEAD.
 4. A run can be re-fired by hand from the Actions tab (`workflow_dispatch`
-   takes the SHA), which re-drains whatever is pending — the break-glass for
-   a missed callback.
+   takes the SHA), whose callback re-triggers the reconcile — the
+   break-glass for a missed callback. The coordinator's ~6 h backstop alarm
+   eventually does the same on its own.
+
+## Operations
+
+- **Rollback**: `current` is the only mutable key; the coordinator retains
+  the last 10 snapshots. To roll back, point it at a retained snapshot and
+  purge (or just push a revert — a reconcile converges to HEAD either way):
+
+  ```sh
+  npx wrangler kv key put --binding BLOG --remote current '{"sha":"<retained sha>"}'
+  ```
+
+  Note the next reconcile (any push, or the backstop alarm) flips back to
+  HEAD — a rollback that should stick must land in git.
+- **Legacy key cleanup** (one-time, after the first reconcile flips
+  `current`): the pre-snapshot flat keys are dead — delete `index`,
+  `pending`, and every `post:{slug}`; the site reader's flat-key fallback
+  only exists for the window before the first flip.
+- **Coordinator state**: the DO stores its reconcile target, snapshot
+  history, and last posted status. Deleting the object's storage is safe —
+  the next webhook re-seeds the target and the reconcile is idempotent.

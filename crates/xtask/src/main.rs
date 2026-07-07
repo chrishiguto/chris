@@ -2,19 +2,22 @@
 //! cargo-xtask pattern; front door is the justfile):
 //!
 //! - `check` gates a content tree locally,
-//! - `plan` turns the tree into wrangler-ready KV bulk files — `just publish`
-//!   pipes them into `wrangler kv bulk put/delete` (break-glass),
+//! - `plan` lays the whole tree out as one immutable snapshot — `just
+//!   publish` pipes the files into `wrangler kv bulk put` and flips the
+//!   `current` pointer (break-glass),
+//! - `pointer` resolves a captured `current` pointer to the previous
+//!   snapshot's index key,
 //! - `ast` prints one post's AST JSON for hand-seeding local KV.
 
 use std::path::Path;
 use std::process::ExitCode;
 
-use content::{Diagnostic, IndexEntry};
-use publish::ParsedPost;
+use content::{CurrentPointer, Diagnostic, IndexEntry};
 
 const USAGE: &str = "usage:
   xtask check [--content-dir DIR]
-  xtask plan (--all | SLUG...) [--content-dir DIR] --index FILE --out DIR
+  xtask plan --sha LABEL [--content-dir DIR] --index FILE --out DIR [--origin URL]
+  xtask pointer FILE
   xtask ast FILE.mdx";
 
 fn main() -> ExitCode {
@@ -22,6 +25,7 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("check") => check(&args[1..]),
         Some("plan") => plan(&args[1..]),
+        Some("pointer") => pointer(&args[1..]),
         Some("ast") => ast(&args[1..]),
         _ => Err(USAGE.into()),
     };
@@ -44,54 +48,35 @@ fn check(args: &[String]) -> Result<String, String> {
     Ok(format!("checked {} posts — all valid", posts.len()))
 }
 
+/// Break-glass publish plan: the whole local tree becomes one snapshot — a
+/// broken post blocks the plan. The previous index feeds only the purge set.
 fn plan(args: &[String]) -> Result<String, String> {
     let content_dir = flag_value(args, "--content-dir")?.unwrap_or_else(default_content_dir);
     let index_file = flag_value(args, "--index")?.ok_or("plan: --index FILE is required")?;
     let out_dir = flag_value(args, "--out")?.ok_or("plan: --out DIR is required")?;
-    let all = args.iter().any(|a| a == "--all");
-    let slugs: Vec<&String> = positional(args);
-    if all != slugs.is_empty() {
-        return Err("plan: pass either --all or at least one SLUG".into());
-    }
+    let sha = flag_value(args, "--sha")?.ok_or("plan: --sha LABEL is required")?;
 
-    let content_dir = Path::new(&content_dir);
     let manifest = app::manifest();
-    let changed = if all {
-        xtask::check_tree(content_dir, &manifest).map_err(|diags| render_diags(&diags))?
-    } else {
-        selected_posts(content_dir, &slugs, &manifest)?
-    };
-
+    let posts = xtask::check_tree(Path::new(&content_dir), &manifest)
+        .map_err(|diags| render_diags(&diags))?;
     let prev_index = read_index(Path::new(&index_file))?;
-    // --all rebuilds the listing from the tree: entries whose posts are gone
-    // locally are pruned and their KV documents deleted (the manual
-    // counterpart of the pipeline's delete-on-push).
-    let removed: Vec<String> = if all {
-        prev_index
-            .iter()
-            .filter(|entry| !changed.iter().any(|post| post.slug == entry.slug))
-            .map(|entry| entry.slug.clone())
-            .collect()
-    } else {
-        Vec::new()
-    };
-
-    let plan = publish::plan(prev_index, &changed, &removed)
-        .map_err(|err| format!("serializing publish plan: {err}"))?;
+    let plan = publish::snapshot(&prev_index, &posts, Vec::new(), &sha)
+        .map_err(|err| format!("serializing snapshot plan: {err}"))?;
 
     let out = Path::new(&out_dir);
     std::fs::create_dir_all(out).map_err(|err| format!("creating {out_dir}: {err}"))?;
-    // wrangler `kv bulk put` takes [{"key","value"}]; `kv bulk delete` takes
-    // plain key strings (workers-sdk KeyValue / deleteKVBulkKeyValue).
+    // wrangler `kv bulk put` takes [{"key","value"}].
     let writes: Vec<serde_json::Value> = plan
         .writes
         .iter()
         .map(|w| serde_json::json!({ "key": w.key, "value": w.value }))
         .collect();
     write_json(out, "writes.json", &serde_json::Value::Array(writes))?;
-    write_json(out, "deletes.json", &serde_json::json!(plan.deletes))?;
-    // Purge-by-URL matches full URLs exactly; with --origin the file is
-    // curl-ready, without it it holds bare paths (purge gets skipped anyway).
+    let pointer = serde_json::to_value(CurrentPointer { sha: sha.clone() })
+        .map_err(|err| format!("serializing pointer: {err}"))?;
+    write_json(out, "pointer.json", &pointer)?;
+    // With --origin the purge file is curl-ready full URLs; without it,
+    // bare paths (purge gets skipped anyway).
     let origin = flag_value(args, "--origin")?.unwrap_or_default();
     let purge: Vec<String> = plan
         .purge
@@ -100,18 +85,22 @@ fn plan(args: &[String]) -> Result<String, String> {
         .collect();
     write_json(out, "purge.json", &serde_json::json!(purge))?;
 
-    let published: Vec<&str> = changed.iter().map(|post| post.slug.as_str()).collect();
-    let removed_note = if removed.is_empty() {
-        String::new()
-    } else {
-        format!(", removing {}", removed.join(", "))
-    };
     Ok(format!(
-        "planned {} (index: {} entries{removed_note}; {} purge paths) → {out_dir}",
-        published.join(", "),
+        "planned snapshot {sha}: {} posts, {} purge paths → {out_dir}",
         plan.index.len(),
         plan.purge.len(),
     ))
+}
+
+/// Prints the KV key holding the previous snapshot's index, resolved from a
+/// captured `current` pointer — the key grammar never leaks into bash.
+fn pointer(args: &[String]) -> Result<String, String> {
+    let [path] = args else {
+        return Err(USAGE.into());
+    };
+    let raw = std::fs::read_to_string(path).map_err(|err| format!("{path}: {err}"))?;
+    let sha = xtask::parse_pointer(&raw).map_err(|err| format!("{path}: {err}"))?;
+    Ok(content::index_key_at(sha.as_deref()))
 }
 
 fn ast(args: &[String]) -> Result<String, String> {
@@ -123,31 +112,8 @@ fn ast(args: &[String]) -> Result<String, String> {
     serde_json::to_string_pretty(&doc).map_err(|err| format!("{path}: failed to serialize: {err}"))
 }
 
-/// Break-glass single-post publish: only the requested posts must be valid,
-/// so one broken draft elsewhere in the tree cannot block an urgent fix.
-fn selected_posts(
-    content_dir: &Path,
-    slugs: &[&String],
-    manifest: &content::Manifest,
-) -> Result<Vec<ParsedPost>, String> {
-    let (sources, _) = xtask::discover(content_dir);
-    let selected: Vec<_> = slugs
-        .iter()
-        .map(|slug| {
-            sources
-                .iter()
-                .find(|source| source.slug == **slug)
-                .cloned()
-                .ok_or_else(|| format!("no post at {}/{slug}/index.mdx", content_dir.display()))
-        })
-        .collect::<Result<_, _>>()?;
-    publish::check(&selected, manifest).map_err(|diags| render_diags(&diags))
-}
-
-/// Reads the current KV `index`. The sentinel logic lives in
-/// [`xtask::parse_index`]: only empty output or wrangler's exact
-/// `Value not found` mean "first publish" — an unreadable file or any other
-/// non-JSON content fails closed instead of silently planning a fresh index.
+/// Reads the previous snapshot's index; anything unexpected fails closed
+/// (see [`xtask::parse_index`]) instead of silently planning a fresh index.
 fn read_index(path: &Path) -> Result<Vec<IndexEntry>, String> {
     let raw = std::fs::read_to_string(path)
         .map_err(|err| format!("{}: cannot read index: {err}", path.display()))?;
@@ -174,27 +140,6 @@ fn flag_value(args: &[String], flag: &str) -> Result<Option<String>, String> {
             .ok_or_else(|| format!("{flag} needs a value")),
         None => Ok(None),
     }
-}
-
-/// Positional args: everything not a `--flag` and not a flag's value.
-fn positional(args: &[String]) -> Vec<&String> {
-    let mut out = Vec::new();
-    let mut skip = false;
-    for arg in args {
-        if skip {
-            skip = false;
-            continue;
-        }
-        if arg == "--all" {
-            continue;
-        }
-        if arg.starts_with("--") {
-            skip = true;
-            continue;
-        }
-        out.push(arg);
-    }
-    out
 }
 
 fn render_diags(diags: &[Diagnostic]) -> String {

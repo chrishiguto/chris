@@ -33,26 +33,38 @@ summary, key topics.
   site (SSR + KV read, no secrets) and pipeline (webhook + publish + secrets); no containers,
   Durable Objects, or separate read-API workers. Topics: topology, workers-rs, secrets,
   binary size.
-- `docs/adrs/adr-0007-publish-orchestration.md` — ADR (Accepted) — one publish operation, two
-  invokers (webhook fast path; CI callback after deploy for code pushes); CI sequencing replaces
-  a distributed state machine; GitHub commit statuses as the publish receipt for both paths
-  (amended from Check Runs — Checks API write is GitHub-App-only). Topics:
-  orchestration, ci, commit statuses, ordering, pending retries.
+- `docs/adrs/adr-0007-publish-orchestration.md` — ADR (Accepted; ordering mechanism
+  superseded by ADR-0009) — one publish operation, two invokers (webhook fast path; CI
+  callback after deploy for code pushes); GitHub commit statuses as the publish receipt for
+  both paths (amended from Check Runs — Checks API write is GitHub-App-only; amended again:
+  the pending-list/drain ordering is replaced by ADR-0009's reconcile). Topics:
+  orchestration, ci, commit statuses, ordering.
 - `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — Cache API full-response caching
   (per-colo) with REST purge-by-URL on publish and purge_everything on deploy (hydration
-  correctness); all dynamism in islands. Topics: caching, purge, cache api, deploys, islands.
+  correctness); all dynamism in islands (amended by ADR-0009: publish purge widened to the
+  full URL surface of the previous + new indexes). Topics: caching, purge, cache api,
+  deploys, islands.
+- `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
+  immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
+  reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
+  coordinator Durable Object whose alarm doubles as retry and cron backstop; pending-list
+  machinery deleted; rollback = re-point the pointer. Topics: snapshots, atomic publish,
+  reconcile, durable objects, convergence, rollback, retention.
 
 ## Guides
 
-- `docs/guides/pipeline-deploy.md` — Guide — deploy the pipeline worker, provision its
-  secrets, create the GitHub push webhook, and verify both publish paths: the instant fast
-  path (content push → commit status → live post) and the CI code path (workflow_dispatch →
-  build → size gate → deploy → authenticated `/publish` drain). Topics: pipeline worker,
-  webhook, hmac, commit status, deploy, secrets, ci, workflow_dispatch, size budget.
+- `docs/guides/pipeline-deploy.md` — Guide — deploy the pipeline worker (including the
+  coordinator DO's shipped migration), provision its secrets, create the GitHub push webhook,
+  and verify both publish paths: the instant fast path (content push → reconcile → live post)
+  and the CI code path (workflow_dispatch → build → size gate → deploy → authenticated
+  `/publish` → reconcile); plus operations (rollback via the `current` pointer, legacy key
+  cleanup, coordinator state). Topics: pipeline worker, webhook, hmac, commit status, deploy,
+  secrets, ci, workflow_dispatch, size budget, durable object, reconcile, rollback.
 - `docs/guides/publishing.md` — Guide — manual publishing: `just check` (validate the content
-  tree against the compiled component vocabulary) and `just publish` (break-glass/bulk publish:
-  `xtask plan` piped into `wrangler kv bulk put/delete` + purge; wrangler owns auth). Topics:
-  xtask, just, publish, kv, wrangler, break-glass.
+  tree against the compiled component vocabulary) and `just publish` (break-glass/bulk
+  publish: `xtask plan` lays the whole tree out as one snapshot, `wrangler kv bulk put` +
+  pointer flip + purge; wrangler owns auth; bypasses the coordinator by design). Topics:
+  xtask, just, publish, kv, snapshots, wrangler, break-glass, rollback.
 - `docs/guides/tracer-bullet-demo.md` — Guide — hand-publish a post end-to-end before the
   pipeline worker exists: `xtask ast` → `wrangler kv key put` → `/posts/{slug}`.
   Topics: demo, kv seeding, read path, tracer bullet.

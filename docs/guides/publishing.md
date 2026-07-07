@@ -1,9 +1,12 @@
 # Manual publishing with `just` + wrangler
 
-The `just publish` recipe is the permanent break-glass path (ADR-0007) and the
-bulk-import path: validate the content tree locally, plan the KV writes with
-`xtask`, and move the bytes with wrangler — the same `publish` crate logic the
-webhook fast path (pipeline worker) runs. There is no dedicated CLI and no
+The `just publish` recipe is the permanent break-glass path (ADR-0007/0009)
+and the bulk-import path: validate the content tree locally, plan one
+immutable snapshot with `xtask`, and move the bytes with wrangler — the same
+`publish` crate logic the pipeline worker's reconcile runs. It deliberately
+bypasses the coordinator Durable Object (it is the escape hatch for when the
+pipeline worker itself is the problem); the next reconcile supersedes
+whatever it wrote by rebuilding from HEAD. There is no dedicated CLI and no
 extra API token: auth is wrangler's own (your local `wrangler login` session,
 or `CLOUDFLARE_API_TOKEN` in automation — the same credentials deploys use).
 
@@ -24,24 +27,27 @@ works as a pre-commit hook.
 ## Publishing
 
 ```sh
-# one post (break-glass: only this post has to be valid)
-just publish components-demo
-
-# the whole tree: publishes every post, rewrites the index from the tree,
-# and deletes KV posts whose directories no longer exist locally
-just publish --all
+# the whole tree as one snapshot: publishes every post, rebuilds the index,
+# retires posts whose directories no longer exist locally
+just publish
 
 # against the local `wrangler dev` simulator (e2e testing)
-just remote='--local' publish --all
+just remote='--local' publish
 ```
 
-Under the hood the recipe is four steps, all inspectable in the justfile:
-fetch the current `index` (`wrangler kv key get`), plan (`xtask plan` →
-`target/publish/{writes,deletes,purge}.json`), apply (`wrangler kv bulk put`
-+ `bulk delete`), purge. Posts and the rewritten newest-first `index` land
-in one bulk call, so `/`, `/posts`, and `/posts/{slug}` are live immediately.
-`--all` is also the onboarding path for content written before the pipeline
-existed (PRD "Importing existing content").
+A snapshot is by definition complete, so there is no per-slug mode anymore:
+the whole local tree must validate (a broken draft blocks the publish — fix
+or remove it locally first). Under the hood the recipe is five steps, all
+inspectable in the justfile: read the `current` pointer and the previous
+snapshot's index (`wrangler kv key get`; both feed only the purge set), plan
+(`xtask plan --sha manual-… ` → `target/publish/{writes,pointer,purge}.json`),
+apply the snapshot keys (`wrangler kv bulk put`), flip the pointer
+(`wrangler kv key put current --path`), purge. The pointer flips only after
+every snapshot key landed, so readers see the whole old snapshot or the whole
+new one — never a blend. This is also the onboarding path for content written
+before the pipeline existed (PRD "Importing existing content"), and the
+**rollback** mechanism: put an older retained snapshot's sha back into
+`current` and purge (see `pipeline-deploy.md` → Operations).
 
 ## Cache purge
 

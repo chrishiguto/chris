@@ -18,6 +18,8 @@ publish = { path = "crates/publish" }
 registry = { path = "crates/registry" }
 registry-macro = { path = "crates/registry-macro" }
 axum = { version = "0.8", default-features = false }
+# Already in the wasm graph via `worker`; used directly for join!/buffered.
+futures-util = "0.3"
 hmac = "0.12"
 inventory = "0.3"
 markdown = "1"

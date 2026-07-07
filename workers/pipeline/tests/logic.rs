@@ -1,13 +1,14 @@
 //! Native tests for the pipeline worker's pure decision logic:
-//! classification, publish-set computation, pending handling and
-//! status building are plain functions — the wasm shim stays thin.
+//! classification, reconcile vocabulary, and status building are plain
+//! functions — the wasm shim stays thin.
 
 use pipeline::{
-    classify, contents_url, dispatch_payload, dispatch_url, failure_description, merge_pending,
-    pending_description, post_path, post_slug, purge_payloads, purge_url, status_payload,
-    statuses_url, success_description, verify_publish_auth, verify_signature, DrainEntryOutcome,
-    DrainReport, PendingEntry, PublishRequest, PublishSet, PushClass, PushCommit, PushEvent,
-    StatusState, PENDING_KEY, PURGE_FILES_LIMIT, STATUS_CONTEXT, WORKFLOW_FILE,
+    classify, code_push_description, contents_url, dispatch_payload, dispatch_url,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, post_slug,
+    purge_payloads, purge_url, reconcile_description, source_path, status_payload, statuses_url,
+    tree_post_slugs, tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass,
+    PushCommit, PushEvent, ReconcileConfig, StatusState, PURGE_FILES_LIMIT, STATUS_CONTEXT,
+    WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -109,9 +110,9 @@ fn post_slug_matches_only_post_sources() {
 }
 
 #[test]
-fn post_path_round_trips_the_slug() {
-    assert_eq!(post_path("hello"), "content/blog/hello/index.mdx");
-    assert_eq!(post_slug(&post_path("hello")), Some("hello"));
+fn source_path_round_trips_the_slug() {
+    assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
+    assert_eq!(post_slug(&source_path("hello")), Some("hello"));
 }
 
 // --- classification ---
@@ -123,25 +124,15 @@ fn content_only_push_takes_the_fast_path() {
         &["content/blog/older/index.mdx"],
         &[],
     )]);
-    assert_eq!(
-        class,
-        PushClass::ContentOnly(PublishSet {
-            changed: slugs(&["hello", "older"]),
-            removed: vec![],
-        })
-    );
+    assert_eq!(class, PushClass::ContentOnly);
 }
 
 #[test]
-fn removed_post_dir_lands_in_the_removed_set() {
+fn removed_post_source_still_takes_the_fast_path() {
+    // A removal is a content change like any other: the reconcile rebuilds
+    // to HEAD, where the post no longer exists.
     let class = classify(&[commit(&[], &[], &["content/blog/hello/index.mdx"])]);
-    assert_eq!(
-        class,
-        PushClass::ContentOnly(PublishSet {
-            changed: vec![],
-            removed: slugs(&["hello"]),
-        })
-    );
+    assert_eq!(class, PushClass::ContentOnly);
 }
 
 #[test]
@@ -157,26 +148,20 @@ fn non_post_content_files_alone_are_ignored() {
 }
 
 #[test]
-fn mixed_push_takes_the_code_path_with_the_publish_set() {
+fn mixed_push_takes_the_code_path_and_counts_touched_posts() {
     let class = classify(&[commit(
         &["content/blog/hello/index.mdx"],
         &["app/src/post.rs"],
         &[],
     )]);
-    assert_eq!(
-        class,
-        PushClass::Code(PublishSet {
-            changed: slugs(&["hello"]),
-            removed: vec![],
-        })
-    );
+    assert_eq!(class, PushClass::Code { touched_posts: 1 });
 }
 
 #[test]
 fn colocated_components_count_as_code() {
     // Per-post Rust must ride the deploy path even under content/
     let class = classify(&[commit(&["content/blog/hello/components.rs"], &[], &[])]);
-    assert_eq!(class, PushClass::Code(PublishSet::default()));
+    assert_eq!(class, PushClass::Code { touched_posts: 0 });
 }
 
 #[test]
@@ -193,39 +178,22 @@ fn build_defining_files_count_as_code() {
     ] {
         assert_eq!(
             classify(&[commit(&[], &[path], &[])]),
-            PushClass::Code(PublishSet::default()),
+            PushClass::Code { touched_posts: 0 },
             "{path} should classify as code"
         );
     }
 }
 
 #[test]
-fn later_commits_supersede_earlier_ones_per_slug() {
-    // added then removed within one push → the final state is removed
+fn a_slug_touched_by_many_commits_counts_once() {
+    // added, modified, and removed across one push is one touched post —
+    // the count only feeds the status message; the reconcile rebuilds to
+    // HEAD regardless of what the delta says.
     let class = classify(&[
         commit(&["content/blog/hello/index.mdx"], &[], &[]),
-        commit(&[], &[], &["content/blog/hello/index.mdx"]),
+        commit(&[], &["app/src/lib.rs"], &["content/blog/hello/index.mdx"]),
     ]);
-    assert_eq!(
-        class,
-        PushClass::ContentOnly(PublishSet {
-            changed: vec![],
-            removed: slugs(&["hello"]),
-        })
-    );
-
-    // removed then re-added → changed
-    let class = classify(&[
-        commit(&[], &[], &["content/blog/hello/index.mdx"]),
-        commit(&["content/blog/hello/index.mdx"], &[], &[]),
-    ]);
-    assert_eq!(
-        class,
-        PushClass::ContentOnly(PublishSet {
-            changed: slugs(&["hello"]),
-            removed: vec![],
-        })
-    );
+    assert_eq!(class, PushClass::Code { touched_posts: 1 });
 }
 
 #[test]
@@ -233,81 +201,98 @@ fn empty_push_is_ignored() {
     assert_eq!(classify(&[]), PushClass::Ignore);
 }
 
-// --- pending stash ---
-
-fn entry(slug: &str, sha: &str, removed: bool) -> PendingEntry {
-    PendingEntry {
-        slug: slug.to_string(),
-        sha: sha.to_string(),
-        removed,
-    }
-}
+// --- reconcile vocabulary ---
 
 #[test]
-fn merge_pending_appends_new_entries() {
-    let set = PublishSet {
-        changed: slugs(&["hello"]),
-        removed: slugs(&["gone"]),
-    };
-    assert_eq!(
-        merge_pending(vec![], &set, "abc123"),
-        vec![
-            entry("hello", "abc123", false),
-            entry("gone", "abc123", true)
-        ]
-    );
-}
-
-#[test]
-fn merge_pending_supersedes_older_entries_for_the_same_slug() {
-    let prev = vec![
-        entry("hello", "old000", false),
-        entry("other", "old000", false),
+fn tree_post_slugs_filters_sorts_and_dedups() {
+    let paths = [
+        "content/blog/zeta/index.mdx",
+        "content/blog/alpha/index.mdx",
+        "content/blog/alpha/components.rs",
+        "content/blog/alpha/index.mdx",
+        "app/src/lib.rs",
+        "README.md",
     ];
-    let set = PublishSet {
-        changed: vec![],
-        removed: slugs(&["hello"]),
-    };
     assert_eq!(
-        merge_pending(prev, &set, "new111"),
-        vec![
-            entry("other", "old000", false),
-            entry("hello", "new111", true)
-        ]
+        tree_post_slugs(paths.iter().copied()),
+        slugs(&["alpha", "zeta"])
     );
 }
 
 #[test]
-fn pending_entries_round_trip_as_the_kv_payload() {
-    let stash = vec![entry("hello", "abc123", false)];
-    let json = serde_json::to_string(&stash).expect("serializes");
-    let back: Vec<PendingEntry> = serde_json::from_str(&json).expect("deserializes");
-    assert_eq!(back, stash);
-    // entries written before the `removed` field existed must still read
-    let legacy: Vec<PendingEntry> =
-        serde_json::from_str(r#"[{"slug":"hello","sha":"abc123"}]"#).expect("legacy reads");
-    assert_eq!(legacy, stash);
-    assert_eq!(PENDING_KEY, "pending");
+fn reconcile_config_round_trips_as_the_trigger_payload() {
+    let config = ReconcileConfig {
+        repository: "chrishiguto/chris".into(),
+        branch: "main".into(),
+    };
+    let json = serde_json::to_string(&config).expect("serializes");
+    let back: ReconcileConfig = serde_json::from_str(&json).expect("deserializes");
+    assert_eq!(back, config);
+}
+
+#[test]
+fn parse_head_ref_extracts_the_sha() {
+    let json = serde_json::json!({
+        "ref": "refs/heads/main",
+        "object": { "sha": "abc123", "type": "commit" }
+    });
+    assert_eq!(parse_head_ref(&json).unwrap(), "abc123");
+    assert!(parse_head_ref(&serde_json::json!({ "object": {} })).is_err());
+    assert!(parse_head_ref(&serde_json::json!({ "message": "Not Found" })).is_err());
+}
+
+#[test]
+fn parse_tree_listing_yields_post_slugs_from_blobs() {
+    let json = serde_json::json!({
+        "truncated": false,
+        "tree": [
+            { "path": "content/blog/hello/index.mdx", "type": "blob" },
+            { "path": "content/blog/hello/components.rs", "type": "blob" },
+            // a directory named like a post source must not count as one
+            { "path": "content/blog/weird/index.mdx", "type": "tree" },
+            { "path": "app/src/lib.rs", "type": "blob" },
+        ]
+    });
+    assert_eq!(parse_tree_listing(&json).unwrap(), slugs(&["hello"]));
+}
+
+#[test]
+fn a_truncated_tree_listing_is_an_error() {
+    // a truncated listing would silently retire every post it omitted
+    let json = serde_json::json!({ "truncated": true, "tree": [] });
+    assert!(parse_tree_listing(&json).is_err());
+}
+
+#[test]
+fn a_tree_response_without_a_tree_array_is_an_error() {
+    let json = serde_json::json!({ "message": "Not Found" });
+    assert!(parse_tree_listing(&json).is_err());
 }
 
 // --- commit status building ---
 
 #[test]
-fn success_description_lists_published_and_removed_slugs() {
-    let set = PublishSet {
-        changed: slugs(&["hello", "world"]),
-        removed: slugs(&["gone"]),
+fn reconcile_description_reports_success_and_carried_failures() {
+    let (state, description) = reconcile_description(3, 0, &[]);
+    assert_eq!(state, StatusState::Success);
+    assert_eq!(description, "reconciled: 3 posts published");
+
+    let (state, description) = reconcile_description(1, 0, &[]);
+    assert_eq!(state, StatusState::Success);
+    assert_eq!(description, "reconciled: 1 post published");
+
+    let diag = content::Diagnostic {
+        message: "unknown component <OrbitSimulatr>".to_string(),
+        file: Some("content/blog/broken/index.mdx".to_string()),
+        line: Some(3),
+        column: None,
     };
+    let (state, description) = reconcile_description(2, 1, &[diag]);
+    assert_eq!(state, StatusState::Failure);
     assert_eq!(
-        success_description(&set),
-        "published hello, world; removed gone"
-    );
-    assert_eq!(
-        success_description(&PublishSet {
-            changed: slugs(&["hello"]),
-            removed: vec![],
-        }),
-        "published hello"
+        description,
+        "1 post failed validation (previous versions kept); \
+         content/blog/broken/index.mdx: unknown component <OrbitSimulatr>"
     );
 }
 
@@ -332,14 +317,14 @@ fn failure_description_is_concise_and_counts_diagnostics() {
 }
 
 #[test]
-fn pending_description_counts_the_parked_set() {
-    let set = PublishSet {
-        changed: slugs(&["hello", "world"]),
-        removed: slugs(&["gone"]),
-    };
+fn code_push_description_counts_the_content_changes() {
     assert_eq!(
-        pending_description(&set),
-        "code push: 3 content changes parked for CI publish"
+        code_push_description(3),
+        "code push: 3 content changes publish after the CI deploy"
+    );
+    assert_eq!(
+        code_push_description(0),
+        "code push: publish reconciles after the CI deploy"
     );
 }
 
@@ -387,6 +372,14 @@ fn github_urls_pin_repo_path_and_sha() {
         statuses_url("chrishiguto/chris", "abc123"),
         "https://api.github.com/repos/chrishiguto/chris/statuses/abc123"
     );
+    assert_eq!(
+        head_ref_url("chrishiguto/chris", "main"),
+        "https://api.github.com/repos/chrishiguto/chris/git/ref/heads/main"
+    );
+    assert_eq!(
+        tree_url("chrishiguto/chris", "abc123"),
+        "https://api.github.com/repos/chrishiguto/chris/git/trees/abc123?recursive=1"
+    );
 }
 
 // --- workflow dispatch (the code path) ---
@@ -427,82 +420,21 @@ fn missing_or_wrong_tokens_are_rejected() {
 }
 
 #[test]
-fn publish_request_carries_sha_and_repository() {
-    let request: PublishRequest =
-        serde_json::from_str(r#"{"sha":"abc123","repository":"chrishiguto/chris"}"#)
-            .expect("valid request");
-    assert_eq!(request.sha, "abc123");
+fn publish_request_carries_repository_and_branch() {
+    // CI also sends `sha`; serde ignores it — a reconcile targets HEAD.
+    let request: PublishRequest = serde_json::from_str(
+        r#"{"sha":"abc123","repository":"chrishiguto/chris","branch":"main"}"#,
+    )
+    .expect("valid request");
     assert_eq!(request.repository, "chrishiguto/chris");
-}
+    assert_eq!(request.branch, "main");
 
-// --- drain report (the cross-commit retry) ---
-
-fn drain_report() -> DrainReport {
-    let diag = content::Diagnostic {
-        message: "unknown component <OrbitSimulatr>".to_string(),
-        file: Some("content/blog/broken/index.mdx".to_string()),
-        line: Some(3),
-        column: None,
-    };
-    DrainReport {
-        outcomes: vec![
-            (entry("hello", "sha-a", false), DrainEntryOutcome::Published),
-            (entry("gone", "sha-a", true), DrainEntryOutcome::Removed),
-            (
-                entry("broken", "sha-b", false),
-                DrainEntryOutcome::Failed(vec![diag]),
-            ),
-        ],
-    }
-}
-
-#[test]
-fn failed_entries_stay_parked_for_the_next_callback() {
-    assert_eq!(
-        drain_report().retries(),
-        vec![entry("broken", "sha-b", false)]
-    );
-}
-
-#[test]
-fn a_fully_drained_report_parks_nothing() {
-    let report = DrainReport {
-        outcomes: vec![(entry("hello", "sha-a", false), DrainEntryOutcome::Published)],
-    };
-    assert_eq!(report.retries(), vec![]);
-}
-
-#[test]
-fn statuses_report_each_pushed_sha_with_its_own_outcome() {
-    let statuses = drain_report().statuses();
-    assert_eq!(
-        statuses,
-        vec![
-            (
-                "sha-a".to_string(),
-                StatusState::Success,
-                "published hello; removed gone".to_string()
-            ),
-            (
-                "sha-b".to_string(),
-                StatusState::Failure,
-                "content/blog/broken/index.mdx: unknown component <OrbitSimulatr>; parked for retry"
-                    .to_string()
-            ),
-        ]
-    );
-}
-
-#[test]
-fn summary_counts_what_landed_and_what_stayed_parked() {
-    assert_eq!(
-        drain_report().summary(),
-        "published hello; removed gone; 1 parked for retry"
-    );
-    let clean = DrainReport {
-        outcomes: vec![(entry("hello", "sha-a", false), DrainEntryOutcome::Published)],
-    };
-    assert_eq!(clean.summary(), "published hello");
+    // a caller predating the branch field parses (and is rejected by the
+    // handler with a clear message rather than a serde error)
+    let legacy: PublishRequest =
+        serde_json::from_str(r#"{"sha":"abc123","repository":"chrishiguto/chris"}"#)
+            .expect("legacy request still parses");
+    assert!(legacy.branch.is_empty());
 }
 
 // --- manifest (pins the inventory linkage anchor for this consumer:

@@ -20,7 +20,11 @@ mod manifest;
 pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
 mod routes;
-pub use routes::{post_key, post_path, tag_path, FEED_PATHS, INDEX_KEY, LISTING_PAGES};
+pub use routes::{
+    index_key_at, post_key, post_key_at, post_path, snapshot_index_key, snapshot_key_sha,
+    snapshot_post_key, tag_path, CurrentPointer, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES,
+    SNAPSHOT_KEY_SPACE,
+};
 
 #[cfg(feature = "parse")]
 mod parse;
@@ -134,9 +138,9 @@ pub struct IndexEntry {
 }
 
 impl IndexEntry {
-    /// The one draft-visibility rule (CONTENT.md "Drafts"): a draft renders
-    /// by slug but appears in no listing, feed, sitemap, or tag page. Every
-    /// index consumer must filter through this, never `!draft` by hand.
+    /// The one draft-visibility rule: a draft renders by slug but appears in
+    /// no listing, feed, sitemap, or tag page. Every index consumer must
+    /// filter through this, never `!draft` by hand.
     pub fn is_listed(&self) -> bool {
         !self.draft
     }

@@ -1,10 +1,8 @@
-//! The pipeline worker's pure decision core: webhook
-//! signature verification, push classification, publish-set computation,
-//! pending handling, and commit-status building — all natively testable.
-//! The wasm shim (`server.rs`, behind the `worker` feature) owns transport
-//! only: webhook HTTP in, GitHub API + KV out.
+//! The pipeline worker's pure decision core: signature verification, push
+//! classification, reconcile vocabulary, status building — all natively
+//! testable. The wasm shim behind the `worker` feature owns transport only.
 
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 use content::Diagnostic;
 use hmac::{Hmac, Mac};
@@ -12,12 +10,14 @@ use serde::{Deserialize, Serialize};
 use sha2::Sha256;
 
 #[cfg(feature = "worker")]
+mod coordinator;
+#[cfg(feature = "worker")]
+mod net;
+#[cfg(feature = "worker")]
 mod server;
 
 /// The commit-status context both publish paths report under.
 pub const STATUS_CONTEXT: &str = "blog/publish";
-/// KV key of the parked publish list awaiting a CI callback.
-pub const PENDING_KEY: &str = "pending";
 /// The workflow the code path dispatches; its last step calls `/publish`.
 pub const WORKFLOW_FILE: &str = "publish.yml";
 /// The Commit Status API rejects descriptions longer than 140 characters.
@@ -60,9 +60,8 @@ pub struct PushCommit {
     pub removed: Vec<String>,
 }
 
-/// GitHub signs the raw request body with HMAC-SHA256 and sends
-/// `X-Hub-Signature-256: sha256=<hex>`; comparison is constant-time
-/// (`Mac::verify_slice`), so no timing oracle on the secret.
+/// GitHub signs the raw body with HMAC-SHA256 (`X-Hub-Signature-256:
+/// sha256=<hex>`); comparison is constant-time.
 pub fn verify_signature(secret: &str, body: &[u8], header: Option<&str>) -> bool {
     let Some(expected) = header
         .and_then(|value| value.strip_prefix("sha256="))
@@ -89,85 +88,42 @@ fn decode_hex(hex: &str) -> Option<Vec<u8>> {
         .flatten()
 }
 
-/// The posts a push wants published or retired, as slugs.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct PublishSet {
-    pub changed: Vec<String>,
-    pub removed: Vec<String>,
-}
-
-impl PublishSet {
-    pub fn len(&self) -> usize {
-        self.changed.len() + self.removed.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.changed.is_empty() && self.removed.is_empty()
-    }
-}
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum PushClass {
     /// Touches neither post sources nor code — acknowledge and stop.
     Ignore,
-    /// Webhook fast path: publish immediately.
-    ContentOnly(PublishSet),
-    /// Deploy must precede publish: park as pending, CI drains.
-    Code(PublishSet),
+    /// Webhook fast path: reconcile immediately.
+    ContentOnly,
+    /// Deploy must precede publish: CI is dispatched, its `/publish`
+    /// callback triggers the reconcile.
+    Code { touched_posts: usize },
 }
 
-#[derive(Clone, Copy)]
-enum SlugState {
-    Changed,
-    Removed,
-}
-
-/// Classifies a push from its commits' `added/modified/removed` paths.
-/// Folded in commit order so a slug's *final* state within the push wins
-/// (added-then-removed publishes as a removal, not both).
+/// Classifies a push from its commits' paths. The reconcile is a full
+/// rebuild, so only two facts matter: does the push touch code, and how
+/// many post sources it touches (for the status message).
 pub fn classify(commits: &[PushCommit]) -> PushClass {
-    let events = commits.iter().flat_map(|commit| {
+    let paths = commits.iter().flat_map(|commit| {
         commit
             .added
             .iter()
             .chain(&commit.modified)
-            .map(|path| (path, SlugState::Changed))
-            .chain(commit.removed.iter().map(|path| (path, SlugState::Removed)))
+            .chain(&commit.removed)
     });
-    let (states, code) = events.fold(
-        (BTreeMap::new(), false),
-        |(mut states, code), (path, state)| {
-            if let Some(slug) = post_slug(path) {
-                states.insert(slug.to_string(), state);
-            }
-            (states, code || is_code_path(path))
-        },
-    );
-
-    let of_state = |wanted: fn(&SlugState) -> bool| {
-        states
-            .iter()
-            .filter(|(_, state)| wanted(state))
-            .map(|(slug, _)| slug.clone())
-            .collect()
-    };
-    let set = PublishSet {
-        changed: of_state(|state| matches!(state, SlugState::Changed)),
-        removed: of_state(|state| matches!(state, SlugState::Removed)),
-    };
-
-    if code {
-        PushClass::Code(set)
-    } else if set.is_empty() {
-        PushClass::Ignore
-    } else {
-        PushClass::ContentOnly(set)
+    let mut touched = BTreeSet::new();
+    let mut code = false;
+    for path in paths {
+        touched.extend(post_slug(path));
+        code = code || is_code_path(path);
+    }
+    match (code, touched.len()) {
+        (true, touched_posts) => PushClass::Code { touched_posts },
+        (false, 0) => PushClass::Ignore,
+        (false, _) => PushClass::ContentOnly,
     }
 }
 
-/// A path that changes the deployed artifact or its build: any Rust source
-/// (including co-located per-post `components.rs`), the workspace
-/// crates and app, worker configs, or the CI workflows that deploy them.
+/// A path that changes the deployed artifact or its build.
 pub fn is_code_path(path: &str) -> bool {
     const CODE_ROOTS: [&str; 4] = ["app/", "crates/", "workers/", ".github/workflows/"];
     const CODE_FILES: [&str; 4] = ["Cargo.toml", "Cargo.lock", "justfile", "wrangler.toml"];
@@ -183,55 +139,34 @@ pub fn post_slug(path: &str) -> Option<&str> {
     (file == "index.mdx" && !slug.is_empty()).then_some(slug)
 }
 
-/// Repo path of a post source, the inverse of [`post_slug`].
-pub fn post_path(slug: &str) -> String {
+/// Repo path of a post source — the inverse of [`post_slug`] (not the
+/// public URL; that is `content::post_path`).
+pub fn source_path(slug: &str) -> String {
     format!("content/blog/{slug}/index.mdx")
 }
 
-/// One parked publish awaiting the CI callback.
+/// Which repository and branch a reconcile converges to. The coordinator
+/// persists it so alarm-driven reconciles can run without a request in hand.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct PendingEntry {
-    pub slug: String,
-    pub sha: String,
-    /// The push removed this post; draining deletes instead of fetching.
-    #[serde(default)]
-    pub removed: bool,
-}
-
-/// Parks `set` at `sha`, superseding any older entry for the same slug —
-/// the newest push is the state that should eventually publish.
-pub fn merge_pending(prev: Vec<PendingEntry>, set: &PublishSet, sha: &str) -> Vec<PendingEntry> {
-    let superseded =
-        |slug: &str| set.changed.iter().any(|s| s == slug) || set.removed.iter().any(|s| s == slug);
-    let park = |slugs: &[String], removed: bool| {
-        slugs
-            .iter()
-            .map(|slug| PendingEntry {
-                slug: slug.clone(),
-                sha: sha.to_string(),
-                removed,
-            })
-            .collect::<Vec<_>>()
-    };
-    prev.into_iter()
-        .filter(|entry| !superseded(&entry.slug))
-        .chain(park(&set.changed, false))
-        .chain(park(&set.removed, true))
-        .collect()
-}
-
-/// CI's callback body: which commit triggered the workflow, on which repo
-/// (pending entries carry slugs and SHAs, but not the repo).
-#[derive(Debug, Deserialize)]
-pub struct PublishRequest {
-    pub sha: String,
+pub struct ReconcileConfig {
     /// `owner/repo`, as GitHub API paths want it.
     pub repository: String,
+    pub branch: String,
 }
 
-/// Only CI may drain `pending`: exact `Bearer <secret>` match. Both sides go
-/// through HMAC under a fixed key so `verify_slice`'s constant-time equality
-/// compares length-normalized tags — no timing oracle on content or length.
+/// CI's callback body: which repo and branch to reconcile. CI also sends
+/// the triggering `sha`; serde ignores it — a reconcile converges to HEAD.
+#[derive(Debug, Deserialize)]
+pub struct PublishRequest {
+    /// `owner/repo`, as GitHub API paths want it.
+    pub repository: String,
+    /// Empty only from a caller predating the field; the handler rejects it.
+    #[serde(default)]
+    pub branch: String,
+}
+
+/// Only CI may call `/publish`: exact `Bearer <secret>` match. Both sides
+/// go through HMAC so the comparison is constant-time with no length oracle.
 pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
     let Some(token) = header.and_then(|value| value.strip_prefix("Bearer ")) else {
         return false;
@@ -245,89 +180,40 @@ pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
         .is_ok()
 }
 
-/// What draining did with one parked entry.
-#[derive(Debug, PartialEq)]
-pub enum DrainEntryOutcome {
-    Published,
-    Removed,
-    /// Validation failed — the entry stays parked and retries on the next
-    /// CI callback (the cross-commit race).
-    Failed(Vec<Diagnostic>),
-}
-
-/// Per-entry outcomes of one `/publish` drain, in pending order.
-#[derive(Debug)]
-pub struct DrainReport {
-    pub outcomes: Vec<(PendingEntry, DrainEntryOutcome)>,
-}
-
-impl DrainReport {
-    /// Entries to park again — validation failures only (infra failures
-    /// abort the drain before any report exists, leaving `pending` intact).
-    pub fn retries(&self) -> Vec<PendingEntry> {
-        self.outcomes
-            .iter()
-            .filter(|(_, outcome)| matches!(outcome, DrainEntryOutcome::Failed(_)))
-            .map(|(entry, _)| entry.clone())
-            .collect()
-    }
-
-    /// One `blog/publish` status per pushed SHA, so every parked commit's
-    /// page reflects its own content's fate — not just the CI trigger's.
-    pub fn statuses(&self) -> Vec<(String, StatusState, String)> {
-        let by_sha = self.outcomes.iter().fold(
-            BTreeMap::<&str, (PublishSet, Vec<Diagnostic>)>::new(),
-            |mut by_sha, (entry, outcome)| {
-                let (set, diags) = by_sha.entry(&entry.sha).or_default();
-                match outcome {
-                    DrainEntryOutcome::Published => set.changed.push(entry.slug.clone()),
-                    DrainEntryOutcome::Removed => set.removed.push(entry.slug.clone()),
-                    DrainEntryOutcome::Failed(errs) => diags.extend(errs.iter().cloned()),
-                }
-                by_sha
-            },
-        );
-        by_sha
-            .into_iter()
-            .map(|(sha, (set, diags))| match diags.is_empty() {
-                true => (
-                    sha.to_string(),
-                    StatusState::Success,
-                    success_description(&set),
-                ),
-                false => (
-                    sha.to_string(),
-                    StatusState::Failure,
-                    format!("{}; parked for retry", failure_description(&diags)),
-                ),
-            })
-            .collect()
-    }
-
-    /// The HTTP response body: what landed and what stayed parked.
-    pub fn summary(&self) -> String {
-        let landed = PublishSet {
-            changed: self.slugs_with(|o| matches!(o, DrainEntryOutcome::Published)),
-            removed: self.slugs_with(|o| matches!(o, DrainEntryOutcome::Removed)),
-        };
-        let parked = self.retries().len();
-        [
-            (!landed.is_empty()).then(|| success_description(&landed)),
-            (parked > 0).then(|| format!("{parked} parked for retry")),
-        ]
+/// Sorted slugs of every post source in one recursive tree listing.
+pub fn tree_post_slugs<'a>(paths: impl IntoIterator<Item = &'a str>) -> Vec<String> {
+    let mut slugs: Vec<String> = paths
         .into_iter()
-        .flatten()
-        .collect::<Vec<_>>()
-        .join("; ")
-    }
+        .filter_map(post_slug)
+        .map(String::from)
+        .collect();
+    slugs.sort();
+    slugs.dedup();
+    slugs
+}
 
-    fn slugs_with(&self, wanted: fn(&DrainEntryOutcome) -> bool) -> Vec<String> {
-        self.outcomes
-            .iter()
-            .filter(|(_, outcome)| wanted(outcome))
-            .map(|(entry, _)| entry.slug.clone())
-            .collect()
+/// The branch HEAD out of a git ref response (`{"object": {"sha": …}}`).
+pub fn parse_head_ref(json: &serde_json::Value) -> Result<String, String> {
+    json["object"]["sha"]
+        .as_str()
+        .map(String::from)
+        .ok_or_else(|| "ref response carries no object.sha".to_string())
+}
+
+/// [`tree_post_slugs`] over a tree listing response's blob entries. A
+/// truncated listing is an error — it would silently retire omitted posts.
+pub fn parse_tree_listing(json: &serde_json::Value) -> Result<Vec<String>, String> {
+    if json["truncated"].as_bool().unwrap_or(false) {
+        return Err("tree listing is truncated".to_string());
     }
+    let entries = json["tree"]
+        .as_array()
+        .ok_or_else(|| "tree response carries no tree array".to_string())?;
+    let paths = entries
+        .iter()
+        .filter(|entry| entry["type"] == "blob")
+        .filter_map(|entry| entry["path"].as_str());
+    Ok(tree_post_slugs(paths))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -361,22 +247,8 @@ fn clamp(text: &str) -> String {
     }
 }
 
-pub fn success_description(set: &PublishSet) -> String {
-    let clause = |verb: &str, slugs: &[String]| {
-        (!slugs.is_empty()).then(|| format!("{verb} {}", slugs.join(", ")))
-    };
-    [
-        clause("published", &set.changed),
-        clause("removed", &set.removed),
-    ]
-    .into_iter()
-    .flatten()
-    .collect::<Vec<_>>()
-    .join("; ")
-}
-
-/// One concise line for the status; full file/line detail stays `blog
-/// check`'s job (the API clamps descriptions to ~140 chars).
+/// One concise line for the status; the API clamps descriptions to ~140
+/// chars, full detail stays `check`'s job.
 pub fn failure_description(diags: &[Diagnostic]) -> String {
     let first = diags
         .first()
@@ -391,19 +263,55 @@ pub fn failure_description(diags: &[Diagnostic]) -> String {
     }
 }
 
-pub fn pending_description(set: &PublishSet) -> String {
-    format!(
-        "code push: {} content changes parked for CI publish",
-        set.len()
-    )
+/// Status text for a parked code push: the deploy must land first.
+pub fn code_push_description(touched_posts: usize) -> String {
+    match touched_posts {
+        0 => "code push: publish reconciles after the CI deploy".to_string(),
+        n => format!("code push: {n} content changes publish after the CI deploy"),
+    }
 }
 
-/// Raw-content fetch for one changed post, pinned to the pushed SHA.
+/// One reconcile's status: success when every post validated, failure
+/// naming the count that rode in as previous versions.
+pub fn reconcile_description(
+    published: usize,
+    failed: usize,
+    diags: &[Diagnostic],
+) -> (StatusState, String) {
+    let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
+    match failed {
+        0 => (
+            StatusState::Success,
+            format!("reconciled: {} published", posts(published)),
+        ),
+        n => (
+            StatusState::Failure,
+            format!(
+                "{} failed validation (previous versions kept); {}",
+                posts(n),
+                failure_description(diags)
+            ),
+        ),
+    }
+}
+
+/// Raw-content fetch for one post, pinned to the observed HEAD — every
+/// source in one snapshot comes from one commit.
 pub fn contents_url(repo: &str, slug: &str, sha: &str) -> String {
     format!(
         "https://api.github.com/repos/{repo}/contents/{}?ref={sha}",
-        post_path(slug)
+        source_path(slug)
     )
+}
+
+/// Resolves the branch HEAD.
+pub fn head_ref_url(repo: &str, branch: &str) -> String {
+    format!("https://api.github.com/repos/{repo}/git/ref/heads/{branch}")
+}
+
+/// Recursive tree listing at a commit — the post inventory for a reconcile.
+pub fn tree_url(repo: &str, sha: &str) -> String {
+    format!("https://api.github.com/repos/{repo}/git/trees/{sha}?recursive=1")
 }
 
 pub fn statuses_url(repo: &str, sha: &str) -> String {
@@ -415,7 +323,7 @@ pub fn dispatch_url(repo: &str) -> String {
 }
 
 /// `workflow_dispatch` body: run on the pushed branch, carrying the commit
-/// SHA so CI can report back on it (`/publish` callback + statuses).
+/// SHA so CI can report back on it.
 pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
@@ -427,10 +335,8 @@ pub fn purge_url(zone: &str) -> String {
     format!("https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache")
 }
 
-/// Purge-by-URL request bodies for one publish: the plan's URL paths made
-/// absolute under the site's origin (purge matches URLs exactly, so this
-/// must mirror how the site keys its cache entries), chunked to the API's
-/// per-request file cap.
+/// Purge-by-URL bodies: the plan's paths made absolute under the origin
+/// (purge matches URLs exactly), chunked to the API's per-request cap.
 pub fn purge_payloads(origin: &str, paths: &[String]) -> Vec<String> {
     let origin = origin.trim_end_matches('/');
     paths

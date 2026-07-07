@@ -11,14 +11,19 @@ crate-type = ["cdylib", "rlib"]
 # validation runs against the real deployed vocabulary.
 app = { workspace = true }
 content = { workspace = true, features = ["parse"] }
+futures-util = { workspace = true, optional = true }
 hmac = { workspace = true }
 publish = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+# The #[durable_object] macro's generated bindgen glue references bare
+# `wasm_bindgen::` paths, so the crate hosting a Durable Object must depend
+# on wasm-bindgen directly.
+wasm-bindgen = { workspace = true, optional = true }
 worker = { workspace = true, optional = true }
 
 # The shim is wasm-only; native builds and tests (`cargo test -p pipeline`)
 # compile the pure decision logic without it.
 [features]
-worker = ["dep:worker"]
+worker = ["dep:worker", "dep:wasm-bindgen", "dep:futures-util"]
