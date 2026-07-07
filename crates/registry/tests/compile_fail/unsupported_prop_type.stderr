@@ -1,4 +1,4 @@
-error: #[post_component] v1 supports props of type String, f64, i64, bool, or Option of one of these, plus `children: Children` (ADR-0005)
+error: #[post_component] v1 supports props of type String, f64, i64, bool, or Option of one of these, plus `children: Children`
  --> tests/compile_fail/unsupported_prop_type.rs:5:18
   |
 5 | pub fn Bad(data: Vec<String>) {

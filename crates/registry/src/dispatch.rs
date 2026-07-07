@@ -59,7 +59,7 @@ pub fn manifest() -> Manifest {
 
 /// A prop conversion failure at dispatch time. Publish-time validation makes
 /// these unreachable for content that went through the pipeline; they exist
-/// so bad KV data fails loudly (ADR-0001), never silently.
+/// so bad KV data fails loudly, never silently.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DispatchError {
     MissingProp {

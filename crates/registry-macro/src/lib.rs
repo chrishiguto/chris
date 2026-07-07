@@ -1,4 +1,4 @@
-//! `#[post_component]` (ADR-0005): reads a Leptos component signature and
+//! `#[post_component]`: reads a Leptos component signature and
 //! generates the registry glue — string-attr → typed-prop conversion plus an
 //! `inventory` registration carrying the component's manifest entry.
 //!
@@ -15,7 +15,7 @@ use syn::spanned::Spanned;
 use syn::{Error, FnArg, Ident, ItemFn, Pat, Type};
 
 const UNSUPPORTED: &str = "#[post_component] v1 supports props of type String, f64, i64, bool, \
-     or Option of one of these, plus `children: Children` (ADR-0005)";
+     or Option of one of these, plus `children: Children`";
 
 #[proc_macro_attribute]
 pub fn post_component(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -58,7 +58,7 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
     if !component.sig.generics.params.is_empty() || component.sig.generics.where_clause.is_some() {
         return Err(Error::new(
             component.sig.generics.span(),
-            "#[post_component] components cannot be generic (v1 scope, ADR-0005)",
+            "#[post_component] components cannot be generic (v1 scope)",
         ));
     }
 
@@ -83,7 +83,7 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
             }
             return Err(Error::new(
                 arg.ty.span(),
-                "#[post_component] children must be plain `Children` (v1 scope, ADR-0005)",
+                "#[post_component] children must be plain `Children` (v1 scope)",
             ));
         }
 

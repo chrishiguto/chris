@@ -1,4 +1,4 @@
-//! The component registry (ADR-0005): one source of truth for which
+//! The component registry: one source of truth for which
 //! components exist, with which props, consumed three ways — render dispatch
 //! in the site worker, publish validation in the pipeline, and `xtask check`.
 //!
