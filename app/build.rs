@@ -7,6 +7,8 @@ use std::{env, fs};
 
 fn main() {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR").expect("cargo sets this");
+    // The `content/blog/{slug}` grammar is content::routes's; hardcoded
+    // rather than pulling content in as a build-dependency for one literal.
     let blog = Path::new(&manifest_dir).join("../content/blog");
     // A directory path makes cargo scan it recursively, so new posts and
     // edited components both trigger a rebuild.

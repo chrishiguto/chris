@@ -165,7 +165,7 @@ fn write_json(dir: &Path, name: &str, value: &serde_json::Value) -> Result<(), S
 }
 
 fn default_content_dir() -> String {
-    "content/blog".into()
+    content::CONTENT_ROOT.into()
 }
 
 /// `--flag VALUE` pairs; anything unrecognized is an error — a typo'd flag

@@ -4,10 +4,10 @@
 
 use pipeline::{
     classify, code_push_description, contents_url, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, post_slug, purge_body,
-    purge_url, reconcile_description, source_path, status_payload, statuses_url, tree_post_slugs,
-    tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit,
-    PushEvent, ReconcileConfig, StatusState, STATUS_CONTEXT, WORKFLOW_FILE,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_body, purge_url,
+    reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url,
+    verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit, PushEvent,
+    ReconcileConfig, StatusState, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -97,24 +97,9 @@ fn missing_or_malformed_signature_headers_fail() {
     assert!(!verify_signature(DOC_SECRET, DOC_BODY, Some("sha256=éé")));
 }
 
-// --- path predicates ---
-
-#[test]
-fn post_slug_matches_only_post_sources() {
-    assert_eq!(post_slug("content/blog/hello/index.mdx"), Some("hello"));
-    assert_eq!(post_slug("content/blog/hello/notes.txt"), None);
-    assert_eq!(post_slug("content/blog/a/b/index.mdx"), None);
-    assert_eq!(post_slug("content/blog/index.mdx"), None);
-    assert_eq!(post_slug("docs/index.mdx"), None);
-}
-
-#[test]
-fn source_path_round_trips_the_slug() {
-    assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
-    assert_eq!(post_slug(&source_path("hello")), Some("hello"));
-}
-
 // --- classification ---
+// (the `content/blog/{slug}/index.mdx` grammar itself is content's:
+// post_slug/source_path are defined and tested in content::routes)
 
 #[test]
 fn content_only_push_takes_the_fast_path() {

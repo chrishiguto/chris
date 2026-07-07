@@ -6,7 +6,7 @@
 //! Atom takes ISO-8601 timestamps directly, so frontmatter dates need no
 //! RFC-822 weekday arithmetic.
 
-use content::{tag_path, IndexEntry, LISTING_PAGES};
+use content::{post_path, tag_path, IndexEntry, LISTING_PAGES, RSS_PATH};
 
 const SITE_TITLE: &str = "chris";
 const AUTHOR: &str = "chris";
@@ -47,7 +47,7 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
 
     let entries = published(index)
         .map(|entry| {
-            let url = format!("{origin}/posts/{}", entry.slug);
+            let url = format!("{origin}{}", post_path(&entry.slug));
             // RFC 4287 §4.1.2: with no atom:content, atom:summary is
             // required — fall back to the title when there is no description.
             let summary = entry.description.as_deref().unwrap_or(&entry.title);
@@ -72,13 +72,14 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
          <title>{title}</title>\
          <id>{origin}/</id>\
          <link href=\"{origin}/\"/>\
-         <link rel=\"self\" href=\"{origin}/rss.xml\"/>\
+         <link rel=\"self\" href=\"{origin}{rss}\"/>\
          <updated>{updated}</updated>\
          <author><name>{author}</name></author>\n\
          {entries}</feed>\n",
         title = xml_escape(SITE_TITLE),
         updated = atom_timestamp(updated),
         author = xml_escape(AUTHOR),
+        rss = RSS_PATH,
     )
 }
 
@@ -97,8 +98,8 @@ pub fn sitemap(origin: &str, index: &[IndexEntry]) -> String {
         .map(|path| format!("<url><loc>{origin}{path}</loc></url>\n"))
         .chain(published(index).map(|entry| {
             format!(
-                "<url><loc>{origin}/posts/{slug}</loc><lastmod>{date}</lastmod></url>\n",
-                slug = entry.slug,
+                "<url><loc>{origin}{path}</loc><lastmod>{date}</lastmod></url>\n",
+                path = post_path(&entry.slug),
                 date = entry.date,
             )
         }))

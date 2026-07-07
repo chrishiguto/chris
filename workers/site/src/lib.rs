@@ -23,7 +23,8 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY, LISTING_PAGES,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
+        LISTING_PAGES, RSS_PATH, SITEMAP_PATH,
     };
     use leptos::prelude::*;
     use leptos_axum::{generate_route_list_with_exclusions, AxumRouteListing, LeptosRoutes};
@@ -32,7 +33,8 @@ mod server {
 
     const KV_BINDING: &str = "BLOG";
     /// Custom axum routes (they need the per-request `Env` for KV), so
-    /// excluded from the leptos-generated route list.
+    /// excluded from the leptos-generated route list. Axum's `{param}`
+    /// templates for `content::post_path` / `content::tag_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
     const TAG_ROUTE: &str = "/tags/{tag}";
 
@@ -105,8 +107,8 @@ mod server {
                     Router::new()
                         .route(POST_ROUTE, get(post_page))
                         .route(TAG_ROUTE, get(tag_page))
-                        .route("/rss.xml", get(feed_xml))
-                        .route("/sitemap.xml", get(sitemap_xml)),
+                        .route(RSS_PATH, get(feed_xml))
+                        .route(SITEMAP_PATH, get(sitemap_xml)),
                     |r, path| r.route(path, get(listing_page)),
                 )
                 .leptos_routes(&state, routes, move || shell(options.clone()))

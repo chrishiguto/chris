@@ -35,9 +35,12 @@ pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
     };
     for entry in entries.flatten().filter(|e| e.path().is_dir()) {
         let slug = entry.file_name().to_string_lossy().into_owned();
-        let file = entry.path().join("index.mdx");
+        let file = entry.path().join(content::POST_FILE);
         if !file.is_file() {
-            structural(&entry.path(), "post directory has no index.mdx".into());
+            structural(
+                &entry.path(),
+                format!("post directory has no {}", content::POST_FILE),
+            );
             continue;
         }
         match std::fs::read_to_string(&file) {

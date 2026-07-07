@@ -41,7 +41,12 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                     })
                     .collect_view()}
                 <link rel="stylesheet" id="leptos" href=css_href />
-                <link rel="alternate" type="application/atom+xml" title="chris" href="/rss.xml" />
+                <link
+                    rel="alternate"
+                    type="application/atom+xml"
+                    title="chris"
+                    href=content::RSS_PATH
+                />
                 <AutoReload options=options.clone() />
                 <HydrationScripts options islands=true />
                 <MetaTags />

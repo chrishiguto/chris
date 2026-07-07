@@ -93,8 +93,35 @@ pub fn tag_path(tag: &str) -> String {
 /// sitemap, and purged on every publish.
 pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
 
+/// The Atom feed's public path (and cache key / purge path).
+pub const RSS_PATH: &str = "/rss.xml";
+
+/// The sitemap's public path (and cache key / purge path).
+pub const SITEMAP_PATH: &str = "/sitemap.xml";
+
 /// The index-backed XML feeds; purged on every publish (not sitemap-listed).
-pub const FEED_PATHS: [&str; 2] = ["/rss.xml", "/sitemap.xml"];
+pub const FEED_PATHS: [&str; 2] = [RSS_PATH, SITEMAP_PATH];
+
+/// Root of the authoring tree: one `{CONTENT_ROOT}/{slug}/{POST_FILE}` per
+/// post (the CONTENT.md contract).
+pub const CONTENT_ROOT: &str = "content/blog";
+
+/// A post's entry file inside its slug directory.
+pub const POST_FILE: &str = "index.mdx";
+
+/// Repo path of a post source — the inverse of [`post_slug`] (not the
+/// public URL; that is [`post_path`]).
+pub fn source_path(slug: &str) -> String {
+    format!("{CONTENT_ROOT}/{slug}/{POST_FILE}")
+}
+
+/// `content/blog/{slug}/index.mdx` → the slug; anything else is not a post
+/// source.
+pub fn post_slug(path: &str) -> Option<&str> {
+    let rest = path.strip_prefix(CONTENT_ROOT)?.strip_prefix('/')?;
+    let (slug, file) = rest.split_once('/')?;
+    (file == POST_FILE && !slug.is_empty()).then_some(slug)
+}
 
 #[cfg(test)]
 mod tests {
@@ -119,6 +146,21 @@ mod tests {
         assert_eq!(snapshot_key_sha(&post_key("hello")), None);
         assert_eq!(snapshot_key_sha("snapshot:"), None);
         assert_eq!(snapshot_key_sha("snapshot::index"), None);
+    }
+
+    #[test]
+    fn post_slug_matches_only_post_sources() {
+        assert_eq!(post_slug("content/blog/hello/index.mdx"), Some("hello"));
+        assert_eq!(post_slug("content/blog/hello/notes.txt"), None);
+        assert_eq!(post_slug("content/blog/a/b/index.mdx"), None);
+        assert_eq!(post_slug("content/blog/index.mdx"), None);
+        assert_eq!(post_slug("docs/index.mdx"), None);
+    }
+
+    #[test]
+    fn source_path_inverts_post_slug() {
+        assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
+        assert_eq!(post_slug(&source_path("hello")), Some("hello"));
     }
 
     #[test]

@@ -21,8 +21,9 @@ pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
 mod routes;
 pub use routes::{
-    index_key_at, post_key, post_key_at, post_path, snapshot_index_key, snapshot_key_sha,
-    snapshot_post_key, tag_path, CurrentPointer, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES,
+    index_key_at, post_key, post_key_at, post_path, post_slug, snapshot_index_key,
+    snapshot_key_sha, snapshot_post_key, source_path, tag_path, CurrentPointer, CONTENT_ROOT,
+    CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POST_FILE, RSS_PATH, SITEMAP_PATH,
     SNAPSHOT_KEY_SPACE,
 };
 

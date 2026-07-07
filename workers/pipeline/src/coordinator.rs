@@ -11,8 +11,8 @@
 use std::collections::BTreeSet;
 
 use content::{
-    index_key_at, post_key_at, snapshot_key_sha, CurrentPointer, Diagnostic, IndexEntry,
-    CURRENT_KEY, SNAPSHOT_KEY_SPACE,
+    index_key_at, post_key_at, snapshot_key_sha, source_path, CurrentPointer, Diagnostic,
+    IndexEntry, CURRENT_KEY, SNAPSHOT_KEY_SPACE,
 };
 use futures_util::future::join_all;
 use futures_util::StreamExt;
@@ -24,7 +24,7 @@ use worker::{
 
 use crate::{
     contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, reconcile_description,
-    source_path, tree_url, ReconcileConfig,
+    tree_url, ReconcileConfig,
 };
 
 /// Every caller addresses this one instance, which serializes all publishes.

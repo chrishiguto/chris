@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use content::Diagnostic;
+use content::{post_slug, source_path, Diagnostic};
 use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
@@ -130,19 +130,6 @@ pub fn is_code_path(path: &str) -> bool {
     path.ends_with(".rs")
         || CODE_ROOTS.iter().any(|root| path.starts_with(root))
         || CODE_FILES.contains(&path)
-}
-
-/// `content/blog/{slug}/index.mdx` → the slug; anything else is not a post
-/// source.
-pub fn post_slug(path: &str) -> Option<&str> {
-    let (slug, file) = path.strip_prefix("content/blog/")?.split_once('/')?;
-    (file == "index.mdx" && !slug.is_empty()).then_some(slug)
-}
-
-/// Repo path of a post source — the inverse of [`post_slug`] (not the
-/// public URL; that is `content::post_path`).
-pub fn source_path(slug: &str) -> String {
-    format!("content/blog/{slug}/index.mdx")
 }
 
 /// Which repository and branch a reconcile converges to. The coordinator
