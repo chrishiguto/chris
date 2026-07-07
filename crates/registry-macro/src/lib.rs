@@ -32,8 +32,31 @@ pub fn post_component(attr: TokenStream, item: TokenStream) -> TokenStream {
             out.extend(glue);
             out.into()
         }
-        Err(err) => compile_error(&component, err),
+        Err(err) => compile_error(&component, ordering_hint(&component, err)),
     }
+}
+
+/// The most likely authoring mistake is putting `#[post_component]` *below*
+/// `#[component]` — the macro then sees leptos's expanded output and rejects
+/// it with a baffling prop-type error. When no component/island attribute
+/// remains below us, say so.
+fn ordering_hint(component: &ItemFn, err: Error) -> Error {
+    let has_component_attr = component.attrs.iter().any(|attr| {
+        attr.path()
+            .segments
+            .last()
+            .is_some_and(|segment| segment.ident == "component" || segment.ident == "island")
+    });
+    if has_component_attr {
+        return err;
+    }
+    Error::new(
+        err.span(),
+        format!(
+            "{err}\n= help: #[post_component] must sit above #[component] or #[island] \
+             (no such attribute was found below it)"
+        ),
+    )
 }
 
 /// Emits the error alongside the untouched fn so the only diagnostic the
@@ -49,8 +72,12 @@ fn compile_error(component: &ItemFn, err: Error) -> TokenStream {
 
 struct Prop {
     ident: Ident,
+    /// The declared type, e.g. `Option<i64>`.
     ty: Type,
-    prop_type: Ident,
+    /// The scalar inside an `Option`, or the declared type itself; its
+    /// `FromPropValue::TYPE` is the manifest entry, so macro and dispatch
+    /// can never disagree about a prop's type.
+    inner: Type,
     required: bool,
 }
 
@@ -69,10 +96,16 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
 
     for input in &component.sig.inputs {
         let FnArg::Typed(arg) = input else {
-            return Err(Error::new(input.span(), UNSUPPORTED));
+            return Err(Error::new(
+                input.span(),
+                "#[post_component] components cannot take `self`",
+            ));
         };
         let Pat::Ident(pat) = arg.pat.as_ref() else {
-            return Err(Error::new(arg.pat.span(), UNSUPPORTED));
+            return Err(Error::new(
+                arg.pat.span(),
+                "#[post_component] props must be plain identifiers, not patterns",
+            ));
         };
         let ident = pat.ident.clone();
 
@@ -91,13 +124,13 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
             Some(inner) => (inner, false),
             None => (arg.ty.as_ref(), true),
         };
-        let Some(prop_type) = scalar_prop_type(inner) else {
+        if !is_supported_scalar(inner) {
             return Err(Error::new(arg.ty.span(), UNSUPPORTED));
-        };
+        }
         props.push(Prop {
             ident,
             ty: arg.ty.as_ref().clone(),
-            prop_type: Ident::new(prop_type, arg.ty.span()),
+            inner: inner.clone(),
             required,
         });
     }
@@ -115,12 +148,12 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
 
     let prop_infos = props.iter().map(|prop| {
         let prop_name = prop.ident.to_string();
-        let prop_type = &prop.prop_type;
+        let inner = &prop.inner;
         let required = prop.required;
         quote! {
             ::registry::PropInfo {
                 name: #prop_name,
-                ty: ::registry::PropType::#prop_type,
+                ty: <#inner as ::registry::FromPropValue>::TYPE,
                 required: #required,
             }
         }
@@ -175,20 +208,18 @@ fn option_inner(ty: &Type) -> Option<&Type> {
     }
 }
 
-/// Maps a supported scalar Rust type to its `registry::PropType` variant name.
-fn scalar_prop_type(ty: &Type) -> Option<&'static str> {
-    let Type::Path(path) = ty else { return None };
-    let segment = path.path.segments.last()?;
-    if !segment.arguments.is_none() {
-        return None;
-    }
-    match segment.ident.to_string().as_str() {
-        "String" => Some("String"),
-        "f64" => Some("Float"),
-        "i64" => Some("Int"),
-        "bool" => Some("Bool"),
-        _ => None,
-    }
+/// The curated-error allowlist; the manifest type itself comes from
+/// `FromPropValue::TYPE` in the generated code.
+fn is_supported_scalar(ty: &Type) -> bool {
+    let Type::Path(path) = ty else { return false };
+    let Some(segment) = path.path.segments.last() else {
+        return false;
+    };
+    segment.arguments.is_none()
+        && matches!(
+            segment.ident.to_string().as_str(),
+            "String" | "f64" | "i64" | "bool"
+        )
 }
 
 fn last_segment_is(ty: &Type, ident: &str) -> bool {

@@ -1,6 +1,8 @@
 error: #[post_component] v1 supports props of type String, f64, i64, bool, or Option of one of these, plus `children: Children`
        = help: #[post_component] must sit above #[component] or #[island] (no such attribute was found below it)
- --> tests/compile_fail/unsupported_prop_type.rs:5:18
+ --> tests/compile_fail/below_component.rs:6:1
   |
-5 | pub fn Bad(data: Vec<String>) {
-  |                  ^^^
+6 | #[component]
+  | ^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `component` (in Nightly builds, run with -Z macro-backtrace for more info)

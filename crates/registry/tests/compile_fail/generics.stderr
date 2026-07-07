@@ -1,0 +1,6 @@
+error: #[post_component] components cannot be generic (v1 scope)
+       = help: #[post_component] must sit above #[component] or #[island] (no such attribute was found below it)
+ --> tests/compile_fail/generics.rs:5:11
+  |
+5 | pub fn Bad<T: Clone>(msg: String) {
+  |           ^

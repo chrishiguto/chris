@@ -1,0 +1,7 @@
+error: #[post_component] takes no arguments
+ --> tests/compile_fail/attr_args.rs:4:1
+  |
+4 | #[post_component(nope)]
+  | ^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the attribute macro `post_component` (in Nightly builds, run with -Z macro-backtrace for more info)
