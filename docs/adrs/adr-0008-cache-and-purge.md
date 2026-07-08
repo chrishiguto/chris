@@ -57,6 +57,25 @@ Workers Assets defaults to `public, max-age=0, must-revalidate` with a strong ET
 revalidation semantics. Content-hashed asset filenames with immutable TTLs remain the
 unclaimed perf upgrade (blocked on leptos hash-file resolution in wasm; see Context).
 
+*Amendment (2026-07-07, Workers Cache):* two of the Context's founding facts fell. First,
+"the Cache API is inert on workers.dev" proved false in production: `cache.put` stored fine
+there while purge-by-URL had no zone to purge, so a content publish left every page stale for
+the full backstop TTL — the worst combination, caching active and purge impossible. Second,
+"Cloudflare has no cache in front of Workers" stopped being true on 2026-07-06, when Workers
+Cache launched: a worker-scoped, zone-free cache the runtime checks *before* invoking the
+worker, on any domain including workers.dev. The hand-rolled `cache.match`/`cache.put` front
+is deleted; `[cache] enabled = true` fronts the worker instead, storing responses per the same
+`max-age=0, s-maxage=604800` header the handlers already set (the explicit `no-store` default
+on drafts, 404s, and errors is now load-bearing — Workers Cache gives unmarked responses
+heuristic freshness). Cache keys include the deployed version, so every deploy starts from an
+empty cache by construction — the binary-coupling hazard dissolves and the CI
+`purge_everything` step, its zone gating, and the zone purge credentials are deleted (option 3
+below, "build-ID cache-key generations", arrived as a platform primitive). Purging now happens
+only from inside the owning worker (`cache.purge` via `cloudflare:workers` — purge-by-tag and
+`purgeEverything`, no Enterprise gate, no zone); the publish-time purge becomes a
+pipeline-called endpoint on the site worker, specified in ADR-0009's amendment. Until that
+endpoint lands, content publishes converge via the TTL backstop or the next deploy.
+
 ## Options considered
 
 1. **No caching** — fine (single-digit ms renders) but leaves free performance unclaimed.

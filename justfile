@@ -86,23 +86,10 @@ publish:
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
     # the pointer flips only after every snapshot key landed
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
-    if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${SITE_ORIGIN:-}" ]; then
-        # one request per API-capped chunk; a failed purge just leaves the 7-day TTL backstop
-        purged=1
-        for chunk in "$out"/purge-*.json; do
-            curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
-                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-                -H "Content-Type: application/json" \
-                -d "{\"files\": $(cat "$chunk")}" > /dev/null || purged=0
-        done
-        if [ "$purged" = 1 ]; then
-            echo "purged the plan's urls"
-        else
-            echo "warning: purge failed — cached pages fall back to the 7-day TTL"
-        fi
-    else
-        echo "purge skipped (CLOUDFLARE_ZONE_ID/SITE_ORIGIN unset — inert on workers.dev)"
-    fi
+    # Workers Cache can only be purged from inside the site worker; until the
+    # pipeline's purge endpoint lands, cached pages converge via the 7-day TTL
+    # (or a `just deploy`, which starts a fresh version-keyed cache).
+    echo "published; cached pages converge via TTL or the next deploy"
 
 # one-time toolchain setup (rust + node assumed)
 setup:

@@ -37,33 +37,26 @@ just remote='--local' publish
 
 A snapshot is by definition complete, so there is no per-slug mode anymore:
 the whole local tree must validate (a broken draft blocks the publish — fix
-or remove it locally first). Under the hood the recipe is five steps, all
+or remove it locally first). Under the hood the recipe is four steps, all
 inspectable in the justfile: read the `current` pointer and the previous
-snapshot's index (`wrangler kv key get`; both feed only the purge set), plan
-(`xtask plan --sha manual-… ` → `target/publish/{writes,pointer,purge}.json`),
-apply the snapshot keys (`wrangler kv bulk put`), flip the pointer
-(`wrangler kv key put current --path`), purge. The pointer flips only after
+snapshot's index (`wrangler kv key get`), plan
+(`xtask plan --sha manual-… ` → `target/publish/{writes,pointer}.json` and
+friends), apply the snapshot keys (`wrangler kv bulk put`), flip the pointer
+(`wrangler kv key put current --path`). The pointer flips only after
 every snapshot key landed, so readers see the whole old snapshot or the whole
 new one — never a blend. This is also the onboarding path for content written
 before the pipeline existed (PRD "Importing existing content"), and the
 **rollback** mechanism: put an older retained snapshot's sha back into
-`current` and purge (see `pipeline-deploy.md` → Operations).
+`current` (see `pipeline-deploy.md` → Operations).
 
-## Cache purge
+## Cache convergence
 
-After applying the plan, the recipe purges exactly the plan's URLs (the same
-set the pipeline worker purges, ADR-0008) — but only when a zone exists:
-
-```sh
-export CLOUDFLARE_ZONE_ID=…      # the custom domain's zone
-export SITE_ORIGIN=…             # e.g. https://blog.example.com
-export CLOUDFLARE_API_TOKEN=…    # needs Zone → Cache Purge
-```
-
-With any of these unset the purge is skipped with a note — correct on
-`*.workers.dev`, where the Cache API is inert and there is nothing to purge.
-A failed purge never fails the already-applied publish; the site's 7-day TTL
-is the backstop.
+Pages are cached by Workers Cache (ADR-0008 amendment), which only the site
+worker itself can purge — no zone API, no wrangler command, no local recipe
+can reach it. After a break-glass publish, cached pages converge via the
+7-day `s-maxage` backstop, the next `just deploy` (deploys start a fresh
+version-keyed cache), or the pipeline's purge-on-publish once a normal
+reconcile runs. Nothing here can fail the already-applied publish.
 
 ## One-time setup
 

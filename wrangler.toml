@@ -1,6 +1,11 @@
 name = "chris-site"
 main = "workers/site/build/index.js"
-compatibility_date = "2026-07-03"
+compatibility_date = "2026-07-07"
+
+# Workers Cache fronts the fetch handler: hits are served before the worker
+# runs, keyed per deployed version, stored per each response's Cache-Control.
+[cache]
+enabled = true
 
 [build]
 # The pipeline lives in the justfile so dev, deploy, and ci share one definition.

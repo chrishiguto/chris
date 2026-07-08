@@ -69,19 +69,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy-pipeline
 
-      # Deploys invalidate everything, but purge_everything needs a zone and
-      # workers.dev has none — gated on CLOUDFLARE_ZONE_ID being set.
-      - name: Purge the cache (custom-domain zones only)
-        if: vars.CLOUDFLARE_ZONE_ID != ''
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
-        run: |
-          curl -sf -X POST "https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/purge_cache" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}'
-
       # Reconcile after deploy so content lands against the fresh manifest;
       # PIPELINE_URL (repo variable) overrides the derived workers.dev URL.
       - name: Trigger the publish reconcile

@@ -55,55 +55,37 @@ converging to HEAD as observed at its start):
 
 The CI half lives in `.github/workflows/publish.yml`: build both workers →
 enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy site +
-pipeline → cache purge → call `/publish`. The purge step only runs when the
-`CLOUDFLARE_ZONE_ID` repo variable is set: `purge_everything` needs a zone,
-and on `*.workers.dev` there is none (the Cache API is inert there too), so
-until a custom domain lands the step is skipped by design.
+pipeline → call `/publish`. There is no purge step: Workers Cache keys on
+the deployed version (ADR-0008 amendment), so a deploy starts from an empty
+cache by construction.
 
-## Cache purge (ADR-0008)
+## Cache and purge (ADR-0008 as amended)
 
-Two purge layers, different scopes, deliberately ordered:
+The site is fronted by Workers Cache — worker-scoped, zone-free, checked
+before the worker runs. Consequences for this worker:
 
-- **Deploy** (`publish.yml`, above): `purge_everything` right after
-  `wrangler deploy` — cached HTML embeds hashed `/pkg/*` URLs and hydration
-  markup coupled to the deployed binary, so a deploy invalidates all of it.
-  On the CI code path this runs *before* the `/publish` callback, so the
-  callback's targeted purge is never undone by the nuke.
-- **Publish** (this worker): after every snapshot flip, REST purge-by-URL of
-  the plan's enumerated set (`publish::SnapshotPlan::purge`): listings,
-  feeds, and every post and tag URL the previous or new index knows about —
-  a full rebuild can't know which post bodies changed, so the whole surface
-  purges (ADR-0008 as amended by ADR-0009). Requests are chunked to the
-  API's 30-files cap; failures log loudly but never fail the already-applied
-  publish — the site's 7-day TTL backstops a missed purge.
+- **Deploys self-invalidate.** Cache keys include the Worker version; the
+  binary-coupling hazard (stale HTML hydrating against a new wasm build)
+  cannot occur, and no deploy-time purge exists anywhere.
+- **Publish purge** must run *inside* the site worker — Workers Cache is
+  private to its owner; no REST API, zone token, or wrangler command can
+  reach it. The pipeline's zone purge-by-URL path (`CLOUDFLARE_ZONE_ID` /
+  `SITE_ORIGIN` / `CLOUDFLARE_PURGE_TOKEN`) is vestigial and slated for
+  replacement by a pipeline-called purge endpoint on the site worker; until
+  that lands, content publishes converge via the 7-day `s-maxage` backstop
+  or the next deploy.
 
-Publish purge configuration (all in `workers/pipeline/wrangler.toml` /
-worker secrets; empty = purge skipped with a log line, correct for
-workers.dev where the Cache API is inert):
-
-- `CLOUDFLARE_ZONE_ID` var — the custom domain's zone.
-- `SITE_ORIGIN` var — the site's absolute origin (e.g.
-  `https://blog.example.com`); purge-by-URL matches full URLs exactly, and
-  the site keys its cache entries on the same bare `origin + path` shape
-  (query strings are stripped at `cache.put` time).
-- `CLOUDFLARE_PURGE_TOKEN` secret — API token scoped to Zone → Cache
-  Purge → Purge for that zone.
-
-Per-colo caveat for verification: `cache.put` is per-colo, purge is global.
-A page is only *cached* in colos that have served it, so "post-purge serves
-fresh content" should be spot-checked from ≥ 2 regions (or accept the
-single-colo check: a purged URL re-renders on its next request anywhere).
-The `x-blog-cache: hit|miss` response header the site sets makes this
-observable with `curl -sI`.
+Verification: watch the `Cf-Cache-Status` response header (`HIT` / `MISS` /
+`BYPASS`) with `curl -sI`. Storage is per-colo (a page is only cached in
+colos that served it); purge, once it lands, is global via Instant Purge.
 
 ## Repo Actions configuration (CI code path)
 
 - Secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit + Workers KV
   Storage: Edit) and `PUBLISH_SHARED_SECRET` (same value as the worker
   secret below).
-- Variables: `CLOUDFLARE_ACCOUNT_ID` (required); `CLOUDFLARE_ZONE_ID` and
-  `PIPELINE_URL` (both optional, for the custom-domain future — without
-  `PIPELINE_URL` the workflow derives the `chris-pipeline.<subdomain>
+- Variables: `CLOUDFLARE_ACCOUNT_ID` (required); `PIPELINE_URL` (optional —
+  without it the workflow derives the `chris-pipeline.<subdomain>
   .workers.dev` URL from the account's workers.dev subdomain).
 
 ## Prerequisites

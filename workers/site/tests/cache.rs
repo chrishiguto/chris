@@ -1,37 +1,6 @@
 //! Native tests for the pure cache policy.
 
-use site::cache::{
-    cache_key, etag, is_entity_header, not_modified, revalidates, should_cache, CACHE_CONTROL,
-};
-
-#[test]
-fn cache_key_is_the_absolute_url() {
-    assert_eq!(
-        cache_key(Some("https"), Some("blog.example.com"), "/posts/hello"),
-        Some("https://blog.example.com/posts/hello".to_string())
-    );
-    assert_eq!(
-        cache_key(Some("https"), Some("blog.example.com"), "/"),
-        Some("https://blog.example.com/".to_string())
-    );
-}
-
-/// A relative request URI means no key rather than a malformed one.
-#[test]
-fn cache_key_requires_an_absolute_url() {
-    assert_eq!(cache_key(None, None, "/posts/hello"), None);
-    assert_eq!(cache_key(None, Some("blog.example.com"), "/x"), None);
-    assert_eq!(cache_key(Some("https"), None, "/x"), None);
-}
-
-#[test]
-fn should_cache_requires_ok_status_and_the_marker_header() {
-    assert!(should_cache(200, Some(CACHE_CONTROL)));
-    assert!(!should_cache(200, None));
-    assert!(!should_cache(200, Some("no-store")));
-    assert!(!should_cache(404, Some(CACHE_CONTROL)));
-    assert!(!should_cache(500, Some(CACHE_CONTROL)));
-}
+use site::cache::{etag, is_entity_header, not_modified, revalidates};
 
 #[test]
 fn etag_is_the_quoted_snapshot_sha() {
@@ -74,5 +43,4 @@ fn entity_headers_are_the_content_family() {
     assert!(is_entity_header("content-length"));
     assert!(!is_entity_header("etag"));
     assert!(!is_entity_header("cache-control"));
-    assert!(!is_entity_header("x-blog-cache"));
 }
