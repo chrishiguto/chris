@@ -144,26 +144,7 @@ impl PublishCoordinator {
         let (head, slugs) = at_head?;
         let (prev_sha, prev_index) = previous?;
 
-        // The tree at `head` listed every path, so a 404 is transport
-        // trouble, not a removal.
-        let sources: Vec<PostSource> = futures_util::stream::iter(slugs.iter().map(|slug| {
-            let head = &head;
-            async move {
-                let source = net::fetch_content(env, &contents_url(repo, slug, head))
-                    .await?
-                    .ok_or_else(|| format!("contents fetch for {slug} at {head} returned 404"))?;
-                Ok::<_, String>(PostSource {
-                    slug: slug.clone(),
-                    file: source_path(slug),
-                    source,
-                })
-            }
-        }))
-        .buffered(FETCH_CONCURRENCY)
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect::<std::result::Result<_, _>>()?;
+        let sources = fetch_sources_at(env, repo, &head, &slugs).await?;
 
         let manifest = app::manifest();
         let mut parsed: Vec<ParsedPost> = Vec::new();
@@ -297,6 +278,7 @@ impl PublishCoordinator {
         // Stamp only what landed so a lost status is retried next reconcile.
         if !net::post_status(
             &self.env,
+            crate::STATUS_CONTEXT,
             &config.repository,
             head,
             state,
@@ -416,6 +398,75 @@ async fn tree_post_slugs_at(
 ) -> std::result::Result<Vec<String>, String> {
     let json = net::github_json(env, &tree_url(repo, sha)).await?;
     parse_tree_listing(&json).map_err(|err| format!("tree at {sha}: {err}"))
+}
+
+/// Every post source pinned to one commit. The tree at `sha` listed every
+/// path, so a 404 is transport trouble, not a removal.
+async fn fetch_sources_at(
+    env: &Env,
+    repo: &str,
+    sha: &str,
+    slugs: &[String],
+) -> std::result::Result<Vec<PostSource>, String> {
+    futures_util::stream::iter(slugs.iter().map(|slug| async move {
+        let source = net::fetch_content(env, &contents_url(repo, slug, sha))
+            .await?
+            .ok_or_else(|| format!("contents fetch for {slug} at {sha} returned 404"))?;
+        Ok::<_, String>(PostSource {
+            slug: slug.clone(),
+            file: source_path(slug),
+            source,
+        })
+    }))
+    .buffered(FETCH_CONCURRENCY)
+    .collect::<Vec<_>>()
+    .await
+    .into_iter()
+    .collect()
+}
+
+/// The pre-merge dry run: validate the tree at a branch head and post one
+/// `blog/content-check` status on it. Nothing publishes.
+pub(crate) async fn check_branch_head(env: &Env, repo: &str, sha: &str) {
+    let (state, description) = match validate_at(env, repo, sha).await {
+        Ok(outcome) => outcome,
+        Err(err) => {
+            console_error!("content check of {repo}@{sha} failed: {err}");
+            (
+                crate::StatusState::Error,
+                "content check could not run — see worker logs".to_string(),
+            )
+        }
+    };
+    net::post_status(
+        env,
+        crate::CHECK_CONTEXT,
+        repo,
+        sha,
+        state,
+        &description,
+        None,
+    )
+    .await;
+}
+
+async fn validate_at(
+    env: &Env,
+    repo: &str,
+    sha: &str,
+) -> std::result::Result<(crate::StatusState, String), String> {
+    let slugs = tree_post_slugs_at(env, repo, sha).await?;
+    let sources = fetch_sources_at(env, repo, sha, &slugs).await?;
+    let manifest = app::manifest();
+    let mut valid = 0;
+    let mut diags: Vec<Diagnostic> = Vec::new();
+    for result in publish::check_each(&sources, &manifest) {
+        match result {
+            Ok(_) => valid += 1,
+            Err(errs) => diags.extend(errs),
+        }
+    }
+    Ok(crate::branch_check_description(valid, &diags))
 }
 
 /// The published snapshot's sha; `None` until the first flip. A corrupt

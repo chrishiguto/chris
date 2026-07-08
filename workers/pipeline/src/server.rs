@@ -6,7 +6,7 @@ use crate::net::post_status;
 use crate::{
     coordinator, decide_push, dispatch_payload, dispatch_url, render_status_page, status_page_sha,
     verify_publish_auth, verify_signature, PublishRequest, PushEvent, ReconcileConfig,
-    ReconcileRecord, StatusState, WebhookAction,
+    ReconcileRecord, StatusState, WebhookAction, STATUS_CONTEXT,
 };
 
 const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
@@ -14,9 +14,9 @@ const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
 const PUBLISH_SECRET: &str = "PUBLISH_SHARED_SECRET";
 
 #[worker::event(fetch)]
-async fn fetch(mut req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
+async fn fetch(mut req: Request, env: Env, ctx: worker::Context) -> Result<Response> {
     match (req.method(), req.path().as_str()) {
-        (Method::Post, "/webhook") => webhook(&mut req, &env).await,
+        (Method::Post, "/webhook") => webhook(&mut req, &env, &ctx).await,
         (Method::Post, "/publish") => publish_callback(&mut req, &env).await,
         (Method::Get, path) => match status_page_sha(path) {
             Some(sha) => status_page(&env, sha).await,
@@ -47,7 +47,7 @@ fn request_origin(req: &Request) -> String {
         .unwrap_or_default()
 }
 
-async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
+async fn webhook(req: &mut Request, env: &Env, ctx: &worker::Context) -> Result<Response> {
     let body = req.bytes().await?;
     let secret = env.secret(WEBHOOK_SECRET)?.to_string();
     let signature = req.headers().get("x-hub-signature-256")?;
@@ -71,6 +71,15 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
             trigger_reconcile(env, &config).await?;
             Response::ok("content push: reconcile scheduled")
         }
+        // Dry run off the delivery window; the status is the only output.
+        WebhookAction::CheckBranch { sha } => {
+            let env = env.clone();
+            let repo = event.repository.full_name.clone();
+            ctx.wait_until(async move {
+                coordinator::check_branch_head(&env, &repo, &sha).await;
+            });
+            Response::ok("branch content push: check scheduled")
+        }
         WebhookAction::DispatchCi { description } => {
             let repo = &event.repository.full_name;
             if let Err(err) = dispatch_workflow(env, &event).await {
@@ -78,6 +87,7 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
                 console_error!("workflow dispatch for {} failed: {err}", event.after);
                 post_status(
                     env,
+                    STATUS_CONTEXT,
                     repo,
                     &event.after,
                     StatusState::Error,
@@ -89,6 +99,7 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
             }
             post_status(
                 env,
+                STATUS_CONTEXT,
                 repo,
                 &event.after,
                 StatusState::Pending,

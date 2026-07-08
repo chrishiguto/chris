@@ -14,8 +14,9 @@ the coordinator.
 `POST /webhook` receives GitHub push events and:
 
 1. Verifies the `X-Hub-Signature-256` HMAC against `GITHUB_WEBHOOK_SECRET`
-   (401 on mismatch); acknowledges and ignores non-default-branch pushes.
-2. Classifies the push from the commits' `added/modified/removed` paths:
+   (401 on mismatch); ignores ref deletions.
+2. Classifies the push from the commits' `added/modified/removed` paths.
+   On the default branch:
    - **content-only** (`content/blog/{slug}/index.mdx` changes, no code) →
      triggers the coordinator's reconcile; live within seconds. A failed
      trigger is a 500, so GitHub webhook redelivery is the retry path.
@@ -25,6 +26,13 @@ the coordinator.
      posts a `pending` status; the deploy must land before content
      referencing new code can validate, so CI's callback does the trigger.
    - **neither** → no-op.
+
+   On any other branch, a **content-only** push gets a dry run instead:
+   validate the tree at the pushed head against the deployed manifest and
+   post a `blog/content-check` status on that sha — which is what the PR's
+   checks area shows before merge. Nothing publishes. Code-bearing branch
+   pushes stay ignored (their content can only validate against the
+   manifest their own merge deploys).
 
 `POST /publish` is CI's post-deploy callback: it authenticates the
 `Authorization: Bearer` token against `PUBLISH_SHARED_SECRET` (401
@@ -177,10 +185,12 @@ Deliveries" tab, which is the fastest debugging loop.
 
 The two draft mechanisms (CONTENT.md "Drafts") and their purge composition:
 
-1. **Branch = unpublished.** Author a post on a branch, push, open a PR: no
-   webhook publish fires (the worker acknowledges and ignores non-default-
-   branch pushes — check the delivery log), the post 404s, and listings are
-   unchanged. Merge the PR: the push to `main` publishes it within seconds.
+1. **Branch = unpublished.** Author a post on a branch, push, open a PR:
+   nothing publishes — the post 404s and listings are unchanged — but the
+   head commit gets a `blog/content-check` status ("content valid — would
+   publish N posts", or the first diagnostic on failure), visible in the
+   PR's checks before merge. Merge the PR: the push to `main` publishes it
+   within seconds.
 2. **`draft: true` = unlisted.** Publish a post with `draft: true`: it
    renders at `/posts/{slug}` (with `Cf-Cache-Status` never `HIT` — drafts
    answer `no-store` and are never cached), and is absent from `/`,

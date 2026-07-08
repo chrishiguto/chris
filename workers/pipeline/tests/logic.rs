@@ -1,13 +1,14 @@
 //! Native tests for the pipeline worker's pure decision logic.
 
 use pipeline::{
-    classify, code_push_description, contents_url, decide_push, deployment_payload,
-    deployment_status_payload, deployment_statuses_url, deployments_url, dispatch_payload,
-    dispatch_url, failure_description, head_ref_url, parse_deployment_id, parse_head_ref,
-    parse_tree_listing, reconcile_description, render_status_page, status_page_sha, status_payload,
-    status_target_url, statuses_url, tree_post_slugs, tree_url, verify_publish_auth,
-    verify_signature, PublishRequest, PushClass, PushCommit, PushEvent, ReconcileConfig,
-    ReconcileRecord, StatusState, WebhookAction, DEPLOY_ENVIRONMENT, STATUS_CONTEXT, WORKFLOW_FILE,
+    branch_check_description, classify, code_push_description, contents_url, decide_push,
+    deployment_payload, deployment_status_payload, deployment_statuses_url, deployments_url,
+    dispatch_payload, dispatch_url, failure_description, head_ref_url, parse_deployment_id,
+    parse_head_ref, parse_tree_listing, reconcile_description, render_status_page, status_page_sha,
+    status_payload, status_target_url, statuses_url, tree_post_slugs, tree_url,
+    verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit, PushEvent,
+    ReconcileConfig, ReconcileRecord, StatusState, WebhookAction, DEPLOY_ENVIRONMENT,
+    STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -338,7 +339,12 @@ fn code_push_description_counts_the_content_changes() {
 
 #[test]
 fn status_payload_carries_the_context_and_clamps_the_description() {
-    let payload = status_payload(StatusState::Success, "published hello", None);
+    let payload = status_payload(
+        STATUS_CONTEXT,
+        StatusState::Success,
+        "published hello",
+        None,
+    );
     let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     assert_eq!(json["state"], "success");
     assert_eq!(json["context"], STATUS_CONTEXT);
@@ -348,7 +354,7 @@ fn status_payload_carries_the_context_and_clamps_the_description() {
 
     // the Commit Status API caps descriptions at 140 characters
     let long = "x".repeat(200);
-    let payload = status_payload(StatusState::Failure, &long, None);
+    let payload = status_payload(STATUS_CONTEXT, StatusState::Failure, &long, None);
     let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     let description = json["description"].as_str().expect("string");
     assert_eq!(description.chars().count(), 140);
@@ -365,7 +371,12 @@ fn status_target_url_is_the_record_page() {
     );
     assert_eq!(status_target_url("", "abc123"), None);
 
-    let payload = status_payload(StatusState::Success, "ok", Some("https://p.dev/status/abc"));
+    let payload = status_payload(
+        STATUS_CONTEXT,
+        StatusState::Success,
+        "ok",
+        Some("https://p.dev/status/abc"),
+    );
     let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     assert_eq!(json["target_url"], "https://p.dev/status/abc");
 }
@@ -379,9 +390,33 @@ fn status_states_serialize_lowercase() {
         (StatusState::Error, "error"),
     ] {
         let json: serde_json::Value =
-            serde_json::from_str(&status_payload(state, "x", None)).expect("valid json");
+            serde_json::from_str(&status_payload(STATUS_CONTEXT, state, "x", None))
+                .expect("valid json");
         assert_eq!(json["state"], expected);
     }
+}
+
+// --- the pre-merge content check ---
+
+#[test]
+fn branch_check_description_reports_validity() {
+    let (state, text) = branch_check_description(2, &[]);
+    assert_eq!(state, StatusState::Success);
+    assert_eq!(text, "content valid — would publish 2 posts");
+
+    let (state, text) = branch_check_description(1, &[]);
+    assert_eq!(state, StatusState::Success);
+    assert_eq!(text, "content valid — would publish 1 post");
+
+    let diag = content::Diagnostic {
+        message: "unknown component <Nope>".into(),
+        file: Some("content/blog/bad/index.mdx".into()),
+        line: Some(3),
+        column: Some(1),
+    };
+    let (state, text) = branch_check_description(1, &[diag]);
+    assert_eq!(state, StatusState::Failure);
+    assert!(text.contains("unknown component"));
 }
 
 // --- the publish record page ---
@@ -581,14 +616,42 @@ fn push_event(git_ref: &str, deleted: bool, commits: Vec<PushCommit>) -> PushEve
 }
 
 #[test]
-fn deleted_refs_and_non_default_branches_are_ignored() {
+fn deleted_refs_are_ignored() {
     let content = || vec![commit(&["content/blog/hello/index.mdx"], &[], &[])];
     assert_eq!(
         decide_push(&push_event("refs/heads/main", true, content())),
-        WebhookAction::Ignore("ignored: not a default-branch push")
+        WebhookAction::Ignore("ignored: ref deletion")
     );
     assert_eq!(
+        decide_push(&push_event("refs/heads/feature/x", true, content())),
+        WebhookAction::Ignore("ignored: ref deletion")
+    );
+}
+
+/// A content-only branch push dry-runs on its head sha — the check the PR
+/// shows before merge. Anything else on a branch stays ignored.
+#[test]
+fn branch_pushes_check_content_and_ignore_the_rest() {
+    let content = || vec![commit(&["content/blog/hello/index.mdx"], &[], &[])];
+    assert_eq!(
         decide_push(&push_event("refs/heads/feature/x", false, content())),
+        WebhookAction::CheckBranch {
+            sha: "6113728f27ae82c7b1a177c8d03f9e96e0adf246".into()
+        }
+    );
+    // code-bearing branches can't validate against an undeployed manifest
+    let mixed = vec![commit(
+        &["content/blog/hello/index.mdx", "app/src/lib.rs"],
+        &[],
+        &[],
+    )];
+    assert_eq!(
+        decide_push(&push_event("refs/heads/feature/x", false, mixed)),
+        WebhookAction::Ignore("ignored: not a default-branch push")
+    );
+    let docs = vec![commit(&["README.md"], &[], &[])];
+    assert_eq!(
+        decide_push(&push_event("refs/heads/feature/x", false, docs)),
         WebhookAction::Ignore("ignored: not a default-branch push")
     );
 }

@@ -108,6 +108,7 @@ pub(crate) async fn fetch_content(
 /// Returns whether the status landed so dedup callers can retry a lost one.
 pub(crate) async fn post_status(
     env: &Env,
+    context: &str,
     repo: &str,
     sha: &str,
     state: StatusState,
@@ -115,7 +116,7 @@ pub(crate) async fn post_status(
     target_url: Option<&str>,
 ) -> bool {
     let url = statuses_url(repo, sha);
-    let body = status_payload(state, description, target_url);
+    let body = status_payload(context, state, description, target_url);
     let posted = github(
         env,
         Method::Post,

@@ -17,6 +17,8 @@ mod server;
 
 /// The commit-status context both publish paths report under.
 pub const STATUS_CONTEXT: &str = "blog/publish";
+/// The pre-merge check's context: branch pushes validate, never publish.
+pub const CHECK_CONTEXT: &str = "blog/content-check";
 /// The workflow the code path dispatches; its last step calls `/publish`.
 pub const WORKFLOW_FILE: &str = "publish.yml";
 /// The Commit Status API rejects descriptions longer than 140 characters.
@@ -218,10 +220,15 @@ pub enum StatusState {
 /// Body for `POST /repos/{repo}/statuses/{sha}` (Commit Status API — Checks
 /// API write access is GitHub-App-only). `target_url` becomes the status's
 /// "Details" link.
-pub fn status_payload(state: StatusState, description: &str, target_url: Option<&str>) -> String {
+pub fn status_payload(
+    context: &str,
+    state: StatusState,
+    description: &str,
+    target_url: Option<&str>,
+) -> String {
     let mut payload = serde_json::json!({
         "state": state,
-        "context": STATUS_CONTEXT,
+        "context": context,
         "description": clamp(description),
     });
     if let Some(url) = target_url.filter(|url| !url.is_empty()) {
@@ -272,12 +279,27 @@ pub enum WebhookAction {
     /// Code push: dispatch CI (deploy precedes publish), posting `pending`
     /// with this description; CI's `/publish` callback reconciles.
     DispatchCi { description: String },
+    /// Content-only branch push: validate the tree at this sha and post a
+    /// `blog/content-check` status on it — nothing publishes.
+    CheckBranch { sha: String },
 }
 
 /// The whole push decision tree, transport-free.
 pub fn decide_push(event: &PushEvent) -> WebhookAction {
-    if event.deleted || !event.is_default_branch() {
-        return WebhookAction::Ignore("ignored: not a default-branch push");
+    if event.deleted {
+        return WebhookAction::Ignore("ignored: ref deletion");
+    }
+    if !event.is_default_branch() {
+        // A content-only branch push gets a dry-run check on its head sha —
+        // the status shows in the PR before merge. Code-bearing branches
+        // can't validate against a manifest that hasn't deployed, so their
+        // content validates post-merge as always.
+        return match classify(&event.commits) {
+            PushClass::ContentOnly => WebhookAction::CheckBranch {
+                sha: event.after.clone(),
+            },
+            _ => WebhookAction::Ignore("ignored: not a default-branch push"),
+        };
     }
     match classify(&event.commits) {
         PushClass::Ignore => WebhookAction::Ignore("ignored: no content or code changes"),
@@ -290,6 +312,19 @@ pub fn decide_push(event: &PushEvent) -> WebhookAction {
         PushClass::Code { touched_posts } => WebhookAction::DispatchCi {
             description: code_push_description(touched_posts),
         },
+    }
+}
+
+/// The pre-merge check's status line: valid trees count their posts,
+/// invalid ones lead with the first diagnostic.
+pub fn branch_check_description(valid: usize, diags: &[Diagnostic]) -> (StatusState, String) {
+    let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
+    match diags.len() {
+        0 => (
+            StatusState::Success,
+            format!("content valid — would publish {}", posts(valid)),
+        ),
+        _ => (StatusState::Failure, failure_description(diags)),
     }
 }
 
