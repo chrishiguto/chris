@@ -112,9 +112,10 @@ pub(crate) async fn post_status(
     sha: &str,
     state: StatusState,
     description: &str,
+    target_url: Option<&str>,
 ) -> bool {
     let url = statuses_url(repo, sha);
-    let body = status_payload(state, description);
+    let body = status_payload(state, description, target_url);
     let posted = github(
         env,
         Method::Post,
@@ -197,10 +198,15 @@ async fn deployment_request(
 
 /// Best-effort: KV is the truth and the site's 7-day TTL backstops a miss.
 /// Workers Cache is private to the site worker, so the purge is a call into
-/// it over the service binding, not a Cloudflare API request.
-pub(crate) async fn purge_site(env: &Env) {
-    if let Err(err) = purge_request(env).await {
-        console_error!("cache purge failed (TTL backstop applies): {err}");
+/// it over the service binding, not a Cloudflare API request. Returns
+/// whether the purge landed, for the reconcile record.
+pub(crate) async fn purge_site(env: &Env) -> bool {
+    match purge_request(env).await {
+        Ok(()) => true,
+        Err(err) => {
+            console_error!("cache purge failed (TTL backstop applies): {err}");
+            false
+        }
     }
 }
 

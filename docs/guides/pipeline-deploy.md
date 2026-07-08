@@ -49,8 +49,10 @@ converging to HEAD as observed at its start):
    depth), sweeps older ones from KV, and posts one `blog/publish` status on
    the reconciled HEAD: `success` with the post count, `failure` naming how
    many posts kept previous versions plus the first diagnostic (the Commit
-   Status API caps descriptions at 140 chars — full diagnostics via
-   `just check`). Identical repeat statuses are skipped.
+   Status API caps descriptions at 140 chars — the status's Details link
+   opens `{pipeline}/status/{sha}`, a stored record of what the reconcile
+   did: published/carried/dropped slugs, full diagnostics, purge outcome).
+   Identical repeat statuses are skipped; the last 20 records are kept.
 4. Records one GitHub **deployment** to the `content` environment per newly
    reconciled HEAD (`success`, `environment_url` = `SITE_ORIGIN` var) — this
    is what puts "deployed to content" on the merged PR's timeline and the

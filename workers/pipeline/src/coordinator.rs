@@ -18,7 +18,7 @@ use worker::{
 
 use crate::{
     contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, reconcile_description,
-    tree_url, ReconcileConfig,
+    status_target_url, tree_url, ReconcileConfig, ReconcileRecord,
 };
 
 /// Every caller addresses this one instance, which serializes all publishes.
@@ -34,6 +34,15 @@ const DIRTY_KEY: &str = "dirty";
 const HISTORY_KEY: &str = "history";
 const LAST_STATUS_KEY: &str = "last-status";
 const LAST_DEPLOYMENT_KEY: &str = "last-deployment";
+const RECORD_HISTORY_KEY: &str = "record-history";
+
+/// Reconcile records kept for `/status/{sha}`; older ones sweep with their
+/// history entry.
+const KEEP_RECORDS: usize = 20;
+
+fn record_key(sha: &str) -> String {
+    format!("record:{sha}")
+}
 
 /// The site's public origin, for the deployment record's environment link;
 /// empty just drops the link.
@@ -58,7 +67,23 @@ impl DurableObject for PublishCoordinator {
 
     /// `POST /trigger`: persist the target, mark dirty, pull the alarm to
     /// now. Triggers during a running reconcile coalesce into one follow-up.
+    /// `GET /record/{sha}`: the stored reconcile record, as JSON.
     async fn fetch(&self, mut req: Request) -> Result<Response> {
+        if req.method() == Method::Get {
+            if let Some(sha) = req.path().strip_prefix("/record/") {
+                let record: Option<ReconcileRecord> = self
+                    .state
+                    .storage()
+                    .get(&record_key(sha))
+                    .await
+                    .ok()
+                    .flatten();
+                return match record {
+                    Some(record) => Response::from_json(&record),
+                    None => Response::error("no publish record for this commit", 404),
+                };
+            }
+        }
         if req.method() != Method::Post || req.path() != "/trigger" {
             return Response::error("not found", 404);
         }
@@ -143,20 +168,20 @@ impl PublishCoordinator {
         let manifest = app::manifest();
         let mut parsed: Vec<ParsedPost> = Vec::new();
         let mut diags: Vec<Diagnostic> = Vec::new();
-        let mut failed_slugs: Vec<&str> = Vec::new();
+        let mut failed_slugs: Vec<String> = Vec::new();
         for (source, result) in sources.iter().zip(publish::check_each(&sources, &manifest)) {
             match result {
                 Ok(post) => parsed.push(post),
                 Err(errs) => {
                     diags.extend(errs);
-                    failed_slugs.push(&source.slug);
+                    failed_slugs.push(source.slug.clone());
                 }
             }
         }
         let failed = failed_slugs.len();
         let mut carried: Vec<CarriedPost> = Vec::new();
-        for slug in failed_slugs {
-            if let Some(entry) = prev_index.iter().find(|entry| entry.slug == slug) {
+        for slug in &failed_slugs {
+            if let Some(entry) = prev_index.iter().find(|entry| &entry.slug == slug) {
                 let key = post_key_at(prev_sha.as_deref(), slug);
                 match kv.get(&key).text().await.map_err(|err| err.to_string())? {
                     Some(payload) => carried.push(CarriedPost {
@@ -171,6 +196,8 @@ impl PublishCoordinator {
                 }
             }
         }
+        let carried_slugs: Vec<String> =
+            carried.iter().map(|post| post.entry.slug.clone()).collect();
         let carried_count = carried.len();
 
         let plan = publish::snapshot(&parsed, carried, &head).map_err(|err| err.to_string())?;
@@ -192,9 +219,22 @@ impl PublishCoordinator {
 
         // Purge, retention, and reporting are best-effort; the publish
         // already happened.
-        net::purge_site(env).await;
+        let purged = net::purge_site(env).await;
         self.retain(&kv, &head).await;
-        self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
+        self.record(ReconcileRecord {
+            sha: head.clone(),
+            published: parsed.iter().map(|post| post.slug.clone()).collect(),
+            dropped: failed_slugs
+                .into_iter()
+                .filter(|slug| !carried_slugs.contains(slug))
+                .collect(),
+            carried: carried_slugs,
+            diagnostics: diags.iter().map(ToString::to_string).collect(),
+            purged,
+            finished_at_ms: worker::Date::now().as_millis(),
+        })
+        .await;
+        self.report(config, &head, parsed.len(), failed, carried_count, &diags)
             .await;
         self.record_deployment(repo, &head, parsed.len(), failed)
             .await;
@@ -205,11 +245,38 @@ impl PublishCoordinator {
         Ok(())
     }
 
+    /// Stores what this reconcile did under `record:{sha}` (the status's
+    /// Details page), keeping the last [`KEEP_RECORDS`]. Best-effort.
+    async fn record(&self, record: ReconcileRecord) {
+        let storage = self.state.storage();
+        if let Err(err) = storage.put(&record_key(&record.sha), &record).await {
+            console_error!("storing the reconcile record failed: {err}");
+            return;
+        }
+        let mut history: Vec<String> = storage
+            .get(RECORD_HISTORY_KEY)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        history.retain(|sha| sha != &record.sha);
+        history.insert(0, record.sha);
+        for evicted in history.split_off(KEEP_RECORDS.min(history.len())) {
+            if let Err(err) = storage.delete(&record_key(&evicted)).await {
+                console_error!("sweeping record {evicted} failed: {err}");
+            }
+        }
+        if let Err(err) = storage.put(RECORD_HISTORY_KEY, &history).await {
+            console_error!("recording record history failed: {err}");
+        }
+    }
+
     /// Posts the reconcile's status on the HEAD it converged to, skipping
-    /// duplicates of the last one that landed.
+    /// duplicates of the last one that landed. Details links to this
+    /// worker's `/status/{sha}` record page.
     async fn report(
         &self,
-        repo: &str,
+        config: &ReconcileConfig,
         head: &str,
         published: usize,
         failed: usize,
@@ -226,8 +293,18 @@ impl PublishCoordinator {
         if last.as_deref() == Some(stamp.as_str()) {
             return;
         }
+        let target = status_target_url(&config.status_origin, head);
         // Stamp only what landed so a lost status is retried next reconcile.
-        if !net::post_status(&self.env, repo, head, state, &description).await {
+        if !net::post_status(
+            &self.env,
+            &config.repository,
+            head,
+            state,
+            &description,
+            target.as_deref(),
+        )
+        .await
+        {
             return;
         }
         if let Err(err) = storage.put(LAST_STATUS_KEY, &stamp).await {

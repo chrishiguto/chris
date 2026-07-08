@@ -4,10 +4,10 @@ use pipeline::{
     classify, code_push_description, contents_url, decide_push, deployment_payload,
     deployment_status_payload, deployment_statuses_url, deployments_url, dispatch_payload,
     dispatch_url, failure_description, head_ref_url, parse_deployment_id, parse_head_ref,
-    parse_tree_listing, reconcile_description, status_payload, statuses_url, tree_post_slugs,
-    tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit,
-    PushEvent, ReconcileConfig, StatusState, WebhookAction, DEPLOY_ENVIRONMENT, STATUS_CONTEXT,
-    WORKFLOW_FILE,
+    parse_tree_listing, reconcile_description, render_status_page, status_page_sha, status_payload,
+    status_target_url, statuses_url, tree_post_slugs, tree_url, verify_publish_auth,
+    verify_signature, PublishRequest, PushClass, PushCommit, PushEvent, ReconcileConfig,
+    ReconcileRecord, StatusState, WebhookAction, DEPLOY_ENVIRONMENT, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -205,10 +205,19 @@ fn reconcile_config_round_trips_as_the_trigger_payload() {
     let config = ReconcileConfig {
         repository: "chrishiguto/chris".into(),
         branch: "main".into(),
+        status_origin: "https://chris-pipeline.example.workers.dev".into(),
     };
     let json = serde_json::to_string(&config).expect("serializes");
     let back: ReconcileConfig = serde_json::from_str(&json).expect("deserializes");
     assert_eq!(back, config);
+}
+
+/// Configs persisted before the field existed must still deserialize.
+#[test]
+fn reconcile_config_tolerates_a_missing_status_origin() {
+    let back: ReconcileConfig =
+        serde_json::from_str(r#"{"repository":"o/r","branch":"main"}"#).expect("deserializes");
+    assert_eq!(back.status_origin, "");
 }
 
 #[test]
@@ -329,20 +338,36 @@ fn code_push_description_counts_the_content_changes() {
 
 #[test]
 fn status_payload_carries_the_context_and_clamps_the_description() {
-    let payload = status_payload(StatusState::Success, "published hello");
+    let payload = status_payload(StatusState::Success, "published hello", None);
     let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     assert_eq!(json["state"], "success");
     assert_eq!(json["context"], STATUS_CONTEXT);
     assert_eq!(json["description"], "published hello");
+    assert!(json.get("target_url").is_none());
     assert_eq!(STATUS_CONTEXT, "blog/publish");
 
     // the Commit Status API caps descriptions at 140 characters
     let long = "x".repeat(200);
-    let payload = status_payload(StatusState::Failure, &long);
+    let payload = status_payload(StatusState::Failure, &long, None);
     let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
     let description = json["description"].as_str().expect("string");
     assert_eq!(description.chars().count(), 140);
     assert!(description.ends_with('…'));
+}
+
+/// The Details link points at the pipeline's own record page; an unknown
+/// origin (pre-field config) just drops it.
+#[test]
+fn status_target_url_is_the_record_page() {
+    assert_eq!(
+        status_target_url("https://pipeline.example.workers.dev/", "abc123"),
+        Some("https://pipeline.example.workers.dev/status/abc123".to_string())
+    );
+    assert_eq!(status_target_url("", "abc123"), None);
+
+    let payload = status_payload(StatusState::Success, "ok", Some("https://p.dev/status/abc"));
+    let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+    assert_eq!(json["target_url"], "https://p.dev/status/abc");
 }
 
 #[test]
@@ -354,9 +379,60 @@ fn status_states_serialize_lowercase() {
         (StatusState::Error, "error"),
     ] {
         let json: serde_json::Value =
-            serde_json::from_str(&status_payload(state, "x")).expect("valid json");
+            serde_json::from_str(&status_payload(state, "x", None)).expect("valid json");
         assert_eq!(json["state"], expected);
     }
+}
+
+// --- the publish record page ---
+
+fn record() -> ReconcileRecord {
+    ReconcileRecord {
+        sha: "abc123".into(),
+        published: vec!["hello".into(), "world".into()],
+        carried: vec!["broken".into()],
+        dropped: vec![],
+        diagnostics: vec!["content/blog/broken/index.mdx:3:1: unknown component <Nope>".into()],
+        purged: true,
+        finished_at_ms: 1_700_000_000_000,
+    }
+}
+
+#[test]
+fn reconcile_record_round_trips() {
+    let json = serde_json::to_string(&record()).expect("serializes");
+    let back: ReconcileRecord = serde_json::from_str(&json).expect("deserializes");
+    assert_eq!(back, record());
+}
+
+#[test]
+fn status_page_renders_the_record_with_escaping() {
+    let page = render_status_page(&record());
+    assert!(page.contains("abc123"));
+    assert!(page.contains("hello, world"));
+    assert!(page.contains("broken"));
+    assert!(page.contains("purged"));
+    // diagnostics carry user content — angle brackets must not stay raw
+    assert!(page.contains("&lt;Nope&gt;"));
+    assert!(!page.contains("<Nope>"));
+}
+
+/// Junk paths must never reach the coordinator as storage keys.
+#[test]
+fn status_page_sha_accepts_only_commit_labels() {
+    assert_eq!(status_page_sha("/status/abc123"), Some("abc123"));
+    assert_eq!(
+        status_page_sha("/status/manual-abc123-170000"),
+        Some("manual-abc123-170000")
+    );
+    assert_eq!(status_page_sha("/status/"), None);
+    assert_eq!(status_page_sha("/status/../trigger"), None);
+    assert_eq!(status_page_sha("/status/a/b"), None);
+    assert_eq!(
+        status_page_sha(&format!("/status/{}", "a".repeat(65))),
+        None
+    );
+    assert_eq!(status_page_sha("/other/abc"), None);
 }
 
 // --- deployment records ---
@@ -542,6 +618,8 @@ fn a_content_only_push_reconciles_to_the_default_branch() {
         WebhookAction::Reconcile(ReconcileConfig {
             repository: "chrishiguto/chris".to_string(),
             branch: "main".to_string(),
+            // pure decision: the transport layer fills in its own origin
+            status_origin: String::new(),
         })
     );
 }

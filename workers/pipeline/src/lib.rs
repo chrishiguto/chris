@@ -137,6 +137,11 @@ pub struct ReconcileConfig {
     /// `owner/repo`, as GitHub API paths want it.
     pub repository: String,
     pub branch: String,
+    /// This worker's public origin, observed from the triggering request;
+    /// statuses link their Details to `{status_origin}/status/{sha}`.
+    /// Empty (or a pre-field persisted config) just drops the link.
+    #[serde(default)]
+    pub status_origin: String,
 }
 
 /// CI's callback body. CI also sends the triggering `sha`; serde ignores
@@ -211,14 +216,24 @@ pub enum StatusState {
 }
 
 /// Body for `POST /repos/{repo}/statuses/{sha}` (Commit Status API — Checks
-/// API write access is GitHub-App-only).
-pub fn status_payload(state: StatusState, description: &str) -> String {
-    serde_json::json!({
+/// API write access is GitHub-App-only). `target_url` becomes the status's
+/// "Details" link.
+pub fn status_payload(state: StatusState, description: &str, target_url: Option<&str>) -> String {
+    let mut payload = serde_json::json!({
         "state": state,
         "context": STATUS_CONTEXT,
         "description": clamp(description),
-    })
-    .to_string()
+    });
+    if let Some(url) = target_url.filter(|url| !url.is_empty()) {
+        payload["target_url"] = url.into();
+    }
+    payload.to_string()
+}
+
+/// Where a status's "Details" link lands: the pipeline's own record page.
+pub fn status_target_url(origin: &str, sha: &str) -> Option<String> {
+    let origin = origin.trim_end_matches('/');
+    (!origin.is_empty()).then(|| format!("{origin}/status/{sha}"))
 }
 
 fn clamp(text: &str) -> String {
@@ -269,6 +284,8 @@ pub fn decide_push(event: &PushEvent) -> WebhookAction {
         PushClass::ContentOnly => WebhookAction::Reconcile(ReconcileConfig {
             repository: event.repository.full_name.clone(),
             branch: event.repository.default_branch.clone(),
+            // Pure decision; the transport layer fills in its own origin.
+            status_origin: String::new(),
         }),
         PushClass::Code { touched_posts } => WebhookAction::DispatchCi {
             description: code_push_description(touched_posts),
@@ -382,6 +399,92 @@ pub fn parse_deployment_id(json: &serde_json::Value) -> Result<u64, String> {
     json["id"]
         .as_u64()
         .ok_or_else(|| "deployment response carries no id".to_string())
+}
+
+/// What one reconcile did — stored per sha in the coordinator, served at
+/// `/status/{sha}` (the commit status's Details link).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReconcileRecord {
+    pub sha: String,
+    /// Slugs published from HEAD.
+    pub published: Vec<String>,
+    /// Slugs that failed validation and kept their previous version.
+    pub carried: Vec<String>,
+    /// Slugs that failed validation with nothing to carry — dropped.
+    pub dropped: Vec<String>,
+    /// Rendered `file:line:column: message` diagnostics.
+    pub diagnostics: Vec<String>,
+    pub purged: bool,
+    /// Unix epoch millis when the reconcile finished.
+    pub finished_at_ms: u64,
+}
+
+/// The record page: server-rendered, dependency-free HTML.
+pub fn render_status_page(record: &ReconcileRecord) -> String {
+    let list = |slugs: &[String]| match slugs {
+        [] => "—".to_string(),
+        _ => slugs
+            .iter()
+            .map(|slug| escape_html(slug))
+            .collect::<Vec<_>>()
+            .join(", "),
+    };
+    let diagnostics = match record.diagnostics.as_slice() {
+        [] => String::new(),
+        diags => format!(
+            "<h2>diagnostics</h2><pre>{}</pre>",
+            diags
+                .iter()
+                .map(|diag| escape_html(diag))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ),
+    };
+    format!(
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">\
+         <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\
+         <title>publish {sha}</title>\
+         <style>body{{font:16px/1.6 monospace;max-width:48rem;margin:3rem auto;\
+         padding:0 1rem}}dt{{font-weight:bold;margin-top:1rem}}</style></head>\
+         <body><h1>publish record</h1><dl>\
+         <dt>commit</dt><dd>{sha}</dd>\
+         <dt>published</dt><dd>{published}</dd>\
+         <dt>kept previous version</dt><dd>{carried}</dd>\
+         <dt>dropped</dt><dd>{dropped}</dd>\
+         <dt>cache</dt><dd>{purged}</dd>\
+         <dt>finished</dt><dd>{finished_at_ms} (unix ms)</dd>\
+         </dl>{diagnostics}</body></html>",
+        sha = escape_html(&record.sha),
+        published = list(&record.published),
+        carried = list(&record.carried),
+        dropped = list(&record.dropped),
+        purged = if record.purged {
+            "purged"
+        } else {
+            "purge failed — 7-day TTL backstop"
+        },
+        finished_at_ms = record.finished_at_ms,
+        diagnostics = diagnostics,
+    )
+}
+
+fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
+/// The sha out of a `/status/{sha}` path; rejects anything that is not a
+/// plain hex-ish commit label so the DO never sees junk keys.
+pub fn status_page_sha(path: &str) -> Option<&str> {
+    let sha = path.strip_prefix("/status/")?;
+    let valid = !sha.is_empty()
+        && sha.len() <= 64
+        && sha
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-');
+    valid.then_some(sha)
 }
 
 pub fn dispatch_url(repo: &str) -> String {

@@ -4,8 +4,9 @@ use worker::{console_error, Env, Method, Request, RequestInit, Response, Result}
 
 use crate::net::post_status;
 use crate::{
-    coordinator, decide_push, dispatch_payload, dispatch_url, verify_publish_auth,
-    verify_signature, PublishRequest, PushEvent, ReconcileConfig, StatusState, WebhookAction,
+    coordinator, decide_push, dispatch_payload, dispatch_url, render_status_page, status_page_sha,
+    verify_publish_auth, verify_signature, PublishRequest, PushEvent, ReconcileConfig,
+    ReconcileRecord, StatusState, WebhookAction,
 };
 
 const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
@@ -17,8 +18,33 @@ async fn fetch(mut req: Request, env: Env, _ctx: worker::Context) -> Result<Resp
     match (req.method(), req.path().as_str()) {
         (Method::Post, "/webhook") => webhook(&mut req, &env).await,
         (Method::Post, "/publish") => publish_callback(&mut req, &env).await,
+        (Method::Get, path) => match status_page_sha(path) {
+            Some(sha) => status_page(&env, sha).await,
+            None => Response::error("not found", 404),
+        },
         _ => Response::error("not found", 404),
     }
+}
+
+/// The commit status's Details page: the coordinator's stored record for
+/// one reconciled sha, rendered as plain HTML.
+async fn status_page(env: &Env, sha: &str) -> Result<Response> {
+    let stub = coordinator_stub(env)?;
+    let mut response = stub
+        .fetch_with_str(&format!("https://coordinator/record/{sha}"))
+        .await?;
+    if response.status_code() != 200 {
+        return Response::error("no publish record for this commit", 404);
+    }
+    let record: ReconcileRecord = response.json().await?;
+    Response::from_html(render_status_page(&record))
+}
+
+/// This worker's public origin, so statuses can link back to `/status/{sha}`.
+fn request_origin(req: &Request) -> String {
+    req.url()
+        .map(|url| url.origin().ascii_serialization())
+        .unwrap_or_default()
 }
 
 async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
@@ -40,7 +66,8 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
         WebhookAction::Ignore(reason) => Response::ok(reason),
         // Fast path: the coordinator posts the status itself. A failed
         // trigger 500s so webhook redelivery retries.
-        WebhookAction::Reconcile(config) => {
+        WebhookAction::Reconcile(mut config) => {
+            config.status_origin = request_origin(req);
             trigger_reconcile(env, &config).await?;
             Response::ok("content push: reconcile scheduled")
         }
@@ -55,11 +82,20 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
                     &event.after,
                     StatusState::Error,
                     "could not start the CI publish — see worker logs",
+                    None,
                 )
                 .await;
                 return Response::error("workflow dispatch failed", 500);
             }
-            post_status(env, repo, &event.after, StatusState::Pending, &description).await;
+            post_status(
+                env,
+                repo,
+                &event.after,
+                StatusState::Pending,
+                &description,
+                None,
+            )
+            .await;
             Response::ok(description)
         }
     }
@@ -82,18 +118,22 @@ async fn publish_callback(req: &mut Request, env: &Env) -> Result<Response> {
     let config = ReconcileConfig {
         repository: request.repository,
         branch: request.branch,
+        status_origin: request_origin(req),
     };
     trigger_reconcile(env, &config).await?;
     Response::ok("reconcile scheduled")
 }
 
+fn coordinator_stub(env: &Env) -> Result<worker::Stub> {
+    env.durable_object(coordinator::COORDINATOR_BINDING)?
+        .id_from_name(coordinator::COORDINATOR_NAME)?
+        .get_stub()
+}
+
 /// Pokes the coordinator; returns as soon as the trigger is stored — nobody
 /// waits on GitHub inside a webhook delivery window.
 async fn trigger_reconcile(env: &Env, config: &ReconcileConfig) -> Result<()> {
-    let namespace = env.durable_object(coordinator::COORDINATOR_BINDING)?;
-    let stub = namespace
-        .id_from_name(coordinator::COORDINATOR_NAME)?
-        .get_stub()?;
+    let stub = coordinator_stub(env)?;
     let mut init = RequestInit::new();
     init.with_method(Method::Post)
         .with_body(Some(serde_json::to_string(config)?.into()));
