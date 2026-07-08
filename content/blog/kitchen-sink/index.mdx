@@ -1,5 +1,5 @@
 ---
-title: The (revamped) kitchen sink
+title: The kitchen sink, revamped again
 date: 2026-07-04
 description: Every AST node type and Callout kind on one page — the theme's QA read.
 tags: [meta, theme]
@@ -12,8 +12,15 @@ schemes before shipping.
 
 <Callout kind="tip" title="You found the easter egg">
   If this callout is visible, the revamp shipped as a content-only publish —
-  no Rust recompiled, no wasm redeployed. A snapshot write and a pointer flip
-  did all the work while the worker never blinked.
+  no Rust recompiled, no wasm redeployed. A snapshot write, a pointer flip,
+  and a tag-scoped purge did all the work while the worker never blinked.
+</Callout>
+
+<Callout kind="note" title="Second pass">
+  This paragraph and the counter below arrived in a later content-only edit —
+  same file, new `content_hash`. If you are reading them on the live site, the
+  merge purged the `post:kitchen-sink` tag and the edge refetched exactly one
+  page.
 </Callout>
 
 ## Prose and inline marks
@@ -36,13 +43,13 @@ Unordered, for shapes of things:
 
 - KV stores meaning
 - deployed code owns presentation
-- caches are purged, never rebuilt
+- caches are purged by tag, never rebuilt by hand
 
 Ordered, starting mid-sequence the way real numbered digressions do:
 
 3. parse at publish time
 4. render at request time
-5. purge exactly what changed
+5. purge exactly the tags that changed
 
 #### Code
 
@@ -96,6 +103,11 @@ An h6 exists mostly to prove the scale bottoms out gracefully.
 An interactive island, server-rendered then hydrated:
 
 <Counter initial={42} />
+
+A second one, seeded lower, to prove two islands hydrate independently on the
+same page:
+
+<Counter initial={7} />
 
 ## An image
 
