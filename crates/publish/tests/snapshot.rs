@@ -111,7 +111,7 @@ fn snapshot_writes_posts_then_index_under_snapshot_keys() {
         &manifest(),
     )
     .unwrap();
-    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
 
     let keys: Vec<_> = plan.post_writes.iter().map(|w| w.key.as_str()).collect();
     assert_eq!(
@@ -131,20 +131,17 @@ fn snapshot_writes_posts_then_index_under_snapshot_keys() {
     assert_eq!(index, plan.index);
 }
 
-/// An entry in the previous index with no post at HEAD is retired — there is
-/// no explicit removed list.
+/// The index is exactly checked + carried posts: anything the previous
+/// snapshot knew that is absent from the rebuild is retired — there is no
+/// explicit removed list.
 #[test]
 fn snapshot_retires_posts_absent_from_the_rebuild() {
-    let prev = vec![
-        entry("gone", "Gone", "2026-04-01", &[], false),
-        entry("updated", "Old title", "2026-01-01", &[], false),
-    ];
     let parsed = check(
         &[post("updated", "New title", "2026-05-01", "Fresh.")],
         &manifest(),
     )
     .unwrap();
-    let plan = snapshot(&prev, &parsed, Vec::new(), "abc123").unwrap();
+    let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
 
     let titles: Vec<_> = plan
         .index
@@ -152,11 +149,6 @@ fn snapshot_retires_posts_absent_from_the_rebuild() {
         .map(|e| (e.slug.as_str(), e.title.as_str()))
         .collect();
     assert_eq!(titles, [("updated", "New title")]);
-    assert!(
-        plan.purge.contains(&"/posts/gone".to_string()),
-        "the retired post's URL must purge: {:?}",
-        plan.purge
-    );
 }
 
 /// A failed post rides in unchanged: previous entry, previous payload,
@@ -168,7 +160,7 @@ fn snapshot_carries_failed_posts_previous_versions() {
         entry: entry("broken", "Broken", "2026-01-01", &[], false),
         payload: r#"{"stored":"payload"}"#.into(),
     }];
-    let plan = snapshot(&[], &parsed, carried, "abc123").unwrap();
+    let plan = snapshot(&parsed, carried, "abc123").unwrap();
 
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["good", "broken"]);
@@ -188,78 +180,18 @@ fn snapshot_keeps_drafts_in_the_index() {
         source: "---\ntitle: WIP\ndate: 2026-06-01\ndraft: true\n---\n\nSoon.\n".into(),
     };
     let parsed = check(&[source], &manifest()).unwrap();
-    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
     assert!(plan.index[0].draft, "drafts are stored, filtered at render");
-}
-
-/// A rebuild can't know which bodies changed, so the purge set is the whole
-/// URL surface of both indexes (previous covers dropped tags, retired posts).
-#[test]
-fn snapshot_purges_the_full_url_set_of_both_indexes() {
-    let prev = vec![
-        entry("updated", "Old", "2026-01-01", &["old-tag"], false),
-        entry("gone", "Gone", "2026-02-01", &["gone-tag"], false),
-    ];
-    let source = PostSource {
-        slug: "updated".into(),
-        file: "content/blog/updated/index.mdx".into(),
-        source: "---\ntitle: New\ndate: 2026-05-01\ntags: [new-tag]\n---\n\nx\n".into(),
-    };
-    let parsed = check(&[source], &manifest()).unwrap();
-    let plan = snapshot(&prev, &parsed, Vec::new(), "abc123").unwrap();
-
-    let expected = [
-        "/",
-        "/posts",
-        "/posts/gone",
-        "/posts/updated",
-        "/rss.xml",
-        "/sitemap.xml",
-        "/tags",
-        "/tags/gone-tag",
-        "/tags/new-tag",
-        "/tags/old-tag",
-    ];
-    assert_eq!(plan.purge, expected);
 }
 
 #[test]
 fn kv_writes_serialize_to_the_wrangler_bulk_shape() {
     let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
-    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
     let json = serde_json::to_value(&plan.index_write).unwrap();
     assert_eq!(json["key"], "snapshot:abc123:index");
     assert!(json["value"].is_string());
     assert_eq!(json.as_object().unwrap().len(), 2);
-}
-
-#[test]
-fn purge_chunks_prefix_the_origin_and_normalize_a_trailing_slash() {
-    let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
-    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
-    let chunks = plan.purge_chunks("https://blog.example.com/");
-    assert_eq!(chunks.len(), 1);
-    assert!(chunks[0].contains(&"https://blog.example.com/posts/a".to_string()));
-    assert!(chunks[0]
-        .iter()
-        .all(|url| url.starts_with("https://blog.example.com/") && !url.contains("com//")));
-}
-
-/// Past the 30-file API cap the purge must split, never truncate.
-#[test]
-fn purge_chunks_split_at_the_api_file_limit() {
-    let prev: Vec<IndexEntry> = (0..40)
-        .map(|i| entry(&format!("post-{i:02}"), "T", "2026-01-01", &[], false))
-        .collect();
-    let parsed = check(&[post("a", "A", "2026-01-01", "Hi.")], &manifest()).unwrap();
-    let plan = snapshot(&prev, &parsed, Vec::new(), "abc123").unwrap();
-    // 41 post paths + 3 listings + 2 feeds = 46 URLs.
-    assert_eq!(plan.purge.len(), 46);
-    let chunks = plan.purge_chunks("https://blog.example.com");
-    assert_eq!(
-        chunks.iter().map(Vec::len).collect::<Vec<_>>(),
-        [publish::PURGE_FILES_LIMIT, 16]
-    );
 }
 
 #[test]
@@ -272,7 +204,7 @@ fn snapshot_orders_same_date_posts_by_slug() {
         &manifest(),
     )
     .unwrap();
-    let plan = snapshot(&[], &parsed, Vec::new(), "abc123").unwrap();
+    let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["alpha", "zeta"]);
 }

@@ -17,10 +17,16 @@ axum = { workspace = true, optional = true }
 content = { workspace = true }
 getrandom = { workspace = true }
 getrandom03 = { workspace = true }
+# Ungated: the auth module's bearer check is natively tested.
+hmac = { workspace = true }
 leptos = { workspace = true, optional = true }
 leptos_axum = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+sha2 = { workspace = true }
 tower-service = { workspace = true, optional = true }
+# The purge module imports `cloudflare:workers` directly, so the macro's
+# generated `::wasm_bindgen` paths need a direct dependency.
+wasm-bindgen = { workspace = true, optional = true }
 worker = { workspace = true, optional = true }
 
 # Gated behind `ssr` so native workspace checks compile this crate to an
@@ -34,6 +40,7 @@ ssr = [
   "dep:leptos_axum",
   "dep:serde_json",
   "dep:tower-service",
+  "dep:wasm-bindgen",
   "dep:worker",
   "leptos/ssr",
 ]

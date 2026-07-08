@@ -345,12 +345,3 @@ pub fn dispatch_url(repo: &str) -> String {
 pub fn dispatch_payload(branch: &str, sha: &str) -> String {
     serde_json::json!({ "ref": branch, "inputs": { "sha": sha } }).to_string()
 }
-
-pub fn purge_url(zone: &str) -> String {
-    format!("https://api.cloudflare.com/client/v4/zones/{zone}/purge_cache")
-}
-
-/// One chunk of absolute URLs; the plan owns origin-prefixing and chunking.
-pub fn purge_body(files: &[String]) -> String {
-    serde_json::json!({ "files": files }).to_string()
-}

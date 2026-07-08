@@ -61,6 +61,23 @@ bypassing the coordinator, because it is the escape hatch for when the pipeline 
 itself is the problem. It writes a full `manual-*` snapshot and flips the pointer; the next
 reconcile supersedes it by construction.
 
+*Amendment (2026-07-07, Workers Cache purge):* the zone purge-by-URL step is replaced by
+one call after the pointer flip: the coordinator POSTs to the site worker's authenticated
+`/__purge` route over a `SITE` service binding, and the site — the only party that can
+reach its own Workers Cache — runs `cache.purge({purgeEverything: true})`, global via
+Instant Purge (ADR-0008's amendment has the platform context). Purge-everything is
+semantically what the old enumerated set approximated: any flip invalidates every page
+(the site-wide snapshot-sha ETag says as much), so the purge-set planning — `SnapshotPlan
+::purge`, origin-prefixing, 30-file chunking, and the previous-index read that fed only it
+— is deleted outright; `publish::snapshot` no longer takes the previous index, and
+`xtask plan` no longer reads a pointer or index (`just publish` shrank to plan → bulk put
+→ flip → one authenticated curl). Auth is a shared secret (`PURGE_SHARED_SECRET`, held by
+both workers) checked constant-time, the same pattern as `/publish`. Purge stays
+best-effort after the flip: a failure logs loudly and the 7-day `s-maxage` TTL (or the
+next deploy's fresh version-keyed cache) backstops it. The zone purge credentials
+(`CLOUDFLARE_ZONE_ID`, `SITE_ORIGIN`, `CLOUDFLARE_PURGE_TOKEN`) leave the pipeline
+entirely; a custom domain is no longer a purge prerequisite.
+
 ## Costs accepted
 
 - One extra KV read per cache miss on the site (pointer resolution) — invisible behind the
@@ -71,7 +88,8 @@ reconcile supersedes it by construction.
   regressions. Revisit with per-post source hashes in the index if the tree grows painful.
 - The purge set is the whole enumerated URL surface of the previous and new indexes (a full
   rebuild can't know which post bodies changed). Chunked to the API's 30-file cap; fine at
-  blog scale (ADR-0008 amended).
+  blog scale (ADR-0008 amended). *Superseded by the 2026-07-07 amendment below: the purge
+  set no longer exists.*
 - Commit statuses report per reconciled HEAD, not per parked SHA — a superseded
   intermediate commit may keep a stale `pending` status. Accepted fidelity loss.
 - Snapshots duplicate content per publish; retention bounds it at ~10 × content size.

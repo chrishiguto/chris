@@ -2,10 +2,10 @@
 
 use pipeline::{
     classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_body, purge_url,
-    reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url,
-    verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit, PushEvent,
-    ReconcileConfig, StatusState, WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, reconcile_description,
+    status_payload, statuses_url, tree_post_slugs, tree_url, verify_publish_auth, verify_signature,
+    PublishRequest, PushClass, PushCommit, PushEvent, ReconcileConfig, StatusState, WebhookAction,
+    STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -444,30 +444,6 @@ fn manifest_exposes_the_real_app_vocabulary() {
     assert!(
         names.contains(&"Callout") && names.contains(&"Counter"),
         "expected the app vocabulary, got {names:?}"
-    );
-}
-
-// --- cache purge requests ---
-
-#[test]
-fn purge_url_targets_the_zone_purge_endpoint() {
-    assert_eq!(
-        purge_url("zone123"),
-        "https://api.cloudflare.com/client/v4/zones/zone123/purge_cache"
-    );
-}
-
-/// Origin-prefixing and chunking are `purge_chunks`' job; the pipeline only
-/// wraps a chunk in the API body.
-#[test]
-fn purge_body_wraps_a_chunk_in_the_files_field() {
-    let files = vec![
-        "https://blog.example.com/".to_string(),
-        "https://blog.example.com/posts/hello".to_string(),
-    ];
-    assert_eq!(
-        purge_body(&files),
-        r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#
     );
 }
 

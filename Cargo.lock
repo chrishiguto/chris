@@ -1818,10 +1818,13 @@ dependencies = [
  "content",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
+ "hmac",
  "leptos",
  "leptos_axum",
  "serde_json",
+ "sha2",
  "tower-service",
+ "wasm-bindgen",
  "worker",
 ]
 

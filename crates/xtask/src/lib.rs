@@ -3,11 +3,8 @@
 
 use std::path::Path;
 
-use content::{Diagnostic, IndexEntry, Manifest};
+use content::{Diagnostic, Manifest};
 use publish::{ParsedPost, PostSource};
-
-/// Wrangler's `kv key get` prints this (stdout, exit 0) on a missing key.
-const WRANGLER_VALUE_NOT_FOUND: &str = "Value not found";
 
 /// Walks a `content/blog` tree (`{slug}/index.mdx`) into post sources, sorted by slug.
 pub fn discover(content_dir: &Path) -> (Vec<PostSource>, Vec<Diagnostic>) {
@@ -66,25 +63,4 @@ pub fn check_tree(
             Err(diags)
         }
     }
-}
-
-/// Empty output or wrangler's `Value not found` means "no index yet";
-/// anything else must parse — a swallowed index would empty the purge set.
-pub fn parse_index(raw: &str) -> Result<Vec<IndexEntry>, String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
-        return Ok(Vec::new());
-    }
-    serde_json::from_str(trimmed).map_err(|err| format!("index is not valid JSON: {err}"))
-}
-
-/// Parses a captured `current` pointer into its sha; same sentinel contract as [`parse_index`].
-pub fn parse_pointer(raw: &str) -> Result<Option<String>, String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() || trimmed == WRANGLER_VALUE_NOT_FOUND {
-        return Ok(None);
-    }
-    content::CurrentPointer::from_json(trimmed)
-        .map(|pointer| Some(pointer.sha))
-        .map_err(|err| format!("current pointer is not valid JSON: {err}"))
 }

@@ -20,3 +20,6 @@ directory = "./target/site"
 [[kv_namespaces]]
 binding = "BLOG"
 id = "86ddce8f97854520bb4c9ec79cd838f0"
+
+# Secrets (wrangler secret put): PURGE_SHARED_SECRET — authenticates the
+# pipeline's POST /__purge calls (same value the pipeline worker holds).

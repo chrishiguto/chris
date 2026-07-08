@@ -1,21 +1,24 @@
 //! Worker shim: routing and KV reads. Workers Cache fronts the fetch
 //! handler at the platform layer, so a hit never reaches this code.
+pub mod auth;
 pub mod cache;
 pub mod feeds;
+#[cfg(feature = "ssr")]
+mod purge;
 
 #[cfg(feature = "ssr")]
 mod server {
-    use crate::{cache, feeds};
+    use crate::{auth, cache, feeds, purge};
     use app::{app::shell, listing::IndexData, post::PostData};
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
         http::{
-            header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
+            header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
             HeaderValue, Request, Response, StatusCode,
         },
         response::IntoResponse,
-        routing::get,
+        routing::{get, post},
         Router,
     };
     use content::{
@@ -30,6 +33,10 @@ mod server {
     /// Axum `{param}` forms of `content::post_path` / `content::tag_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
     const TAG_ROUTE: &str = "/tags/{tag}";
+    /// The pipeline's purge hook; Workers Cache is private to this worker.
+    const PURGE_ROUTE: &str = "/__purge";
+    /// Shared with the pipeline worker: authenticates purge calls.
+    const PURGE_SECRET: &str = "PURGE_SHARED_SECRET";
 
     #[derive(Clone)]
     struct AppState {
@@ -76,7 +83,8 @@ mod server {
                     .route(POST_ROUTE, get(post_page))
                     .route(TAG_ROUTE, get(tag_page))
                     .route(RSS_PATH, get(feed_xml))
-                    .route(SITEMAP_PATH, get(sitemap_xml)),
+                    .route(SITEMAP_PATH, get(sitemap_xml))
+                    .route(PURGE_ROUTE, post(purge_route)),
                 |r, path| r.route(path, get(listing_page)),
             )
             .fallback(not_found_page)
@@ -91,6 +99,31 @@ mod server {
                 .insert(CACHE_CONTROL, HeaderValue::from_static("no-store"));
         }
         Ok(revalidated(response, if_none_match.as_deref()))
+    }
+
+    /// Purges every cached page. Best-effort on the caller's side (the
+    /// publish already happened), so failures answer loudly with a 502.
+    #[worker::send]
+    async fn purge_route(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let secret = state
+            .env
+            .secret(PURGE_SECRET)
+            .map(|secret| secret.to_string());
+        let header = req
+            .headers()
+            .get(AUTHORIZATION)
+            .and_then(|value| value.to_str().ok());
+        let authorized = secret.is_ok_and(|secret| auth::verify_bearer(&secret, header));
+        if !authorized {
+            return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
+        }
+        match purge::purge_everything().await {
+            Ok(()) => (StatusCode::OK, "purged").into_response(),
+            Err(err) => {
+                console_error!("cache purge failed: {err}");
+                (StatusCode::BAD_GATEWAY, "purge failed").into_response()
+            }
+        }
     }
 
     /// Opts a response into Workers Cache — `s-maxage` stores at the edge,

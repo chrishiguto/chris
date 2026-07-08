@@ -39,17 +39,19 @@ summary, key topics.
   both paths (amended from Check Runs — Checks API write is GitHub-App-only; amended again:
   the pending-list/drain ordering is replaced by ADR-0009's reconcile). Topics:
   orchestration, ci, commit statuses, ordering.
-- `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — Cache API full-response caching
-  (per-colo) with REST purge-by-URL on publish and purge_everything on deploy (hydration
-  correctness); all dynamism in islands (amended by ADR-0009: publish purge widened to the
-  full URL surface of the previous + new indexes). Topics: caching, purge, cache api,
-  deploys, islands.
+- `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — full-response caching in front
+  of the worker; all dynamism in islands (amended twice by ADR-0009, then re-platformed
+  2026-07-07: Workers Cache replaces the hand-rolled Cache API front — version-keyed so
+  deploys self-invalidate, zone-free so workers.dev purges work, purge only from inside the
+  worker). Topics: caching, purge, workers cache, deploys, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
   coordinator Durable Object whose alarm doubles as retry and cron backstop; pending-list
-  machinery deleted; rollback = re-point the pointer. Topics: snapshots, atomic publish,
-  reconcile, durable objects, convergence, rollback, retention.
+  machinery deleted; rollback = re-point the pointer (amended 2026-07-07: the purge set is
+  deleted — the coordinator calls the site's `/__purge` over a service binding instead).
+  Topics: snapshots, atomic publish, reconcile, durable objects, convergence, rollback,
+  retention.
 
 ## Guides
 
