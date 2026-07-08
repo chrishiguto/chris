@@ -20,7 +20,7 @@ pub fn view_cache_tags() -> String {
 /// Tags out of a `/__purge` body. No body means `[SITE_TAG]` — the
 /// break-glass full purge; anything else must be `{"tags":[...]}` with
 /// non-blank entries.
-pub fn purge_tags(body: &[u8]) -> Result<Vec<String>, String> {
+pub fn parse_purge_body(body: &[u8]) -> Result<Vec<String>, String> {
     if body.iter().all(u8::is_ascii_whitespace) {
         return Ok(vec![SITE_TAG.to_string()]);
     }

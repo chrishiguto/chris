@@ -4,7 +4,7 @@
 
 use std::collections::BTreeSet;
 
-use content::{post_slug, source_path, Diagnostic};
+use content::{post_slug, source_path, Diagnostic, SITE_TAG};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "worker")]
@@ -240,25 +240,33 @@ pub fn code_push_description(touched_posts: usize) -> String {
     }
 }
 
-/// One reconcile's status. `carried` is how many failures actually had a
-/// previous version to keep — claiming "kept" for a dropped post would lie.
-/// A failed purge fails the status even when every post published: readers
-/// still see stale pages, and a green check must never hide that.
+/// What one reconcile did — the inputs its commit status is built from.
+#[derive(Debug, Clone, Copy)]
+pub struct ReconcileOutcome {
+    pub published: usize,
+    pub failed: usize,
+    /// How many failures actually had a previous version to keep —
+    /// claiming "kept" for a dropped post would lie.
+    pub carried: usize,
+    /// Whether the purge covered everything the flip (plus debt) made stale.
+    pub purged: bool,
+}
+
+/// One reconcile's status. A failed purge fails it even when every post
+/// published: readers still see stale pages, and a green check must never
+/// hide that.
 pub fn reconcile_description(
-    published: usize,
-    failed: usize,
-    carried: usize,
-    purged: bool,
+    outcome: ReconcileOutcome,
     diags: &[Diagnostic],
 ) -> (StatusState, String) {
     let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
-    let (state, description) = match failed {
+    let (state, description) = match outcome.failed {
         0 => (
             StatusState::Success,
-            format!("reconciled: {} published", posts(published)),
+            format!("reconciled: {} published", posts(outcome.published)),
         ),
         n => {
-            let kept = if carried == n {
+            let kept = if outcome.carried == n {
                 "previous versions kept"
             } else {
                 "previous versions kept where available"
@@ -273,7 +281,7 @@ pub fn reconcile_description(
             )
         }
     };
-    if purged {
+    if outcome.purged {
         (state, description)
     } else {
         (
@@ -281,6 +289,20 @@ pub fn reconcile_description(
             format!("{description}; cache purge failed — pages may be stale"),
         )
     }
+}
+
+/// One reconcile's purge scope: the tags this flip made stale plus the debt
+/// a previously failed purge left behind, so a same-HEAD reconcile still
+/// retries it. An unreadable debt ledger (`None`) escalates to a full site
+/// purge — over-purge, never staleness.
+pub fn purge_scope(stale: Vec<String>, debt: Option<Vec<String>>) -> Vec<String> {
+    let debt = debt.unwrap_or_else(|| vec![SITE_TAG.to_string()]);
+    stale
+        .into_iter()
+        .chain(debt)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 /// Raw-content fetch pinned to the observed HEAD — every source in one

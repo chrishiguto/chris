@@ -93,12 +93,27 @@ amendment relaxed (it is the per-post-source-hash revisit that amendment promise
 hardening lessons from the 2026-07-08 incident (pointer flipped, purge silently skipped on a
 missing pipeline secret, pages stale for hours behind a green check): a failed purge now
 fails the `blog/publish` commit status instead of only logging, and CI purges `site` right
-after the site deploy (`-f`, so a failed purge fails the run) — defensive, because the
+after the site deploy (via `just purge`, which fails the run loudly) — defensive, because the
 version-keyed-cold-start claim in the previous amendment has not been verified in production
 and cached entries were observed serving after deploys. If a controlled test (warm page →
 no-op deploy → still `HIT`?) confirms deploys self-invalidate, the CI purge step deletes as
 redundant; if it refutes it, the previous amendment's "empty cache by construction" claim is
 wrong and this purge is load-bearing.
+
+Two invariants keep the scoped design honest — both close holes a future implementer could
+easily reopen. First, *purge debt*: a failed purge leaves its tag scope in the coordinator's
+storage; every later reconcile merges that debt into its own scope and clears it only once a
+purge lands. Deriving purge success from the index diff alone is not enough — the next
+reconcile of an unchanged HEAD diffs to nothing and would post green over a still-stale
+cache, silently re-hiding the very failure the status exists to surface. A debt ledger that
+cannot be read escalates the scope to a full `site` purge — over-purge, never staleness.
+Second, tagging is *fail-closed*: `Cache-Tag` is written before `Cache-Control`, so a tag
+set that cannot form a valid header value leaves the response uncached (with a loud log)
+rather than cached
+untagged. Tags are the only handle a purge ever gets on a cached entry — an untagged entry
+is invisible to every tag purge, `site` included, and serves stale until its TTL. Slugs are
+validated to `[a-z0-9-]` so this cannot fire today, but any future tag built from arbitrary
+input (say `tag:{name}` from frontmatter) would hit it.
 
 ## Options considered
 

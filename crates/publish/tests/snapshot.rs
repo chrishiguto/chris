@@ -1,6 +1,6 @@
 use content::IndexEntry;
 use content::{ComponentSpec, Manifest, PropSpec, PropType};
-use publish::{check, check_each, content_hash, purge_tags, snapshot, CarriedPost, PostSource};
+use publish::{check, check_each, content_hash, snapshot, stale_tags, CarriedPost, PostSource};
 
 fn manifest() -> Manifest {
     Manifest {
@@ -252,13 +252,13 @@ fn hashed(slug: &str, hash: &str) -> IndexEntry {
 }
 
 #[test]
-fn purge_tags_are_empty_when_nothing_changed() {
+fn stale_tags_are_empty_when_nothing_changed() {
     let index = [hashed("a", "h1"), hashed("b", "h2")];
-    assert!(purge_tags(&index, &index).is_empty());
+    assert!(stale_tags(&index, &index).is_empty());
 }
 
 #[test]
-fn purge_tags_cover_changed_added_and_removed_posts_plus_views() {
+fn stale_tags_cover_changed_added_and_removed_posts_plus_views() {
     let prev = [
         hashed("edited", "h1"),
         hashed("kept", "h2"),
@@ -270,18 +270,18 @@ fn purge_tags_cover_changed_added_and_removed_posts_plus_views() {
         hashed("added", "h4"),
     ];
     assert_eq!(
-        purge_tags(&prev, &next),
+        stale_tags(&prev, &next),
         ["post:added", "post:edited", "post:removed", "views"]
     );
 }
 
 /// Entries from pre-hash snapshots read as changed: over-purge, never staleness.
 #[test]
-fn purge_tags_treat_missing_hashes_as_changed() {
+fn stale_tags_treat_missing_hashes_as_changed() {
     let unhashed = [hashed("a", "")];
-    assert_eq!(purge_tags(&unhashed, &unhashed), ["post:a", "views"]);
+    assert_eq!(stale_tags(&unhashed, &unhashed), ["post:a", "views"]);
     assert_eq!(
-        purge_tags(&unhashed, &[hashed("a", "h1")]),
+        stale_tags(&unhashed, &[hashed("a", "h1")]),
         ["post:a", "views"]
     );
 }

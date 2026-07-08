@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[test]
-    fn purge_tags_name_one_post_or_a_shared_scope() {
+    fn cache_tags_name_one_post_or_a_shared_scope() {
         assert_eq!(post_tag("hello"), "post:hello");
         assert_ne!(SITE_TAG, VIEWS_TAG);
     }

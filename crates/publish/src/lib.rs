@@ -8,7 +8,6 @@ use content::{
 };
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
-use std::fmt::Write;
 
 #[derive(Debug, Clone)]
 pub struct PostSource {
@@ -121,19 +120,14 @@ fn check_slug(post: &PostSource) -> Option<Diagnostic> {
 /// Content-addresses one serialized post payload; index entries carry it so
 /// the next publish can tell changed posts from untouched ones.
 pub fn content_hash(payload: &str) -> String {
-    Sha256::digest(payload.as_bytes())
-        .iter()
-        .fold(String::with_capacity(64), |mut hex, byte| {
-            let _ = write!(hex, "{byte:02x}");
-            hex
-        })
+    format!("{:x}", Sha256::digest(payload.as_bytes()))
 }
 
-/// Cache tags a flip from `prev` to `next` must purge: every added, removed,
+/// Cache tags a flip from `prev` to `next` made stale: every added, removed,
 /// or changed post, plus the shared views tag once anything changed at all.
-/// Empty means readers see no difference — skip the purge. Entries without a
-/// hash always count as changed.
-pub fn purge_tags(prev: &[IndexEntry], next: &[IndexEntry]) -> Vec<String> {
+/// Empty means readers see no difference — nothing to purge. Entries without
+/// a hash always count as changed.
+pub fn stale_tags(prev: &[IndexEntry], next: &[IndexEntry]) -> Vec<String> {
     let prev_hashes: BTreeMap<&str, &str> = prev
         .iter()
         .map(|entry| (entry.slug.as_str(), entry.content_hash.as_str()))
@@ -142,9 +136,9 @@ pub fn purge_tags(prev: &[IndexEntry], next: &[IndexEntry]) -> Vec<String> {
 
     let mut changed: BTreeSet<&str> = BTreeSet::new();
     for entry in next {
-        let unchanged = !entry.content_hash.is_empty()
-            && prev_hashes.get(entry.slug.as_str()) == Some(&entry.content_hash.as_str());
-        if !unchanged {
+        if entry.content_hash.is_empty()
+            || prev_hashes.get(entry.slug.as_str()) != Some(&entry.content_hash.as_str())
+        {
             changed.insert(&entry.slug);
         }
     }

@@ -83,21 +83,23 @@ publish:
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
     # Workers Cache is purgeable only from inside the site worker; a manual
     # publish bypasses the coordinator's diff, so it purges the whole site tag.
-    if [ -n "${SITE_ORIGIN:-}" ] && [ -f .secrets/purge_shared_secret ]; then
+    if [ -n "${SITE_ORIGIN:-}" ] && { [ -n "${PURGE_SHARED_SECRET:-}" ] || [ -f .secrets/purge_shared_secret ]; }; then
         just purge && echo "site cache purged" \
             || echo "warning: purge failed — cached pages fall back to the 7-day TTL"
     else
-        echo "purge skipped (SITE_ORIGIN or .secrets/purge_shared_secret missing) — TTL or the CI purge converges"
+        echo "purge skipped (SITE_ORIGIN or the purge secret missing) — TTL or the CI purge converges"
     fi
 
 # break-glass full cache purge (the `site` tag); publishes and deploys purge
-# their own scopes — this is for everything else
+# their own scopes — this is for everything else. The secret comes from
+# $PURGE_SHARED_SECRET (CI) or .secrets/purge_shared_secret (local).
 purge:
     #!/usr/bin/env bash
     set -euo pipefail
     : "${SITE_ORIGIN:?set SITE_ORIGIN to the deployed site origin}"
+    secret="${PURGE_SHARED_SECRET:-$(cat .secrets/purge_shared_secret)}"
     curl -sf -X POST "${SITE_ORIGIN%/}/__purge" \
-        -H "Authorization: Bearer $(cat .secrets/purge_shared_secret)" \
+        -H "Authorization: Bearer $secret" \
         -H "Content-Type: application/json" \
         --data '{"tags":["site"]}' > /dev/null
 

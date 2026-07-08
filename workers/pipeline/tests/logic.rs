@@ -2,9 +2,10 @@
 
 use pipeline::{
     classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, reconcile_description,
-    status_payload, statuses_url, tree_post_slugs, tree_url, PublishRequest, PushClass, PushCommit,
-    PushEvent, ReconcileConfig, StatusState, WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_scope,
+    reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url, PublishRequest,
+    PushClass, PushCommit, PushEvent, ReconcileConfig, ReconcileOutcome, StatusState,
+    WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -202,11 +203,27 @@ fn a_tree_response_without_a_tree_array_is_an_error() {
 
 #[test]
 fn reconcile_description_reports_success_and_carried_failures() {
-    let (state, description) = reconcile_description(3, 0, 0, true, &[]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 3,
+            failed: 0,
+            carried: 0,
+            purged: true,
+        },
+        &[],
+    );
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 3 posts published");
 
-    let (state, description) = reconcile_description(1, 0, 0, true, &[]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 1,
+            failed: 0,
+            carried: 0,
+            purged: true,
+        },
+        &[],
+    );
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 1 post published");
 
@@ -216,7 +233,15 @@ fn reconcile_description_reports_success_and_carried_failures() {
         line: Some(3),
         column: None,
     };
-    let (state, description) = reconcile_description(2, 1, 1, true, &[diag]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 2,
+            failed: 1,
+            carried: 1,
+            purged: true,
+        },
+        &[diag],
+    );
     assert_eq!(state, StatusState::Failure);
     assert_eq!(
         description,
@@ -235,7 +260,15 @@ fn reconcile_description_does_not_claim_kept_for_dropped_posts() {
         line: None,
         column: None,
     };
-    let (state, description) = reconcile_description(2, 2, 1, true, &[diag]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 2,
+            failed: 2,
+            carried: 1,
+            purged: true,
+        },
+        &[diag],
+    );
     assert_eq!(state, StatusState::Failure);
     assert!(
         description.contains("previous versions kept where available"),
@@ -247,7 +280,15 @@ fn reconcile_description_does_not_claim_kept_for_dropped_posts() {
 /// green "published" must never paper over it.
 #[test]
 fn reconcile_description_fails_the_status_when_the_purge_fails() {
-    let (state, description) = reconcile_description(2, 0, 0, false, &[]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 2,
+            failed: 0,
+            carried: 0,
+            purged: false,
+        },
+        &[],
+    );
     assert_eq!(state, StatusState::Failure);
     assert_eq!(
         description,
@@ -255,10 +296,48 @@ fn reconcile_description_fails_the_status_when_the_purge_fails() {
     );
 
     // A validation failure and a purge failure both surface.
-    let (state, description) = reconcile_description(1, 1, 1, false, &[]);
+    let (state, description) = reconcile_description(
+        ReconcileOutcome {
+            published: 1,
+            failed: 1,
+            carried: 1,
+            purged: false,
+        },
+        &[],
+    );
     assert_eq!(state, StatusState::Failure);
     assert!(description.contains("cache purge failed"), "{description}");
     assert!(description.contains("failed validation"), "{description}");
+}
+
+/// Debt from a failed purge widens the next scope — without it, a same-HEAD
+/// reconcile would diff to nothing and go green while the cache is stale.
+#[test]
+fn purge_scope_merges_debt_into_the_stale_tags_deduped() {
+    let stale = vec!["post:a".to_string(), "views".to_string()];
+    let debt = vec!["post:b".to_string(), "views".to_string()];
+    assert_eq!(
+        purge_scope(stale, Some(debt)),
+        ["post:a", "post:b", "views"]
+    );
+}
+
+#[test]
+fn purge_scope_of_an_unchanged_reconcile_is_the_debt_alone() {
+    let debt = vec!["post:a".to_string()];
+    assert_eq!(purge_scope(vec![], Some(debt)), ["post:a"]);
+    assert!(purge_scope(vec![], Some(vec![])).is_empty());
+}
+
+/// An unreadable debt ledger could be hiding any tag, so the scope widens to
+/// the whole site: over-purge, never staleness.
+#[test]
+fn purge_scope_escalates_unreadable_debt_to_a_site_purge() {
+    assert_eq!(purge_scope(vec![], None), ["site"]);
+    assert_eq!(
+        purge_scope(vec!["post:a".to_string()], None),
+        ["post:a", "site"]
+    );
 }
 
 #[test]

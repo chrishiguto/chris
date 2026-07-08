@@ -54,14 +54,17 @@ converging to HEAD as observed at its start):
    versions plus the first diagnostic (the Commit Status API caps
    descriptions at 140 chars — full diagnostics via `just check`). A failed
    purge also fails the status — pages stale behind a green check is the
-   incident class this guards against. Identical repeat statuses are skipped.
+   incident class this guards against — and leaves its tags behind as debt:
+   every later reconcile merges the debt into its own purge and clears it
+   only once a purge lands, so green returns only when the cache truly
+   converged. Identical repeat statuses are skipped.
 4. Re-arms its own alarm as a ~6 h cron backstop, so a missed webhook or a
    failed run self-heals without anyone pushing.
 
 The CI half lives in `.github/workflows/publish.yml`: build both workers →
 enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy the
-site → purge the `site` cache tag (`-f`: a failed purge fails the run) →
-deploy the pipeline → call `/publish`. The deploy purge is defensive:
+site → purge the `site` cache tag (`just purge`: a failed purge fails the
+run) → deploy the pipeline → call `/publish`. The deploy purge is defensive:
 Workers Cache is documented as keying on the deployed version (deploys
 would start cold by construction), but that has not been verified in
 production — until it is, the explicit purge guarantees no stale HTML
@@ -82,13 +85,16 @@ before the worker runs. Consequences for this worker:
 - **Responses are tagged** (`Cache-Tag`): every cacheable page carries
   `site`, post pages add `post:{slug}`, and the index-backed views
   (listings, tag pages, feeds) add `views` — names defined once in
-  `content/src/routes.rs` beside the paths they tag.
+  `content/src/routes.rs` beside the paths they tag. Tagging is fail-closed:
+  tags are the only handle a purge gets on a cached entry, so a tag set that
+  can't form a valid header leaves the response uncached (loudly) rather
+  than cached unpurgeable.
 - **Publish purges are scoped.** Index entries carry a `content_hash` of the
   serialized post payload; the coordinator diffs the previous index against
   the new one and purges exactly the changed/added/removed posts plus
   `views`. Post N never evicts post M. A failed purge logs loudly, fails
-  the commit status, and the 7-day `s-maxage` TTL or a `site` purge
-  converges.
+  the commit status, and persists as debt the next reconcile retries; the
+  7-day `s-maxage` TTL stays the last-resort backstop.
 - **Deploys purge `site`** from CI right after the site deploy (see above —
   defensive until version-keyed cold starts are verified in production).
 

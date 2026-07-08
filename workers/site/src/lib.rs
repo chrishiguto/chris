@@ -115,18 +115,18 @@ mod server {
             console_error!("{PURGE_SECRET} secret missing — cannot authenticate purge");
             return (StatusCode::INTERNAL_SERVER_ERROR, "purge misconfigured").into_response();
         };
-        let header = req
-            .headers()
+        let (parts, body) = req.into_parts();
+        let header = parts
+            .headers
             .get(AUTHORIZATION)
-            .and_then(|value| value.to_str().ok())
-            .map(String::from);
-        if !verify_bearer(&secret.to_string(), header.as_deref()) {
+            .and_then(|value| value.to_str().ok());
+        if !verify_bearer(&secret.to_string(), header) {
             return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         }
-        let Ok(body) = axum::body::to_bytes(req.into_body(), PURGE_BODY_LIMIT).await else {
+        let Ok(body) = axum::body::to_bytes(body, PURGE_BODY_LIMIT).await else {
             return (StatusCode::BAD_REQUEST, "unreadable purge body").into_response();
         };
-        let tags = match cache::purge_tags(&body) {
+        let tags = match cache::parse_purge_body(&body) {
             Ok(tags) => tags,
             Err(err) => return (StatusCode::BAD_REQUEST, err).into_response(),
         };
@@ -141,19 +141,22 @@ mod server {
 
     /// Opts a response into Workers Cache — `s-maxage` stores at the edge,
     /// `max-age=0` keeps browsers revalidating — plus the snapshot-sha ETag
-    /// and the `Cache-Tag` scopes purges select on.
+    /// and the `Cache-Tag` scopes purges select on. Fail-closed: tags are a
+    /// purge's only handle on a cached entry, so a tag set that can't be a
+    /// header leaves the response uncached rather than cached unpurgeable.
     fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>, tags: &str) {
-        response.headers_mut().insert(
+        let Ok(tag_header) = HeaderValue::from_str(tags) else {
+            console_error!("cache tags {tags:?} form no valid header — response left uncached");
+            return;
+        };
+        let headers = response.headers_mut();
+        headers.insert(HeaderName::from_static("cache-tag"), tag_header);
+        headers.insert(
             CACHE_CONTROL,
             HeaderValue::from_static(cache::CACHE_CONTROL),
         );
         if let Some(value) = sha.and_then(|sha| HeaderValue::from_str(&cache::etag(sha)).ok()) {
-            response.headers_mut().insert(ETAG, value);
-        }
-        if let Ok(value) = HeaderValue::from_str(tags) {
-            response
-                .headers_mut()
-                .insert(HeaderName::from_static("cache-tag"), value);
+            headers.insert(ETAG, value);
         }
     }
 

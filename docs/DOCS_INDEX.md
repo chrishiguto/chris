@@ -44,8 +44,10 @@ summary, key topics.
   2026-07-07: Workers Cache replaces the hand-rolled Cache API front, purge only from inside
   the worker; amended 2026-07-08: `Cache-Tag`s `site`/`views`/`post:{slug}` replace
   purgeEverything, publishes purge only changed posts via index `content_hash` diffs, failed
-  purges fail the commit status, CI purges `site` after deploys pending version-keying
-  verification). Topics: caching, purge, cache tags, workers cache, deploys, islands.
+  purges fail the commit status and persist as debt later reconciles retry, tagging is
+  fail-closed (no valid tag header → no caching), CI purges `site` after deploys pending
+  version-keying verification). Topics: caching, purge, cache tags, workers cache, deploys,
+  islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
