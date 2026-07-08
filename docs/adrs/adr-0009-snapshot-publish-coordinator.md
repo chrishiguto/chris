@@ -61,6 +61,38 @@ bypassing the coordinator, because it is the escape hatch for when the pipeline 
 itself is the problem. It writes a full `manual-*` snapshot and flips the pointer; the next
 reconcile supersedes it by construction.
 
+*Amendment (2026-07-07, Workers Cache purge):* the zone purge-by-URL step is replaced by
+one call after the pointer flip: the coordinator POSTs to the site worker's authenticated
+`/__purge` route over a `SITE` service binding, and the site — the only party that can
+reach its own Workers Cache — runs `cache.purge({purgeEverything: true})`, global via
+Instant Purge (ADR-0008's amendment has the platform context). Purge-everything is
+semantically what the old enumerated set approximated: any flip invalidates every page
+(the site-wide snapshot-sha ETag says as much), so the purge-set planning — `SnapshotPlan
+::purge`, origin-prefixing, 30-file chunking, and the previous-index read that fed only it
+— is deleted outright; `publish::snapshot` no longer takes the previous index, and
+`xtask plan` no longer reads a pointer or index (`just publish` shrank to plan → bulk put
+→ flip → one authenticated curl). Auth is a shared secret (`PURGE_SHARED_SECRET`, held by
+both workers, checked constant-time by the shared `authn` crate — the same gate as
+`/publish`; this header-secret + constant-time-compare pattern, and the webhook's HMAC
+verification, follow Cloudflare's own Worker auth examples:
+[Sign requests](https://developers.cloudflare.com/workers/examples/signing-requests/) and
+GitHub's [webhook validation](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)).
+It is an authenticated HTTP POST rather than a typed RPC call because of how Workers Cache
+scopes purges: purge is scoped to the entrypoint that owns the cached responses, and this
+site caches on its *default* public fetch entrypoint, so the purge must run there.
+Cloudflare's secret-free alternative is to move caching into a private named
+`WorkerEntrypoint` (their `CachedBackend` reference pattern), reachable only over the service
+binding, and expose `purge()` as an RPC method on it — but workers-rs cannot author named
+`WorkerEntrypoint` classes, so that restructure is unavailable. (A workers-rs capability gap,
+not a consequence of the `=0.8.3` pin: experimental wasm-bindgen RPC has existed since 0.6.7,
+but only on the public default entrypoint, so it would not remove the gate either.) `fetch`
+over the service binding to the gated public route is therefore the transport, and the secret
+gate is load-bearing, not optional. Purge stays
+best-effort after the flip: a failure logs loudly and the 7-day `s-maxage` TTL (or the
+next deploy's fresh version-keyed cache) backstops it. The zone purge credentials
+(`CLOUDFLARE_ZONE_ID`, `SITE_ORIGIN`, `CLOUDFLARE_PURGE_TOKEN`) leave the pipeline
+entirely; a custom domain is no longer a purge prerequisite.
+
 ## Costs accepted
 
 - One extra KV read per cache miss on the site (pointer resolution) — invisible behind the
@@ -71,7 +103,8 @@ reconcile supersedes it by construction.
   regressions. Revisit with per-post source hashes in the index if the tree grows painful.
 - The purge set is the whole enumerated URL surface of the previous and new indexes (a full
   rebuild can't know which post bodies changed). Chunked to the API's 30-file cap; fine at
-  blog scale (ADR-0008 amended).
+  blog scale (ADR-0008 amended). *Superseded by the 2026-07-07 amendment below: the purge
+  set no longer exists.*
 - Commit statuses report per reconciled HEAD, not per parked SHA — a superseded
   intermediate commit may keep a stale `pending` status. Accepted fidelity loss.
 - Snapshots duplicate content per publish; retention bounds it at ~10 × content size.

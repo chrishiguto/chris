@@ -76,20 +76,21 @@ publish:
     set -euo pipefail
     out=target/publish
     mkdir -p "$out"
-    # missing keys print "Value not found" with exit 0 — the only non-JSON output xtask accepts
-    npx wrangler kv key get --binding BLOG {{remote}} current --text > "$out/current.json"
-    # xtask names the key so its grammar stays out of bash
-    prev_index_key=$(cargo run -q -p xtask -- pointer "$out/current.json")
-    npx wrangler kv key get --binding BLOG {{remote}} "$prev_index_key" --text > "$out/index.json"
     sha="manual-$(git rev-parse --short=12 HEAD)-$(date +%s)"
-    cargo run -q -p xtask -- plan --sha "$sha" --index "$out/index.json" --out "$out" ${SITE_ORIGIN:+--origin "$SITE_ORIGIN"}
+    cargo run -q -p xtask -- plan --sha "$sha" --out "$out"
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
     # the pointer flips only after every snapshot key landed
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
-    # Workers Cache can only be purged from inside the site worker; until the
-    # pipeline's purge endpoint lands, cached pages converge via the 7-day TTL
-    # (or a `just deploy`, which starts a fresh version-keyed cache).
-    echo "published; cached pages converge via TTL or the next deploy"
+    # Workers Cache is purgeable only from inside the site worker; a failed
+    # purge leaves the 7-day TTL (or the next deploy) as the backstop.
+    if [ -n "${SITE_ORIGIN:-}" ] && [ -f .secrets/purge_shared_secret ]; then
+        curl -sf -X POST "${SITE_ORIGIN%/}/__purge" \
+            -H "Authorization: Bearer $(cat .secrets/purge_shared_secret)" > /dev/null \
+            && echo "site cache purged" \
+            || echo "warning: purge failed — cached pages fall back to the 7-day TTL"
+    else
+        echo "purge skipped (SITE_ORIGIN or .secrets/purge_shared_secret missing) — TTL or next deploy converges"
+    fi
 
 # one-time toolchain setup (rust + node assumed)
 setup:

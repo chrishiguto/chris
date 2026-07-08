@@ -168,8 +168,7 @@ impl PublishCoordinator {
         }
         let carried_count = carried.len();
 
-        let plan = publish::snapshot(&prev_index, &parsed, carried, &head)
-            .map_err(|err| err.to_string())?;
+        let plan = publish::snapshot(&parsed, carried, &head).map_err(|err| err.to_string())?;
         // Post payloads land concurrently; the index goes last so a torn
         // write never leaves an index naming missing posts.
         join_all(plan.post_writes.iter().map(|write| kv_put(&kv, write)))
@@ -186,9 +185,9 @@ impl PublishCoordinator {
             .await
             .map_err(|err| err.to_string())?;
 
-        // Retention and purge are best-effort; the publish already happened.
+        // Purge and retention are best-effort; the publish already happened.
+        net::purge_site(env).await;
         self.retain(&kv, &head).await;
-        net::purge(env, &plan).await;
         self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
             .await;
         console_log!(

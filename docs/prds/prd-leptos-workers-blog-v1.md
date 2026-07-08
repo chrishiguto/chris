@@ -197,6 +197,12 @@ the SHA (Commit Status API — Checks API write is GitHub-App-only; see ADR-0007
   `purge_everything` needs a zone and `*.workers.dev` has none (the Cache API is equally inert
   there), so it stays skipped until a custom domain lands)*.
 
+*(Amended 2026-07-07: this whole caching/purge block is re-platformed onto Workers Cache —
+the hand-rolled `cache.match`/`cache.put` front, the enumerated purge set, and the CI
+`purge_everything` step are gone. The "inert on workers.dev" assumption above proved false
+in production. See the ADR-0008 and ADR-0009 amendments for the mechanism that replaced
+them: version-keyed platform cache + the site's secret-gated `/__purge`.)*
+
 **CI (single workflow):** triggered by `workflow_dispatch` from the pipeline worker; steps:
 build → size check → `wrangler deploy` (site, pipeline as needed) → `purge_everything` →
 call `/publish` for the triggering commit. Secrets: Cloudflare API token in CI;

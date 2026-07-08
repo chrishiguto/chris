@@ -44,8 +44,9 @@ converging to HEAD as observed at its start):
    publish is atomic from the reader's side. A post that fails validation
    rides in as its previously published payload (or stays out if it never
    published); the next reconcile after a deploy retries it for free.
-3. Retains the last 10 snapshots (rollback depth), sweeps older ones from
-   KV, purges the enumerated URL set, and posts one `blog/publish` status on
+3. Purges the site's Workers Cache (one authenticated `POST /__purge` over
+   the `SITE` service binding), retains the last 10 snapshots (rollback
+   depth), sweeps older ones from KV, and posts one `blog/publish` status on
    the reconciled HEAD: `success` with the post count, `failure` naming how
    many posts kept previous versions plus the first diagnostic (the Commit
    Status API caps descriptions at 140 chars — full diagnostics via
@@ -69,15 +70,21 @@ before the worker runs. Consequences for this worker:
   cannot occur, and no deploy-time purge exists anywhere.
 - **Publish purge** must run *inside* the site worker — Workers Cache is
   private to its owner; no REST API, zone token, or wrangler command can
-  reach it. The pipeline's zone purge-by-URL path (`CLOUDFLARE_ZONE_ID` /
-  `SITE_ORIGIN` / `CLOUDFLARE_PURGE_TOKEN`) is vestigial and slated for
-  replacement by a pipeline-called purge endpoint on the site worker; until
-  that lands, content publishes converge via the 7-day `s-maxage` backstop
-  or the next deploy.
+  reach it. So the site exposes `POST /__purge` (gated by the
+  `PURGE_SHARED_SECRET` both workers hold, constant-time check), and the
+  coordinator calls it over the `SITE` service binding right after the
+  pointer flip: `cache.purge({purgeEverything: true})`. Any flip invalidates
+  every page (the site-wide snapshot-sha ETag encodes exactly that), so
+  purge-everything replaces the old enumerated URL set. Best-effort: a
+  failed purge logs loudly and the 7-day `s-maxage` TTL or the next deploy
+  converges.
 
 Verification: watch the `Cf-Cache-Status` response header (`HIT` / `MISS` /
 `BYPASS`) with `curl -sI`. Storage is per-colo (a page is only cached in
-colos that served it); purge, once it lands, is global via Instant Purge.
+colos that served it); purge is global via Instant Purge. `wrangler dev`
+resolves the `cloudflare:workers` `cache` import but (as of wrangler 4.108)
+stubs it without `purge`, so `/__purge` answers 502 locally — auth and
+routing are still testable; the purge itself verifies in production.
 
 ## Repo Actions configuration (CI code path)
 
@@ -102,6 +109,12 @@ colos that served it); purge, once it lands, is global via Instant Purge.
     Contents RO, and Actions RW (the `workflow_dispatch` trigger needs it).
   - `.secrets/publish_shared_secret` — shared with the `PUBLISH_SHARED_SECRET`
     Actions secret; authenticates CI's `/publish` callback.
+  - `.secrets/purge_shared_secret` — held by **both** workers as
+    `PURGE_SHARED_SECRET`; authenticates the pipeline's (and break-glass
+    curl's) calls to the site's `/__purge`.
+- The `SITE` service binding in `workers/pipeline/wrangler.toml` names the
+  deployed site worker (`chris-site`), so the site deploys first on a fresh
+  account.
 
 ## Deploy
 
@@ -110,10 +123,14 @@ just deploy-pipeline
 wrangler secret put GITHUB_WEBHOOK_SECRET --config workers/pipeline/wrangler.toml < .secrets/github_webhook_secret
 wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml < .secrets/github_pipeline_token
 wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml < .secrets/publish_shared_secret
+wrangler secret put PURGE_SHARED_SECRET --config workers/pipeline/wrangler.toml < .secrets/purge_shared_secret
+# the site worker's half of the purge handshake — its only secret
+wrangler secret put PURGE_SHARED_SECRET < .secrets/purge_shared_secret
 ```
 
-Secrets live **only** in this worker (user story 23); the site worker stays
-credential-free.
+GitHub credentials live **only** in this worker (user story 23); the site
+worker holds nothing but the purge secret, which grants nothing beyond a
+cache flush.
 
 ## Create the webhook
 
@@ -157,21 +174,16 @@ The two draft mechanisms (CONTENT.md "Drafts") and their purge composition:
    branch pushes — check the delivery log), the post 404s, and listings are
    unchanged. Merge the PR: the push to `main` publishes it within seconds.
 2. **`draft: true` = unlisted.** Publish a post with `draft: true`: it
-   renders at `/posts/{slug}` (with `x-blog-cache: miss` on every request —
-   drafts are never cached), and is absent from `/`, `/posts`, `/rss.xml`,
-   `/sitemap.xml`, and its tag pages.
-3. **The flip.** Warm the listing caches (`curl` until `x-blog-cache: hit`),
-   then push `draft: true → false`: the post appears on the listings, feed,
-   sitemap, and its tag pages immediately — the publish purged exactly those
-   URLs plus `/posts/{slug}`.
-4. **Deletion purge (Slice 8 composition).** Warm `/posts/{slug}` and the
-   listings, then delete the post directory and push: the post's URL 404s
-   and the listings drop it without waiting out the 7-day TTL.
-
-Steps 3–4 exercise real purging only behind a custom domain with
-`CLOUDFLARE_ZONE_ID`/`SITE_ORIGIN`/`CLOUDFLARE_PURGE_TOKEN` configured (see
-"Cache purge"); on workers.dev the Cache API is inert and every response is
-a `miss`, so freshness holds trivially.
+   renders at `/posts/{slug}` (with `Cf-Cache-Status` never `HIT` — drafts
+   answer `no-store` and are never cached), and is absent from `/`,
+   `/posts`, `/rss.xml`, `/sitemap.xml`, and its tag pages.
+3. **The flip.** Warm the listing caches (`curl` until `Cf-Cache-Status:
+   HIT`), then push `draft: true → false`: the post appears on the listings,
+   feed, sitemap, and its tag pages immediately — the publish purged the
+   site's whole cache.
+4. **Deletion purge.** Warm `/posts/{slug}` and the listings, then delete
+   the post directory and push: the post's URL 404s and the listings drop it
+   without waiting out the 7-day TTL.
 
 ## Verify the CI code path
 

@@ -2,10 +2,9 @@
 
 use pipeline::{
     classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_body, purge_url,
-    reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url,
-    verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit, PushEvent,
-    ReconcileConfig, StatusState, WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
+    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, reconcile_description,
+    status_payload, statuses_url, tree_post_slugs, tree_url, PublishRequest, PushClass, PushCommit,
+    PushEvent, ReconcileConfig, StatusState, WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -44,55 +43,6 @@ fn branch_pushes_are_not_default_branch() {
         serde_json::from_str(include_str!("fixtures/push.json")).expect("payload should parse");
     event.git_ref = "refs/heads/feature/prd-1".to_string();
     assert!(!event.is_default_branch());
-}
-
-// --- signature verification ---
-
-// GitHub's documented webhook validation example, so the implementation is
-// checked against the spec rather than against itself.
-const DOC_SECRET: &str = "It's a Secret to Everybody";
-const DOC_BODY: &[u8] = b"Hello, World!";
-const DOC_SIGNATURE: &str =
-    "sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17";
-
-#[test]
-fn valid_signature_verifies() {
-    assert!(verify_signature(DOC_SECRET, DOC_BODY, Some(DOC_SIGNATURE)));
-}
-
-#[test]
-fn tampered_body_and_wrong_secret_fail() {
-    assert!(!verify_signature(
-        DOC_SECRET,
-        b"Hello, World?",
-        Some(DOC_SIGNATURE)
-    ));
-    assert!(!verify_signature(
-        "wrong secret",
-        DOC_BODY,
-        Some(DOC_SIGNATURE)
-    ));
-}
-
-#[test]
-fn missing_or_malformed_signature_headers_fail() {
-    assert!(!verify_signature(DOC_SECRET, DOC_BODY, None));
-    assert!(!verify_signature(DOC_SECRET, DOC_BODY, Some("")));
-    assert!(!verify_signature(DOC_SECRET, DOC_BODY, Some("sha256=")));
-    assert!(!verify_signature(DOC_SECRET, DOC_BODY, Some("sha256=zz")));
-    assert!(!verify_signature(
-        DOC_SECRET,
-        DOC_BODY,
-        Some("sha256=757107")
-    ));
-    // sha1= is the legacy header; only sha256 is accepted
-    assert!(!verify_signature(
-        DOC_SECRET,
-        DOC_BODY,
-        Some("sha1=deadbeef")
-    ));
-    // multibyte input must not panic the hex decoder
-    assert!(!verify_signature(DOC_SECRET, DOC_BODY, Some("sha256=éé")));
 }
 
 // --- classification ---
@@ -398,24 +348,6 @@ fn dispatch_payload_carries_branch_ref_and_commit_sha() {
     assert_eq!(json["inputs"]["sha"], "abc123");
 }
 
-// --- /publish auth ---
-
-#[test]
-fn matching_bearer_token_authenticates() {
-    assert!(verify_publish_auth("s3cret", Some("Bearer s3cret")));
-}
-
-#[test]
-fn missing_or_wrong_tokens_are_rejected() {
-    assert!(!verify_publish_auth("s3cret", None));
-    assert!(!verify_publish_auth("s3cret", Some("")));
-    assert!(!verify_publish_auth("s3cret", Some("s3cret")));
-    assert!(!verify_publish_auth("s3cret", Some("Bearer wrong")));
-    assert!(!verify_publish_auth("s3cret", Some("Bearer s3cret extra")));
-    // only CI calls this endpoint; the exact scheme it sends is the contract
-    assert!(!verify_publish_auth("s3cret", Some("bearer s3cret")));
-}
-
 #[test]
 fn publish_request_carries_repository_and_branch() {
     // CI also sends `sha`; serde ignores it — a reconcile targets HEAD.
@@ -444,30 +376,6 @@ fn manifest_exposes_the_real_app_vocabulary() {
     assert!(
         names.contains(&"Callout") && names.contains(&"Counter"),
         "expected the app vocabulary, got {names:?}"
-    );
-}
-
-// --- cache purge requests ---
-
-#[test]
-fn purge_url_targets_the_zone_purge_endpoint() {
-    assert_eq!(
-        purge_url("zone123"),
-        "https://api.cloudflare.com/client/v4/zones/zone123/purge_cache"
-    );
-}
-
-/// Origin-prefixing and chunking are `purge_chunks`' job; the pipeline only
-/// wraps a chunk in the API body.
-#[test]
-fn purge_body_wraps_a_chunk_in_the_files_field() {
-    let files = vec![
-        "https://blog.example.com/".to_string(),
-        "https://blog.example.com/posts/hello".to_string(),
-    ];
-    assert_eq!(
-        purge_body(&files),
-        r#"{"files":["https://blog.example.com/","https://blog.example.com/posts/hello"]}"#
     );
 }
 

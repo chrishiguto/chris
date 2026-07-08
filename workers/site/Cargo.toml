@@ -12,6 +12,8 @@ crate-type = ["cdylib", "rlib"]
 # Same minor leptos resolves to; the renderer spawns through its global executor.
 any_spawner = { version = "0.3", features = ["wasm-bindgen"], optional = true }
 app = { workspace = true, features = ["ssr"], optional = true }
+# The purge route's bearer check; shared with the pipeline worker.
+authn = { workspace = true, optional = true }
 axum = { workspace = true, optional = true }
 # Ungated: the feeds module needs it natively (pure serde types).
 content = { workspace = true }
@@ -21,6 +23,9 @@ leptos = { workspace = true, optional = true }
 leptos_axum = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 tower-service = { workspace = true, optional = true }
+# The purge module imports `cloudflare:workers` directly, so the macro's
+# generated `::wasm_bindgen` paths need a direct dependency.
+wasm-bindgen = { workspace = true, optional = true }
 worker = { workspace = true, optional = true }
 
 # Gated behind `ssr` so native workspace checks compile this crate to an
@@ -29,11 +34,13 @@ worker = { workspace = true, optional = true }
 ssr = [
   "dep:any_spawner",
   "dep:app",
+  "dep:authn",
   "dep:axum",
   "dep:leptos",
   "dep:leptos_axum",
   "dep:serde_json",
   "dep:tower-service",
+  "dep:wasm-bindgen",
   "dep:worker",
   "leptos/ssr",
 ]

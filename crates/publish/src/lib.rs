@@ -3,8 +3,7 @@
 //! Snapshots are immutable; the caller flips `current` last, so readers never see a blend.
 
 use content::{
-    post_path, snapshot_index_key, snapshot_post_key, tag_path, AstError, Diagnostic, Document,
-    IndexEntry, Manifest, FEED_PATHS, LISTING_PAGES,
+    snapshot_index_key, snapshot_post_key, AstError, Diagnostic, Document, IndexEntry, Manifest,
 };
 
 #[derive(Debug, Clone)]
@@ -38,11 +37,8 @@ pub struct KvWrite {
     pub value: String,
 }
 
-/// The purge-by-URL API caps each request at 30 files (non-Enterprise).
-pub const PURGE_FILES_LIMIT: usize = 30;
-
-/// All KV writes for one snapshot publish; the caller flips `current`
-/// after all writes, then purges.
+/// All KV writes for one snapshot publish; the caller flips `current` after
+/// all writes. Cache invalidation is the caller's transport concern.
 #[derive(Debug, Clone)]
 pub struct SnapshotPlan {
     /// Land these first, in any order.
@@ -52,20 +48,6 @@ pub struct SnapshotPlan {
     pub index_write: KvWrite,
     /// The new index, newest-first.
     pub index: Vec<IndexEntry>,
-    /// URL paths to invalidate, sorted and deduplicated; callers prefix
-    /// their origin.
-    pub purge: Vec<String>,
-}
-
-impl SnapshotPlan {
-    /// The purge set as absolute URLs, chunked to the API's per-request cap.
-    pub fn purge_chunks(&self, origin: &str) -> Vec<Vec<String>> {
-        let origin = origin.trim_end_matches('/');
-        self.purge
-            .chunks(PURGE_FILES_LIMIT)
-            .map(|chunk| chunk.iter().map(|path| format!("{origin}{path}")).collect())
-            .collect()
-    }
 }
 
 /// Validates every source, collecting diagnostics across all files —
@@ -133,9 +115,8 @@ fn check_slug(post: &PostSource) -> Option<Diagnostic> {
 }
 
 /// Lays out one immutable snapshot: the index is exactly checked + carried
-/// posts — absent from both means retired. `prev_index` feeds only the purge set.
+/// posts — absent from both means retired.
 pub fn snapshot(
-    prev_index: &[IndexEntry],
     posts: &[ParsedPost],
     carried: Vec<CarriedPost>,
     sha: &str,
@@ -146,7 +127,6 @@ pub fn snapshot(
         .chain(carried.iter().map(|post| post.entry.clone()))
         .collect();
     index.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.slug.cmp(&b.slug)));
-    let purge = purge_paths(prev_index, &index);
 
     let index_write = KvWrite {
         key: snapshot_index_key(sha),
@@ -172,26 +152,5 @@ pub fn snapshot(
         post_writes,
         index_write,
         index,
-        purge,
     })
-}
-
-/// A full rebuild records no body deltas, so purge every URL either index
-/// knows about, plus listings and feeds.
-fn purge_paths(prev_index: &[IndexEntry], index: &[IndexEntry]) -> Vec<String> {
-    let entries = prev_index.iter().chain(index);
-    LISTING_PAGES
-        .into_iter()
-        .chain(FEED_PATHS)
-        .map(String::from)
-        .chain(entries.flat_map(|entry| {
-            entry
-                .tags
-                .iter()
-                .map(|tag| tag_path(tag))
-                .chain(std::iter::once(post_path(&entry.slug)))
-        }))
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .collect()
 }

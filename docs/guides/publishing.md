@@ -37,11 +37,10 @@ just remote='--local' publish
 
 A snapshot is by definition complete, so there is no per-slug mode anymore:
 the whole local tree must validate (a broken draft blocks the publish — fix
-or remove it locally first). Under the hood the recipe is four steps, all
-inspectable in the justfile: read the `current` pointer and the previous
-snapshot's index (`wrangler kv key get`), plan
-(`xtask plan --sha manual-… ` → `target/publish/{writes,pointer}.json` and
-friends), apply the snapshot keys (`wrangler kv bulk put`), flip the pointer
+or remove it locally first). Under the hood the recipe is three steps plus a
+purge, all inspectable in the justfile: plan
+(`xtask plan --sha manual-… ` → `target/publish/{writes,pointer}.json`),
+apply the snapshot keys (`wrangler kv bulk put`), flip the pointer
 (`wrangler kv key put current --path`). The pointer flips only after
 every snapshot key landed, so readers see the whole old snapshot or the whole
 new one — never a blend. This is also the onboarding path for content written
@@ -49,14 +48,22 @@ before the pipeline existed (PRD "Importing existing content"), and the
 **rollback** mechanism: put an older retained snapshot's sha back into
 `current` (see `pipeline-deploy.md` → Operations).
 
-## Cache convergence
+## Cache purge
 
 Pages are cached by Workers Cache (ADR-0008 amendment), which only the site
-worker itself can purge — no zone API, no wrangler command, no local recipe
-can reach it. After a break-glass publish, cached pages converge via the
-7-day `s-maxage` backstop, the next `just deploy` (deploys start a fresh
-version-keyed cache), or the pipeline's purge-on-publish once a normal
-reconcile runs. Nothing here can fail the already-applied publish.
+worker itself can purge — no zone API, no wrangler command can reach it. The
+recipe's last step therefore curls the site's authenticated `/__purge` route
+(the same one the pipeline's reconcile calls):
+
+```sh
+export SITE_ORIGIN=…             # e.g. https://chris-site.<subdomain>.workers.dev
+# .secrets/purge_shared_secret must hold the workers' PURGE_SHARED_SECRET
+```
+
+With either missing the purge is skipped with a note, and cached pages
+converge via the 7-day `s-maxage` backstop, the next `just deploy` (deploys
+start a fresh version-keyed cache), or the pipeline's next reconcile.
+Nothing here can fail the already-applied publish.
 
 ## One-time setup
 

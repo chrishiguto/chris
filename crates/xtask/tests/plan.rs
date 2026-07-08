@@ -1,4 +1,4 @@
-//! Pins `xtask plan`'s output files — the wire contract fed to wrangler and curl.
+//! Pins `xtask plan`'s output files — the wire contract fed to wrangler.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -32,11 +32,9 @@ fn read_json(path: &Path) -> serde_json::Value {
 }
 
 #[test]
-fn plan_writes_bulk_puts_with_the_index_last_and_chunked_purge_urls() {
+fn plan_writes_bulk_puts_with_the_index_last() {
     let out = out_dir("valid");
-    let index = out.join("prev-index.json");
     std::fs::create_dir_all(&out).unwrap();
-    std::fs::write(&index, "Value not found").unwrap();
 
     let run = xtask(&[
         "plan",
@@ -44,12 +42,8 @@ fn plan_writes_bulk_puts_with_the_index_last_and_chunked_purge_urls() {
         "testsha",
         "--content-dir",
         &fixture("valid"),
-        "--index",
-        index.to_str().unwrap(),
         "--out",
         out.to_str().unwrap(),
-        "--origin",
-        "https://blog.example.com/",
     ]);
     assert!(
         run.status.success(),
@@ -72,42 +66,6 @@ fn plan_writes_bulk_puts_with_the_index_last_and_chunked_purge_urls() {
 
     let pointer = read_json(&out.join("pointer.json"));
     assert_eq!(pointer["sha"], "testsha");
-
-    // purge-N.json chunks hold curl-ready full URLs under the origin.
-    let purge = read_json(&out.join("purge-0.json"));
-    let urls = purge.as_array().expect("purge chunk must be an array");
-    assert!(urls.iter().all(|url| url
-        .as_str()
-        .unwrap()
-        .starts_with("https://blog.example.com/")));
-    assert!(!out.join("purge-1.json").exists(), "small plan, one chunk");
-
-    std::fs::remove_dir_all(&out).unwrap();
-}
-
-/// A re-plan must not leave a previous, larger plan's purge chunks behind.
-#[test]
-fn plan_removes_stale_purge_chunks() {
-    let out = out_dir("stale");
-    let index = out.join("prev-index.json");
-    std::fs::create_dir_all(&out).unwrap();
-    std::fs::write(&index, "").unwrap();
-    std::fs::write(out.join("purge-7.json"), "[\"stale\"]").unwrap();
-
-    let run = xtask(&[
-        "plan",
-        "--sha",
-        "testsha",
-        "--content-dir",
-        &fixture("valid"),
-        "--index",
-        index.to_str().unwrap(),
-        "--out",
-        out.to_str().unwrap(),
-    ]);
-    assert!(run.status.success());
-    assert!(out.join("purge-0.json").exists());
-    assert!(!out.join("purge-7.json").exists(), "stale chunk must go");
 
     std::fs::remove_dir_all(&out).unwrap();
 }
