@@ -1,11 +1,17 @@
 ---
-title: The CI code path, demonstrated by itself
+title: The CI code path, from push to purge
 date: 2026-07-04
 description: A post and its co-located island ship in one push — CI builds, deploys, then publishes.
 tags: [meta]
 ---
 
 # Code rides a deploy
+
+<Callout kind="note" title="Edited to test the cache">
+  This post was retitled and this callout added to exercise the new Workers
+  Cache path — a content-only publish should flip the `current` pointer and
+  purge through the site worker's `/__purge`, no wasm redeploy.
+</Callout>
 
 The widget below is not part of the site's shared vocabulary — it lives in
 `components.rs` right next to this file (ADR-0004). Pushing the two together
