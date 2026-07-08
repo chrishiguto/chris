@@ -185,16 +185,23 @@ impl PublishCoordinator {
             .await
             .map_err(|err| err.to_string())?;
 
-        // Purge and retention are best-effort; the publish already happened.
-        // The diff scopes the purge to what actually changed — an unchanged
-        // reconcile purges nothing.
+        // Purge and retention never unwind the publish — the flip already
+        // happened; a failed purge rides into the status instead. The diff
+        // scopes the purge to what actually changed — an unchanged reconcile
+        // purges nothing.
         let tags = publish::purge_tags(&prev_index, &plan.index);
-        if !tags.is_empty() {
-            net::purge_site(env, &tags).await;
-        }
+        let purged = tags.is_empty() || net::purge_site(env, &tags).await;
         self.retain(&kv, &head).await;
-        self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
-            .await;
+        self.report(
+            repo,
+            &head,
+            parsed.len(),
+            failed,
+            carried_count,
+            purged,
+            &diags,
+        )
+        .await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
             parsed.len()
@@ -211,9 +218,10 @@ impl PublishCoordinator {
         published: usize,
         failed: usize,
         carried: usize,
+        purged: bool,
         diags: &[Diagnostic],
     ) {
-        let (state, description) = reconcile_description(published, failed, carried, diags);
+        let (state, description) = reconcile_description(published, failed, carried, purged, diags);
         let stamp = format!("{head}|{state:?}|{description}");
         let storage = self.state.storage();
         let last: Option<String> = storage.get(LAST_STATUS_KEY).await.unwrap_or_else(|err| {

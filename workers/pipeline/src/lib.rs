@@ -242,14 +242,17 @@ pub fn code_push_description(touched_posts: usize) -> String {
 
 /// One reconcile's status. `carried` is how many failures actually had a
 /// previous version to keep — claiming "kept" for a dropped post would lie.
+/// A failed purge fails the status even when every post published: readers
+/// still see stale pages, and a green check must never hide that.
 pub fn reconcile_description(
     published: usize,
     failed: usize,
     carried: usize,
+    purged: bool,
     diags: &[Diagnostic],
 ) -> (StatusState, String) {
     let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
-    match failed {
+    let (state, description) = match failed {
         0 => (
             StatusState::Success,
             format!("reconciled: {} published", posts(published)),
@@ -269,6 +272,14 @@ pub fn reconcile_description(
                 ),
             )
         }
+    };
+    if purged {
+        (state, description)
+    } else {
+        (
+            StatusState::Failure,
+            format!("{description}; cache purge failed — pages may be stale"),
+        )
     }
 }
 

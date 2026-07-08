@@ -44,40 +44,53 @@ converging to HEAD as observed at its start):
    publish is atomic from the reader's side. A post that fails validation
    rides in as its previously published payload (or stays out if it never
    published); the next reconcile after a deploy retries it for free.
-3. Purges the site's Workers Cache (one authenticated `POST /__purge` over
-   the `SITE` service binding), retains the last 10 snapshots (rollback
-   depth), sweeps older ones from KV, and posts one `blog/publish` status on
-   the reconciled HEAD: `success` with the post count, `failure` naming how
-   many posts kept previous versions plus the first diagnostic (the Commit
-   Status API caps descriptions at 140 chars — full diagnostics via
-   `just check`). Identical repeat statuses are skipped.
+3. Purges exactly what the publish changed from the site's Workers Cache
+   (one authenticated `POST /__purge` over the `SITE` service binding, body
+   `{"tags":[…]}`): the added/removed/changed posts' `post:{slug}` tags plus
+   the shared `views` tag — nothing when the reconcile changed nothing.
+   Retains the last 10 snapshots (rollback depth), sweeps older ones from
+   KV, and posts one `blog/publish` status on the reconciled HEAD: `success`
+   with the post count, `failure` naming how many posts kept previous
+   versions plus the first diagnostic (the Commit Status API caps
+   descriptions at 140 chars — full diagnostics via `just check`). A failed
+   purge also fails the status — pages stale behind a green check is the
+   incident class this guards against. Identical repeat statuses are skipped.
 4. Re-arms its own alarm as a ~6 h cron backstop, so a missed webhook or a
    failed run self-heals without anyone pushing.
 
 The CI half lives in `.github/workflows/publish.yml`: build both workers →
-enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy site +
-pipeline → call `/publish`. There is no purge step: Workers Cache keys on
-the deployed version (ADR-0008 amendment), so a deploy starts from an empty
-cache by construction.
+enforce the size budget (fail > 10 MB gzipped, warn > 5 MB) → deploy the
+site → purge the `site` cache tag (`-f`: a failed purge fails the run) →
+deploy the pipeline → call `/publish`. The deploy purge is defensive:
+Workers Cache is documented as keying on the deployed version (deploys
+would start cold by construction), but that has not been verified in
+production — until it is, the explicit purge guarantees no stale HTML
+hydrates against a new wasm build. If verification confirms version-keyed
+cold starts, the step deletes as redundant.
 
 ## Cache and purge (ADR-0008 as amended)
 
 The site is fronted by Workers Cache — worker-scoped, zone-free, checked
 before the worker runs. Consequences for this worker:
 
-- **Deploys self-invalidate.** Cache keys include the Worker version; the
-  binary-coupling hazard (stale HTML hydrating against a new wasm build)
-  cannot occur, and no deploy-time purge exists anywhere.
-- **Publish purge** must run *inside* the site worker — Workers Cache is
-  private to its owner; no REST API, zone token, or wrangler command can
-  reach it. So the site exposes `POST /__purge` (gated by the
-  `PURGE_SHARED_SECRET` both workers hold, constant-time check), and the
-  coordinator calls it over the `SITE` service binding right after the
-  pointer flip: `cache.purge({purgeEverything: true})`. Any flip invalidates
-  every page (the site-wide snapshot-sha ETag encodes exactly that), so
-  purge-everything replaces the old enumerated URL set. Best-effort: a
-  failed purge logs loudly and the 7-day `s-maxage` TTL or the next deploy
+- **Every purge runs *inside* the site worker** — Workers Cache is private
+  to its owner; no REST API, zone token, or wrangler command can reach it.
+  The one door is the site's `POST /__purge` (gated by the
+  `PURGE_SHARED_SECRET` both workers and CI hold, constant-time check),
+  taking `{"tags":[…]}`; a bodyless request means `["site"]`, the
+  break-glass full purge (`just purge` wraps it).
+- **Responses are tagged** (`Cache-Tag`): every cacheable page carries
+  `site`, post pages add `post:{slug}`, and the index-backed views
+  (listings, tag pages, feeds) add `views` — names defined once in
+  `content/src/routes.rs` beside the paths they tag.
+- **Publish purges are scoped.** Index entries carry a `content_hash` of the
+  serialized post payload; the coordinator diffs the previous index against
+  the new one and purges exactly the changed/added/removed posts plus
+  `views`. Post N never evicts post M. A failed purge logs loudly, fails
+  the commit status, and the 7-day `s-maxage` TTL or a `site` purge
   converges.
+- **Deploys purge `site`** from CI right after the site deploy (see above —
+  defensive until version-keyed cold starts are verified in production).
 
 Verification: watch the `Cf-Cache-Status` response header (`HIT` / `MISS` /
 `BYPASS`) with `curl -sI`. Storage is per-colo (a page is only cached in

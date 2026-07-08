@@ -41,9 +41,11 @@ summary, key topics.
   orchestration, ci, commit statuses, ordering.
 - `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — full-response caching in front
   of the worker; all dynamism in islands (amended twice by ADR-0009, then re-platformed
-  2026-07-07: Workers Cache replaces the hand-rolled Cache API front — version-keyed so
-  deploys self-invalidate, zone-free so workers.dev purges work, purge only from inside the
-  worker). Topics: caching, purge, workers cache, deploys, islands.
+  2026-07-07: Workers Cache replaces the hand-rolled Cache API front, purge only from inside
+  the worker; amended 2026-07-08: `Cache-Tag`s `site`/`views`/`post:{slug}` replace
+  purgeEverything, publishes purge only changed posts via index `content_hash` diffs, failed
+  purges fail the commit status, CI purges `site` after deploys pending version-keying
+  verification). Topics: caching, purge, cache tags, workers cache, deploys, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single

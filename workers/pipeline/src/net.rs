@@ -139,13 +139,17 @@ pub(crate) async fn post_status(
     }
 }
 
-/// Purges exactly `tags` from the site's cache. KV is the truth and the
-/// site's 7-day TTL backstops a miss; Workers Cache is private to the site
-/// worker, so the purge is a call into it over the service binding, not a
-/// Cloudflare API request.
-pub(crate) async fn purge_site(env: &Env, tags: &[String]) {
-    if let Err(err) = purge_request(env, tags).await {
-        console_error!("cache purge failed (TTL backstop applies): {err}");
+/// Purges exactly `tags` from the site's cache; returns whether it landed —
+/// KV already flipped, so the caller reports a failure instead of unwinding
+/// the publish. Workers Cache is private to the site worker, so the purge is
+/// a call into it over the service binding, not a Cloudflare API request.
+pub(crate) async fn purge_site(env: &Env, tags: &[String]) -> bool {
+    match purge_request(env, tags).await {
+        Ok(()) => true,
+        Err(err) => {
+            console_error!("cache purge failed (TTL backstop applies): {err}");
+            false
+        }
     }
 }
 

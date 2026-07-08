@@ -202,11 +202,11 @@ fn a_tree_response_without_a_tree_array_is_an_error() {
 
 #[test]
 fn reconcile_description_reports_success_and_carried_failures() {
-    let (state, description) = reconcile_description(3, 0, 0, &[]);
+    let (state, description) = reconcile_description(3, 0, 0, true, &[]);
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 3 posts published");
 
-    let (state, description) = reconcile_description(1, 0, 0, &[]);
+    let (state, description) = reconcile_description(1, 0, 0, true, &[]);
     assert_eq!(state, StatusState::Success);
     assert_eq!(description, "reconciled: 1 post published");
 
@@ -216,7 +216,7 @@ fn reconcile_description_reports_success_and_carried_failures() {
         line: Some(3),
         column: None,
     };
-    let (state, description) = reconcile_description(2, 1, 1, &[diag]);
+    let (state, description) = reconcile_description(2, 1, 1, true, &[diag]);
     assert_eq!(state, StatusState::Failure);
     assert_eq!(
         description,
@@ -235,12 +235,30 @@ fn reconcile_description_does_not_claim_kept_for_dropped_posts() {
         line: None,
         column: None,
     };
-    let (state, description) = reconcile_description(2, 2, 1, &[diag]);
+    let (state, description) = reconcile_description(2, 2, 1, true, &[diag]);
     assert_eq!(state, StatusState::Failure);
     assert!(
         description.contains("previous versions kept where available"),
         "{description}"
     );
+}
+
+/// KV can flip and the purge still fail — readers see stale pages, so a
+/// green "published" must never paper over it.
+#[test]
+fn reconcile_description_fails_the_status_when_the_purge_fails() {
+    let (state, description) = reconcile_description(2, 0, 0, false, &[]);
+    assert_eq!(state, StatusState::Failure);
+    assert_eq!(
+        description,
+        "reconciled: 2 posts published; cache purge failed — pages may be stale"
+    );
+
+    // A validation failure and a purge failure both surface.
+    let (state, description) = reconcile_description(1, 1, 1, false, &[]);
+    assert_eq!(state, StatusState::Failure);
+    assert!(description.contains("cache purge failed"), "{description}");
+    assert!(description.contains("failed validation"), "{description}");
 }
 
 #[test]

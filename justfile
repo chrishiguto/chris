@@ -81,16 +81,25 @@ publish:
     npx wrangler kv bulk put --binding BLOG {{remote}} "$out/writes.json"
     # the pointer flips only after every snapshot key landed
     npx wrangler kv key put --binding BLOG {{remote}} current --path "$out/pointer.json"
-    # Workers Cache is purgeable only from inside the site worker; a failed
-    # purge leaves the 7-day TTL (or the next deploy) as the backstop.
+    # Workers Cache is purgeable only from inside the site worker; a manual
+    # publish bypasses the coordinator's diff, so it purges the whole site tag.
     if [ -n "${SITE_ORIGIN:-}" ] && [ -f .secrets/purge_shared_secret ]; then
-        curl -sf -X POST "${SITE_ORIGIN%/}/__purge" \
-            -H "Authorization: Bearer $(cat .secrets/purge_shared_secret)" > /dev/null \
-            && echo "site cache purged" \
+        just purge && echo "site cache purged" \
             || echo "warning: purge failed — cached pages fall back to the 7-day TTL"
     else
-        echo "purge skipped (SITE_ORIGIN or .secrets/purge_shared_secret missing) — TTL or next deploy converges"
+        echo "purge skipped (SITE_ORIGIN or .secrets/purge_shared_secret missing) — TTL or the CI purge converges"
     fi
+
+# break-glass full cache purge (the `site` tag); publishes and deploys purge
+# their own scopes — this is for everything else
+purge:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${SITE_ORIGIN:?set SITE_ORIGIN to the deployed site origin}"
+    curl -sf -X POST "${SITE_ORIGIN%/}/__purge" \
+        -H "Authorization: Bearer $(cat .secrets/purge_shared_secret)" \
+        -H "Content-Type: application/json" \
+        --data '{"tags":["site"]}' > /dev/null
 
 # one-time toolchain setup (rust + node assumed)
 setup:

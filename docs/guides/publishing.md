@@ -52,8 +52,10 @@ before the pipeline existed (PRD "Importing existing content"), and the
 
 Pages are cached by Workers Cache (ADR-0008 amendment), which only the site
 worker itself can purge — no zone API, no wrangler command can reach it. The
-recipe's last step therefore curls the site's authenticated `/__purge` route
-(the same one the pipeline's reconcile calls):
+recipe's last step therefore runs `just purge`, which curls the site's
+authenticated `/__purge` route (the same one the pipeline's reconcile and
+CI's post-deploy step call) with `{"tags":["site"]}` — a manual publish
+bypasses the coordinator's changed-post diff, so it evicts everything:
 
 ```sh
 export SITE_ORIGIN=…             # e.g. https://chris-site.<subdomain>.workers.dev
@@ -61,9 +63,9 @@ export SITE_ORIGIN=…             # e.g. https://chris-site.<subdomain>.workers
 ```
 
 With either missing the purge is skipped with a note, and cached pages
-converge via the 7-day `s-maxage` backstop, the next `just deploy` (deploys
-start a fresh version-keyed cache), or the pipeline's next reconcile.
-Nothing here can fail the already-applied publish.
+converge via the 7-day `s-maxage` backstop or the next CI deploy's `site`
+purge. Nothing here can fail the already-applied publish. `just purge` also
+works standalone as the break-glass "evict everything now".
 
 ## One-time setup
 
