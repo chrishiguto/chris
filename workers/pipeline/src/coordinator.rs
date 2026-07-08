@@ -35,6 +35,11 @@ const HISTORY_KEY: &str = "history";
 const LAST_STATUS_KEY: &str = "last-status";
 /// Tags a failed purge left uncovered; later reconciles retry them.
 const PENDING_PURGE_KEY: &str = "pending-purge";
+const LAST_DEPLOYMENT_KEY: &str = "last-deployment";
+
+/// The site's public origin, for the deployment record's environment link;
+/// empty just drops the link.
+const SITE_ORIGIN_VAR: &str = "SITE_ORIGIN";
 
 /// Snapshots kept for rollback; older ones are swept after a flip.
 const KEEP_SNAPSHOTS: usize = 10;
@@ -217,6 +222,8 @@ impl PublishCoordinator {
             purged,
         };
         self.report(repo, &head, outcome, &diags).await;
+        self.record_deployment(repo, &head, parsed.len(), failed)
+            .await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
             parsed.len()
@@ -249,6 +256,38 @@ impl PublishCoordinator {
         }
         if let Err(err) = storage.put(LAST_STATUS_KEY, &stamp).await {
             console_error!("recording last status failed: {err}");
+        }
+    }
+
+    /// One deployment record per newly reconciled HEAD — the ~6 h backstop
+    /// re-flips the same sha, which must not spam the PR timeline.
+    async fn record_deployment(&self, repo: &str, head: &str, published: usize, failed: usize) {
+        let storage = self.state.storage();
+        let last: Option<String> = storage
+            .get(LAST_DEPLOYMENT_KEY)
+            .await
+            .unwrap_or_else(|err| {
+                console_error!("last-deployment read failed (a duplicate may post): {err}");
+                None
+            });
+        if last.as_deref() == Some(head) {
+            return;
+        }
+        let description = match failed {
+            0 => format!("{published} posts published"),
+            n => format!("{published} posts published, {n} kept previous versions"),
+        };
+        let origin = self
+            .env
+            .var(SITE_ORIGIN_VAR)
+            .map(|value| value.to_string())
+            .unwrap_or_default();
+        // Stamp only what landed so a lost record is retried next reconcile.
+        if !net::record_deployment(&self.env, repo, head, &description, &origin).await {
+            return;
+        }
+        if let Err(err) = storage.put(LAST_DEPLOYMENT_KEY, head).await {
+            console_error!("recording last deployment failed: {err}");
         }
     }
 

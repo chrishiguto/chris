@@ -326,6 +326,53 @@ pub fn statuses_url(repo: &str, sha: &str) -> String {
     format!("https://api.github.com/repos/{repo}/statuses/{sha}")
 }
 
+/// The environment content publishes deploy to — GitHub surfaces it on the
+/// merged PR's timeline and the repo's Environments panel.
+pub const DEPLOY_ENVIRONMENT: &str = "content";
+
+pub fn deployments_url(repo: &str) -> String {
+    format!("https://api.github.com/repos/{repo}/deployments")
+}
+
+pub fn deployment_statuses_url(repo: &str, id: u64) -> String {
+    format!("https://api.github.com/repos/{repo}/deployments/{id}/statuses")
+}
+
+/// `required_contexts: []` keeps our own commit status from gating the
+/// record; `auto_merge: false` keeps GitHub from touching the ref.
+pub fn deployment_payload(sha: &str, description: &str) -> String {
+    serde_json::json!({
+        "ref": sha,
+        "environment": DEPLOY_ENVIRONMENT,
+        "description": clamp(description),
+        "auto_merge": false,
+        "required_contexts": [],
+        "production_environment": true,
+    })
+    .to_string()
+}
+
+/// `auto_inactive` retires the previous deployment, so the Environments
+/// panel always shows exactly what is live.
+pub fn deployment_status_payload(environment_url: &str, description: &str) -> String {
+    let mut payload = serde_json::json!({
+        "state": "success",
+        "description": clamp(description),
+        "auto_inactive": true,
+    });
+    if !environment_url.is_empty() {
+        payload["environment_url"] = environment_url.into();
+    }
+    payload.to_string()
+}
+
+/// The new deployment's id out of a creation response.
+pub fn parse_deployment_id(json: &serde_json::Value) -> Result<u64, String> {
+    json["id"]
+        .as_u64()
+        .ok_or_else(|| "deployment response carries no id".to_string())
+}
+
 pub fn dispatch_url(repo: &str) -> String {
     format!("https://api.github.com/repos/{repo}/actions/workflows/{WORKFLOW_FILE}/dispatches")
 }
