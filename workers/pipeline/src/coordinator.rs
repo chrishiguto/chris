@@ -1,6 +1,6 @@
 //! The publish coordinator: one Durable Object owns every content mutation.
-//! Triggers only mark it dirty and schedule the alarm; the alarm runs one
-//! serialized reconcile-to-HEAD at a time, so triggers never interleave writes.
+//! Each `POST /reconcile` runs one serialized reconcile-to-HEAD and returns
+//! its outcome; the single-instance DO serializes overlapping calls.
 
 use std::collections::BTreeSet;
 
@@ -17,8 +17,8 @@ use worker::{
 };
 
 use crate::{
-    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, purge_scope,
-    reconcile_description, tree_url, ReconcileConfig, ReconcileOutcome,
+    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, purge_scope, tree_url,
+    PublishOutcome, ReconcileConfig,
 };
 
 /// Every caller addresses this one instance, which serializes all publishes.
@@ -28,23 +28,13 @@ pub(crate) const COORDINATOR_NAME: &str = "publish";
 /// Same namespace the site worker reads.
 const KV_BINDING: &str = "BLOG";
 
-/// DO storage keys; `dirty` coalesces triggers that land mid-reconcile.
-const CONFIG_KEY: &str = "config";
-const DIRTY_KEY: &str = "dirty";
+/// DO storage keys.
 const HISTORY_KEY: &str = "history";
-const LAST_STATUS_KEY: &str = "last-status";
 /// Tags a failed purge left uncovered; later reconciles retry them.
 const PENDING_PURGE_KEY: &str = "pending-purge";
-const LAST_DEPLOYMENT_KEY: &str = "last-deployment";
-
-/// The site's public origin, for the deployment record's environment link;
-/// empty just drops the link.
-const SITE_ORIGIN_VAR: &str = "SITE_ORIGIN";
 
 /// Snapshots kept for rollback; older ones are swept after a flip.
 const KEEP_SNAPSHOTS: usize = 10;
-/// How long until the alarm re-fires on its own, healing missed triggers.
-const BACKSTOP_MS: i64 = 6 * 60 * 60 * 1000;
 const FETCH_CONCURRENCY: usize = 8;
 
 #[durable_object]
@@ -58,50 +48,38 @@ impl DurableObject for PublishCoordinator {
         Self { state, env }
     }
 
-    /// `POST /trigger`: persist the target, mark dirty, pull the alarm to
-    /// now. Triggers during a running reconcile coalesce into one follow-up.
+    /// `POST /reconcile`: run one serialized reconcile-to-HEAD and return its
+    /// outcome as JSON. Infra errors 500 so the calling run fails loudly and
+    /// re-running retries.
     async fn fetch(&self, mut req: Request) -> Result<Response> {
-        if req.method() != Method::Post || req.path() != "/trigger" {
+        if req.method() != Method::Post || req.path() != "/reconcile" {
             return Response::error("not found", 404);
         }
         let config: ReconcileConfig = req.json().await?;
-        let storage = self.state.storage();
-        storage.put(CONFIG_KEY, &config).await?;
-        storage.put(DIRTY_KEY, true).await?;
-        storage.set_alarm(0_i64).await?;
-        Response::ok("reconcile scheduled")
+        match self.reconcile(&config).await {
+            Ok(outcome) => Response::from_json(&outcome),
+            Err(err) => {
+                console_error!("reconcile of {} failed: {err}", config.repository);
+                Response::error(err, 500)
+            }
+        }
     }
 
-    /// The serialization point: alarms never overlap and auto-retry on
-    /// failure, so reconciles run one at a time.
+    /// A stale alarm left by the pre-Actions deployment may still fire once;
+    /// swallow it so it does not error.
     async fn alarm(&self) -> Result<Response> {
-        let storage = self.state.storage();
-        // Re-arm the backstop first so a failed run still comes back.
-        storage.set_alarm(BACKSTOP_MS).await?;
-        storage.put(DIRTY_KEY, false).await?;
-        let Some(config) = storage.get::<ReconcileConfig>(CONFIG_KEY).await? else {
-            // Fresh namespace: nothing to converge to yet.
-            storage.delete_alarm().await?;
-            return Response::ok("no reconcile target configured");
-        };
-        if let Err(err) = self.reconcile(&config).await {
-            console_error!("reconcile of {} failed: {err}", config.repository);
-            return Err(worker::Error::RustError(err));
-        }
-        // A trigger landed mid-reconcile: run again now (alarm-overwrite
-        // ordering during a running handler isn't guaranteed).
-        if storage.get::<bool>(DIRTY_KEY).await?.unwrap_or(false) {
-            storage.set_alarm(0_i64).await?;
-        }
-        Response::ok("reconciled")
+        Response::ok("noop")
     }
 }
 
 impl PublishCoordinator {
-    /// One convergence pass: observe HEAD, rebuild, flip, retain, purge,
-    /// report. Infra errors propagate (the alarm retries); validation
-    /// failures carry forward.
-    async fn reconcile(&self, config: &ReconcileConfig) -> std::result::Result<(), String> {
+    /// One convergence pass: observe HEAD, rebuild, flip, retain, purge.
+    /// Infra errors propagate (the caller retries); validation failures carry
+    /// forward and ride into the returned outcome.
+    async fn reconcile(
+        &self,
+        config: &ReconcileConfig,
+    ) -> std::result::Result<PublishOutcome, String> {
         let env = &self.env;
         let repo = &config.repository;
 
@@ -193,7 +171,7 @@ impl PublishCoordinator {
             .map_err(|err| err.to_string())?;
 
         // Purge and retention never unwind the publish — the flip already
-        // happened; a failed purge rides into the status instead and leaves
+        // happened; a failed purge rides into the outcome instead and leaves
         // its tags as debt the next reconcile retries.
         let storage = self.state.storage();
         let debt: Option<Vec<String>> = match storage.get(PENDING_PURGE_KEY).await {
@@ -215,80 +193,17 @@ impl PublishCoordinator {
             console_error!("purge-debt clear failed (the next reconcile may over-purge): {err}");
         }
         self.retain(&kv, &head).await;
-        let outcome = ReconcileOutcome {
-            published: parsed.len(),
-            failed,
-            carried: carried_count,
-            purged,
-        };
-        self.report(repo, &head, outcome, &diags).await;
-        self.record_deployment(repo, &head, parsed.len(), failed)
-            .await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
             parsed.len()
         );
-        Ok(())
-    }
-
-    /// Posts the reconcile's status on the HEAD it converged to, skipping
-    /// duplicates of the last one that landed.
-    async fn report(
-        &self,
-        repo: &str,
-        head: &str,
-        outcome: ReconcileOutcome,
-        diags: &[Diagnostic],
-    ) {
-        let (state, description) = reconcile_description(outcome, diags);
-        let stamp = format!("{head}|{state:?}|{description}");
-        let storage = self.state.storage();
-        let last: Option<String> = storage.get(LAST_STATUS_KEY).await.unwrap_or_else(|err| {
-            console_error!("last-status read failed (a duplicate status may repost): {err}");
-            None
-        });
-        if last.as_deref() == Some(stamp.as_str()) {
-            return;
-        }
-        // Stamp only what landed so a lost status is retried next reconcile.
-        if !net::post_status(&self.env, repo, head, state, &description).await {
-            return;
-        }
-        if let Err(err) = storage.put(LAST_STATUS_KEY, &stamp).await {
-            console_error!("recording last status failed: {err}");
-        }
-    }
-
-    /// One deployment record per newly reconciled HEAD — the ~6 h backstop
-    /// re-flips the same sha, which must not spam the PR timeline.
-    async fn record_deployment(&self, repo: &str, head: &str, published: usize, failed: usize) {
-        let storage = self.state.storage();
-        let last: Option<String> = storage
-            .get(LAST_DEPLOYMENT_KEY)
-            .await
-            .unwrap_or_else(|err| {
-                console_error!("last-deployment read failed (a duplicate may post): {err}");
-                None
-            });
-        if last.as_deref() == Some(head) {
-            return;
-        }
-        let description = match failed {
-            0 => format!("{published} posts published"),
-            n => format!("{published} posts published, {n} kept previous versions"),
-        };
-        let origin = self
-            .env
-            .var(SITE_ORIGIN_VAR)
-            .map(|value| value.to_string())
-            .unwrap_or_default();
-        // Stamp only what landed so a lost record is retried next reconcile.
-        if !net::record_deployment(&self.env, repo, head, &description, &origin).await {
-            return;
-        }
-        if let Err(err) = storage.put(LAST_DEPLOYMENT_KEY, head).await {
-            console_error!("recording last deployment failed: {err}");
-        }
+        Ok(PublishOutcome::new(
+            parsed.len(),
+            failed,
+            carried_count,
+            purged,
+            &diags,
+        ))
     }
 
     /// Sweeps snapshot keys outside the history and whatever `current`
@@ -349,7 +264,7 @@ async fn kv_put(kv: &KvStore, write: &publish::KvWrite) -> std::result::Result<(
         .map_err(|err| err.to_string())
 }
 
-/// The branch HEAD — resolved once inside the serialized run, so triggers
+/// The branch HEAD — resolved once inside the serialized run, so callers
 /// cannot race the observation.
 async fn head_sha(env: &Env, repo: &str, branch: &str) -> std::result::Result<String, String> {
     let json = net::github_json(env, &head_ref_url(repo, branch)).await?;

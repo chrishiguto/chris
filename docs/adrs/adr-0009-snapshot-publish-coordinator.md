@@ -93,6 +93,33 @@ next deploy's fresh version-keyed cache) backstops it. The zone purge credential
 (`CLOUDFLARE_ZONE_ID`, `SITE_ORIGIN`, `CLOUDFLARE_PURGE_TOKEN`) leave the pipeline
 entirely; a custom domain is no longer a purge prerequisite.
 
+*Amendment (2026-07-08, single Actions trigger + synchronous reconcile):* the
+dual trigger — a GitHub webhook to `POST /webhook` (HMAC-verified, push
+classified into a content fast path vs. a `workflow_dispatch` code path) plus
+CI's `POST /publish` callback — is replaced by one workflow,
+`.github/workflows/publish.yml`, on `push: [main]` and `pull_request`. A merge
+to main runs a single job (`environment: content`) that deploys the workers
+when a paths filter sees code and then always calls `/publish`; a PR runs a
+`check` job (`just check` + `just test`) visible in the PR before merge.
+`/publish` now runs the reconcile **synchronously** and returns a
+`PublishOutcome` (`published`/`failed`/`carried`/`purged`/`ok`/`summary`) — an
+Actions step has no ~10 s webhook delivery window to protect, so the
+alarm/dirty/coalesce/backstop machinery, the `blog/publish` commit-status
+fan-out, and the hand-rolled GitHub Deployments API calls are all deleted. The
+coordinator DO is unchanged in what it *does* — single-instance serialization,
+immutable snapshot + `current` flip, scoped `/__purge`, retention — but it no
+longer talks to GitHub: it returns the outcome, and the run fails (reddening
+the deployment GitHub natively records on the merged PR, which links to the
+run) whenever `ok` is false. Observability moves entirely onto GitHub's own
+primitives: the pre-merge check and the post-merge deployment-to-run link;
+there is no preview URL. This deliberately forfeits the ~2 s content fast path
+that Option 3 was rejected for — that objection only held while content
+publishes bypassed CI; once one visible workflow covers both paths, a second
+trigger mechanism and an invisible-on-the-PR status are not worth the seconds.
+Secrets shrink: `GITHUB_WEBHOOK_SECRET` is retired and the fine-grained PAT
+drops to Contents RO (no `workflow_dispatch` Actions scope, no Deployments
+scope).
+
 ## Costs accepted
 
 - One extra KV read per cache miss on the site (pointer resolution) — invisible behind the
@@ -107,6 +134,9 @@ entirely; a custom domain is no longer a purge prerequisite.
   set no longer exists.*
 - Commit statuses report per reconciled HEAD, not per parked SHA — a superseded
   intermediate commit may keep a stale `pending` status. Accepted fidelity loss.
+  *(Superseded by the 2026-07-08 amendment: commit statuses are removed; the
+  Actions run and the `content` deployment it records on the merged PR are the
+  report.)*
 - Snapshots duplicate content per publish; retention bounds it at ~10 × content size.
 
 ## Options considered
@@ -135,7 +165,9 @@ entirely; a custom domain is no longer a purge prerequisite.
 - Good: the pipeline worker's decision surface shrank (pending machinery deleted); the
   reconcile is one function with pure, natively-tested vocabulary around it.
 - Good: the fast path survives — content-only pushes still publish in seconds, now via a
-  trigger that returns before any GitHub fetch.
+  trigger that returns before any GitHub fetch. *(Superseded by the 2026-07-08
+  amendment: content now publishes through the same Actions workflow as code,
+  trading the fast path for one visible trigger and PR-native observability.)*
 - Bad: a Durable Object joins the topology (ADR-0006 amended by this ADR's existence —
   the write path now has one; the read path still never touches it) and its migration
   rides `workers/pipeline/wrangler.toml`.

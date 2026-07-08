@@ -2,6 +2,18 @@
 
 > Companion documents: `docs/adrs/` — one ADR per major decision, summarized inline below.
 
+> **Amendment (2026-07-08, publish trigger + observability):** the mechanism described
+> below — a GitHub push *webhook* to the pipeline worker, content-vs-code classification
+> there, `workflow_dispatch` for code, and a `blog/publish` *commit status* — is superseded
+> by a single GitHub Actions workflow (`on: push` to main + `on: pull_request`) that calls
+> the pipeline's **synchronous** `/publish` and surfaces each publish as a native
+> `environment: content` deployment on the merged PR (linking to the run), plus a pre-merge
+> `check`. The product intent stands — push-to-live with no global rebuild, the publish
+> outcome visible on the PR, GitHub credentials confined to the pipeline worker — so read
+> "webhook", "commit status", and "workflow_dispatch" throughout as this one workflow. The
+> content-only **≤ 5 s p95** fast-path budget is retired: content now publishes through CI
+> in the tens of seconds a runner takes. See ADR-0009's 2026-07-08 amendment.
+
 ## Problem Statement
 
 I want a personal engineering blog where the blog itself is the engineering project: Rust

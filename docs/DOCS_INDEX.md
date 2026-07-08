@@ -14,7 +14,7 @@ summary, key topics.
 ## ADRs
 
 - `docs/adrs/adr-0001-runtime-content-pipeline.md` — ADR (Accepted) — content publishes at
-  runtime via webhook→parse→KV, code rides deploys; rejects build-time baking and publish-time
+  runtime via push→parse→KV, code rides deploys; rejects build-time baking and publish-time
   rustc. Topics: publish lifecycle, wasm restrictions, instant publish.
 - `docs/adrs/adr-0002-structured-ast-ir.md` — ADR (Accepted) — KV stores a versioned serde AST
   (semantic nodes + component refs by name), never HTML or raw markdown; "KV stores meaning,
@@ -30,42 +30,51 @@ summary, key topics.
   dispatch, publish validation, the `xtask check` gate, and a future LSP. Topics: proc macro, registry,
   manifest, inventory, dx.
 - `docs/adrs/adr-0006-two-worker-topology.md` — ADR (Accepted) — two workers split read/write:
-  site (SSR + KV read, no secrets) and pipeline (webhook + publish + secrets); no containers,
-  Durable Objects, or separate read-API workers. Topics: topology, workers-rs, secrets,
-  binary size.
-- `docs/adrs/adr-0007-publish-orchestration.md` — ADR (Accepted; ordering mechanism
-  superseded by ADR-0009) — one publish operation, two invokers (webhook fast path; CI
-  callback after deploy for code pushes); GitHub commit statuses as the publish receipt for
-  both paths (amended from Check Runs — Checks API write is GitHub-App-only; amended again:
-  the pending-list/drain ordering is replaced by ADR-0009's reconcile). Topics:
-  orchestration, ci, commit statuses, ordering.
+  site (SSR + KV read, no secrets) and pipeline (publish op + secrets); no separate read-API
+  worker (amended 2026-07-08: the pipeline lost its webhook/routing/status role to one Actions
+  workflow, and the write path grew a Durable Object per ADR-0009). Topics: topology,
+  workers-rs, secrets, binary size.
+- `docs/adrs/adr-0007-publish-orchestration.md` — ADR (Accepted; ordering superseded by
+  ADR-0009; trigger superseded 2026-07-08) — one publish operation; the webhook fast path +
+  `workflow_dispatch` code path collapse into a single GitHub Actions workflow calling a
+  synchronous `/publish`, with observability moving from commit statuses (amended from Check
+  Runs — Checks API write is GitHub-App-only) to a native `content` deployment on the merged
+  PR plus a pre-merge check. Topics: orchestration, ci, deployments, ordering.
 - `docs/adrs/adr-0008-cache-and-purge.md` — ADR (Accepted) — full-response caching in front
   of the worker; all dynamism in islands (amended twice by ADR-0009, then re-platformed
   2026-07-07: Workers Cache replaces the hand-rolled Cache API front, purge only from inside
   the worker; amended 2026-07-08: `Cache-Tag`s `site`/`views`/`post:{slug}` replace
   purgeEverything, publishes purge only changed posts via index `content_hash` diffs, failed
-  purges fail the commit status and persist as debt later reconciles retry, tagging is
-  fail-closed (no valid tag header → no caching), CI purges `site` after deploys pending
+  purges make the publish run fail (outcome `ok: false`) and persist as debt later reconciles
+  retry, tagging is fail-closed (no valid tag header → no caching), CI purges `site` after deploys pending
   version-keying verification). Topics: caching, purge, cache tags, workers cache, deploys,
   islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
-  coordinator Durable Object whose alarm doubles as retry and cron backstop; pending-list
-  machinery deleted; rollback = re-point the pointer (amended 2026-07-07: the purge set is
-  deleted — the coordinator calls the site's `/__purge` over a service binding instead).
-  Topics: snapshots, atomic publish, reconcile, durable objects, convergence, rollback,
-  retention.
+  coordinator Durable Object; pending-list machinery deleted; rollback = re-point the pointer
+  (amended 2026-07-07: the purge set is deleted — the coordinator calls the site's `/__purge`
+  over a service binding instead; amended 2026-07-08: one Actions workflow calls a synchronous
+  `/publish`, the alarm/commit-status/deployment-API machinery is removed, and observability
+  rides a native `content` deployment on the merged PR). Topics: snapshots, atomic publish,
+  reconcile, durable objects, convergence, rollback, retention.
+- `docs/adrs/adr-0010-ci-reconcile-drop-worker.md` — ADR (**Proposed**, not implemented) — the
+  deferred "Architecture 2": now that every publish rides one Actions workflow, delete the
+  pipeline worker + coordinator DO and reconcile directly from CI via `xtask` + `wrangler`
+  (ADR-0009's rejected Option 3, unblocked by dropping the fast path); captured for later
+  evaluation with tradeoffs and open questions. Topics: simplification, ci reconcile, proposed,
+  worker removal, serialization.
 
 ## Guides
 
 - `docs/guides/pipeline-deploy.md` — Guide — deploy the pipeline worker (including the
-  coordinator DO's shipped migration), provision its secrets, create the GitHub push webhook,
-  and verify both publish paths: the instant fast path (content push → reconcile → live post)
-  and the CI code path (workflow_dispatch → build → size gate → deploy → authenticated
-  `/publish` → reconcile); plus operations (rollback via the `current` pointer, legacy key
-  cleanup, coordinator state). Topics: pipeline worker, webhook, hmac, commit status, deploy,
-  secrets, ci, workflow_dispatch, size budget, durable object, reconcile, rollback.
+  coordinator DO's shipped migration), provision its secrets, and verify publishing: a
+  pre-merge `check` job on PRs and a single push-to-main workflow that deploys the workers when
+  code changed then calls the synchronous `/publish` (reconcile-to-HEAD), surfaced as a native
+  `content` deployment on the merged PR; plus operations (rollback via the `current` pointer,
+  legacy key cleanup, webhook-era migration, coordinator state). Topics: pipeline worker,
+  /publish, github actions, environment deployment, deploy, secrets, ci, size budget,
+  durable object, reconcile, rollback.
 - `docs/guides/publishing.md` — Guide — manual publishing: `just check` (validate the content
   tree against the compiled component vocabulary) and `just publish` (break-glass/bulk
   publish: `xtask plan` lays the whole tree out as one snapshot, `wrangler kv bulk put` +

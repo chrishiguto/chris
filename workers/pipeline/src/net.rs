@@ -1,11 +1,9 @@
-//! Outbound transport: GitHub API, commit statuses, cache purge. No
+//! Outbound transport: GitHub API (content reads) and cache purge. No
 //! decisions live here.
 
 use worker::{
     console_error, console_log, Env, Fetch, Headers, Method, Request, RequestInit, Response,
 };
-
-use crate::{status_payload, statuses_url, StatusState, STATUS_CONTEXT};
 
 const GITHUB_TOKEN: &str = "GITHUB_TOKEN";
 /// Service binding to the site worker — only it can reach its own cache.
@@ -17,28 +15,6 @@ const PURGE_ENDPOINT: &str = "https://site.internal/__purge";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
 
-async fn send(
-    method: Method,
-    url: &str,
-    headers: &[(&str, &str)],
-    body: Option<String>,
-) -> std::result::Result<Response, String> {
-    let assembled = Headers::new();
-    for (name, value) in headers {
-        assembled.set(name, value).map_err(|err| err.to_string())?;
-    }
-    let mut init = RequestInit::new();
-    init.with_method(method).with_headers(assembled);
-    if let Some(body) = body {
-        init.with_body(Some(body.into()));
-    }
-    let request = Request::new_with_init(url, &init).map_err(|err| err.to_string())?;
-    Fetch::Request(request)
-        .send()
-        .await
-        .map_err(|err| err.to_string())
-}
-
 fn expect_status(response: &Response, want: u16, url: &str) -> std::result::Result<(), String> {
     let status = response.status_code();
     (status == want)
@@ -46,35 +22,37 @@ fn expect_status(response: &Response, want: u16, url: &str) -> std::result::Resu
         .ok_or_else(|| format!("{url} returned {status}"))
 }
 
-pub(crate) async fn github(
-    env: &Env,
-    method: Method,
-    url: &str,
-    accept: &str,
-    body: Option<String>,
-) -> std::result::Result<Response, String> {
+/// Authenticated GitHub API GET. Every call the reconcile makes is a read —
+/// HEAD ref, tree listing, raw content — so there is never a body to send.
+async fn github_get(env: &Env, url: &str, accept: &str) -> std::result::Result<Response, String> {
     let token = env
         .secret(GITHUB_TOKEN)
         .map_err(|err| err.to_string())?
         .to_string();
     let auth = format!("Bearer {token}");
-    let mut headers = vec![
+    let headers = Headers::new();
+    for (name, value) in [
         ("authorization", auth.as_str()),
         ("user-agent", USER_AGENT),
         ("accept", accept),
         ("x-github-api-version", "2022-11-28"),
-    ];
-    if body.is_some() {
-        headers.push(("content-type", "application/json"));
+    ] {
+        headers.set(name, value).map_err(|err| err.to_string())?;
     }
-    send(method, url, &headers, body).await
+    let mut init = RequestInit::new();
+    init.with_method(Method::Get).with_headers(headers);
+    let request = Request::new_with_init(url, &init).map_err(|err| err.to_string())?;
+    Fetch::Request(request)
+        .send()
+        .await
+        .map_err(|err| err.to_string())
 }
 
 pub(crate) async fn github_json(
     env: &Env,
     url: &str,
 ) -> std::result::Result<serde_json::Value, String> {
-    let mut response = github(env, Method::Get, url, "application/vnd.github+json", None).await?;
+    let mut response = github_get(env, url, "application/vnd.github+json").await?;
     expect_status(&response, 200, url)?;
     let text = response.text().await.map_err(|err| err.to_string())?;
     serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))
@@ -85,14 +63,7 @@ pub(crate) async fn fetch_content(
     env: &Env,
     url: &str,
 ) -> std::result::Result<Option<String>, String> {
-    let mut response = github(
-        env,
-        Method::Get,
-        url,
-        "application/vnd.github.raw+json",
-        None,
-    )
-    .await?;
+    let mut response = github_get(env, url, "application/vnd.github.raw+json").await?;
     match response.status_code() {
         200 => response
             .text()
@@ -102,97 +73,6 @@ pub(crate) async fn fetch_content(
         404 => Ok(None),
         status => Err(format!("{url} returned {status}")),
     }
-}
-
-/// Best-effort: a failed status post must not fail an applied publish.
-/// Returns whether the status landed so dedup callers can retry a lost one.
-pub(crate) async fn post_status(
-    env: &Env,
-    repo: &str,
-    sha: &str,
-    state: StatusState,
-    description: &str,
-) -> bool {
-    let url = statuses_url(repo, sha);
-    let body = status_payload(state, description);
-    let posted = github(
-        env,
-        Method::Post,
-        &url,
-        "application/vnd.github+json",
-        Some(body),
-    )
-    .await;
-    match posted {
-        Ok(response) if response.status_code() == 201 => true,
-        Ok(response) => {
-            console_error!(
-                "{STATUS_CONTEXT} status on {sha} rejected: {}",
-                response.status_code()
-            );
-            false
-        }
-        Err(err) => {
-            console_error!("{STATUS_CONTEXT} status on {sha} failed: {err}");
-            false
-        }
-    }
-}
-
-/// Best-effort deployment record: create the deployment, then flip it to
-/// `success` so the PR timeline and Environments panel show what is live.
-/// Returns whether both calls landed so the caller can retry a lost one.
-pub(crate) async fn record_deployment(
-    env: &Env,
-    repo: &str,
-    sha: &str,
-    description: &str,
-    environment_url: &str,
-) -> bool {
-    match deployment_request(env, repo, sha, description, environment_url).await {
-        Ok(()) => true,
-        Err(err) => {
-            console_error!("deployment record for {sha} failed: {err}");
-            false
-        }
-    }
-}
-
-async fn deployment_request(
-    env: &Env,
-    repo: &str,
-    sha: &str,
-    description: &str,
-    environment_url: &str,
-) -> std::result::Result<(), String> {
-    let url = crate::deployments_url(repo);
-    let mut response = github(
-        env,
-        Method::Post,
-        &url,
-        "application/vnd.github+json",
-        Some(crate::deployment_payload(sha, description)),
-    )
-    .await?;
-    expect_status(&response, 201, &url)?;
-    let text = response.text().await.map_err(|err| err.to_string())?;
-    let json: serde_json::Value =
-        serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))?;
-    let id = crate::parse_deployment_id(&json)?;
-
-    let url = crate::deployment_statuses_url(repo, id);
-    let response = github(
-        env,
-        Method::Post,
-        &url,
-        "application/vnd.github+json",
-        Some(crate::deployment_status_payload(
-            environment_url,
-            description,
-        )),
-    )
-    .await?;
-    expect_status(&response, 201, &url)
 }
 
 /// Purges exactly `tags` from the site's cache; returns whether it landed —

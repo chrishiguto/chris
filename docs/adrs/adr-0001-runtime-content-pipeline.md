@@ -13,7 +13,7 @@ lifecycle the way MDX-compiled-to-JS allows in JavaScript stacks.
 
 ## Decision
 
-Content publishes through a live pipeline (webhook → parse → KV) at runtime. Code (components,
+Content publishes through a live pipeline (push → parse → KV) at runtime. Code (components,
 renderer, app) rides deploys. The component *vocabulary* is fixed at deploy time; *content*
 referencing that vocabulary flows instantly. Only the changed post is ever processed.
 
