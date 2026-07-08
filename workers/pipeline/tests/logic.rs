@@ -1,11 +1,13 @@
 //! Native tests for the pipeline worker's pure decision logic.
 
 use pipeline::{
-    classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, reconcile_description,
-    status_payload, statuses_url, tree_post_slugs, tree_url, verify_publish_auth, verify_signature,
-    PublishRequest, PushClass, PushCommit, PushEvent, ReconcileConfig, StatusState, WebhookAction,
-    STATUS_CONTEXT, WORKFLOW_FILE,
+    classify, code_push_description, contents_url, decide_push, deployment_payload,
+    deployment_status_payload, deployment_statuses_url, deployments_url, dispatch_payload,
+    dispatch_url, failure_description, head_ref_url, parse_deployment_id, parse_head_ref,
+    parse_tree_listing, reconcile_description, status_payload, statuses_url, tree_post_slugs,
+    tree_url, verify_publish_auth, verify_signature, PublishRequest, PushClass, PushCommit,
+    PushEvent, ReconcileConfig, StatusState, WebhookAction, DEPLOY_ENVIRONMENT, STATUS_CONTEXT,
+    WORKFLOW_FILE,
 };
 
 fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
@@ -355,6 +357,50 @@ fn status_states_serialize_lowercase() {
             serde_json::from_str(&status_payload(state, "x")).expect("valid json");
         assert_eq!(json["state"], expected);
     }
+}
+
+// --- deployment records ---
+
+#[test]
+fn deployment_payload_never_gates_or_merges() {
+    let payload = deployment_payload("abc123", "2 posts published");
+    let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+    assert_eq!(json["ref"], "abc123");
+    assert_eq!(json["environment"], DEPLOY_ENVIRONMENT);
+    assert_eq!(json["description"], "2 posts published");
+    assert_eq!(json["auto_merge"], false);
+    assert_eq!(json["required_contexts"], serde_json::json!([]));
+    assert_eq!(json["production_environment"], true);
+}
+
+#[test]
+fn deployment_status_payload_links_the_environment_when_known() {
+    let payload = deployment_status_payload("https://blog.example.com", "2 posts published");
+    let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+    assert_eq!(json["state"], "success");
+    assert_eq!(json["environment_url"], "https://blog.example.com");
+    assert_eq!(json["auto_inactive"], true);
+
+    let bare = deployment_status_payload("", "2 posts published");
+    let json: serde_json::Value = serde_json::from_str(&bare).expect("valid json");
+    assert!(json.get("environment_url").is_none());
+}
+
+#[test]
+fn deployment_urls_and_id_parse() {
+    assert_eq!(
+        deployments_url("chrishiguto/chris"),
+        "https://api.github.com/repos/chrishiguto/chris/deployments"
+    );
+    assert_eq!(
+        deployment_statuses_url("chrishiguto/chris", 42),
+        "https://api.github.com/repos/chrishiguto/chris/deployments/42/statuses"
+    );
+    assert_eq!(
+        parse_deployment_id(&serde_json::json!({"id": 42, "sha": "abc"})),
+        Ok(42)
+    );
+    assert!(parse_deployment_id(&serde_json::json!({"sha": "abc"})).is_err());
 }
 
 // --- GitHub API request shapes ---

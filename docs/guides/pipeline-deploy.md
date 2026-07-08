@@ -51,7 +51,12 @@ converging to HEAD as observed at its start):
    many posts kept previous versions plus the first diagnostic (the Commit
    Status API caps descriptions at 140 chars — full diagnostics via
    `just check`). Identical repeat statuses are skipped.
-4. Re-arms its own alarm as a ~6 h cron backstop, so a missed webhook or a
+4. Records one GitHub **deployment** to the `content` environment per newly
+   reconciled HEAD (`success`, `environment_url` = `SITE_ORIGIN` var) — this
+   is what puts "deployed to content" on the merged PR's timeline and the
+   Environments panel on the repo home. Deduplicated by sha so the cron
+   backstop never re-posts; best-effort like the status.
+5. Re-arms its own alarm as a ~6 h cron backstop, so a missed webhook or a
    failed run self-heals without anyone pushing.
 
 The CI half lives in `.github/workflows/publish.yml`: build both workers →
@@ -106,7 +111,8 @@ routing are still testable; the purge itself verifies in production.
 - Local secret files (gitignored, see `.secrets/`):
   - `.secrets/github_webhook_secret` — shared with the GitHub webhook config.
   - `.secrets/github_pipeline_token` — fine-grained PAT: Commit statuses RW,
-    Contents RO, and Actions RW (the `workflow_dispatch` trigger needs it).
+    Contents RO, Actions RW (the `workflow_dispatch` trigger needs it), and
+    Deployments RW (the per-publish deployment record needs it).
   - `.secrets/publish_shared_secret` — shared with the `PUBLISH_SHARED_SECRET`
     Actions secret; authenticates CI's `/publish` callback.
   - `.secrets/purge_shared_secret` — held by **both** workers as

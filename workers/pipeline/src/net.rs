@@ -139,6 +139,62 @@ pub(crate) async fn post_status(
     }
 }
 
+/// Best-effort deployment record: create the deployment, then flip it to
+/// `success` so the PR timeline and Environments panel show what is live.
+/// Returns whether both calls landed so the caller can retry a lost one.
+pub(crate) async fn record_deployment(
+    env: &Env,
+    repo: &str,
+    sha: &str,
+    description: &str,
+    environment_url: &str,
+) -> bool {
+    match deployment_request(env, repo, sha, description, environment_url).await {
+        Ok(()) => true,
+        Err(err) => {
+            console_error!("deployment record for {sha} failed: {err}");
+            false
+        }
+    }
+}
+
+async fn deployment_request(
+    env: &Env,
+    repo: &str,
+    sha: &str,
+    description: &str,
+    environment_url: &str,
+) -> std::result::Result<(), String> {
+    let url = crate::deployments_url(repo);
+    let mut response = github(
+        env,
+        Method::Post,
+        &url,
+        "application/vnd.github+json",
+        Some(crate::deployment_payload(sha, description)),
+    )
+    .await?;
+    expect_status(&response, 201, &url)?;
+    let text = response.text().await.map_err(|err| err.to_string())?;
+    let json: serde_json::Value =
+        serde_json::from_str(&text).map_err(|err| format!("{url} returned non-JSON: {err}"))?;
+    let id = crate::parse_deployment_id(&json)?;
+
+    let url = crate::deployment_statuses_url(repo, id);
+    let response = github(
+        env,
+        Method::Post,
+        &url,
+        "application/vnd.github+json",
+        Some(crate::deployment_status_payload(
+            environment_url,
+            description,
+        )),
+    )
+    .await?;
+    expect_status(&response, 201, &url)
+}
+
 /// Best-effort: KV is the truth and the site's 7-day TTL backstops a miss.
 /// Workers Cache is private to the site worker, so the purge is a call into
 /// it over the service binding, not a Cloudflare API request.

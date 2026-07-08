@@ -32,3 +32,7 @@ new_sqlite_classes = ["PublishCoordinator"]
 # Secrets (wrangler secret put, never vars): GITHUB_WEBHOOK_SECRET,
 # GITHUB_TOKEN, PUBLISH_SHARED_SECRET, PURGE_SHARED_SECRET (same value the
 # site worker holds).
+
+# The deployment record's environment link; empty just drops the link.
+[vars]
+SITE_ORIGIN = "https://chris-site.sirhc.workers.dev"
