@@ -139,16 +139,17 @@ pub(crate) async fn post_status(
     }
 }
 
-/// Best-effort: KV is the truth and the site's 7-day TTL backstops a miss.
-/// Workers Cache is private to the site worker, so the purge is a call into
-/// it over the service binding, not a Cloudflare API request.
-pub(crate) async fn purge_site(env: &Env) {
-    if let Err(err) = purge_request(env).await {
+/// Purges exactly `tags` from the site's cache. KV is the truth and the
+/// site's 7-day TTL backstops a miss; Workers Cache is private to the site
+/// worker, so the purge is a call into it over the service binding, not a
+/// Cloudflare API request.
+pub(crate) async fn purge_site(env: &Env, tags: &[String]) {
+    if let Err(err) = purge_request(env, tags).await {
         console_error!("cache purge failed (TTL backstop applies): {err}");
     }
 }
 
-async fn purge_request(env: &Env) -> std::result::Result<(), String> {
+async fn purge_request(env: &Env, tags: &[String]) -> std::result::Result<(), String> {
     let site = env
         .service(SITE_BINDING)
         .map_err(|err| format!("{SITE_BINDING} binding: {err}"))?;
@@ -159,8 +160,14 @@ async fn purge_request(env: &Env) -> std::result::Result<(), String> {
     headers
         .set("authorization", &format!("Bearer {secret}"))
         .map_err(|err| err.to_string())?;
+    headers
+        .set("content-type", "application/json")
+        .map_err(|err| err.to_string())?;
+    let body = serde_json::json!({ "tags": tags }).to_string();
     let mut init = RequestInit::new();
-    init.with_method(Method::Post).with_headers(headers);
+    init.with_method(Method::Post)
+        .with_headers(headers)
+        .with_body(Some(body.into()));
     let request = Request::new_with_init(PURGE_ENDPOINT, &init).map_err(|err| err.to_string())?;
     let response = site
         .fetch_request(request)
@@ -170,6 +177,6 @@ async fn purge_request(env: &Env) -> std::result::Result<(), String> {
     if status != 200 {
         return Err(format!("{PURGE_ENDPOINT} returned {status}"));
     }
-    console_log!("site cache purged");
+    console_log!("site cache purged: {}", tags.join(", "));
     Ok(())
 }

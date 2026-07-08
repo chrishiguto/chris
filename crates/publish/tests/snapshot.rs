@@ -1,6 +1,6 @@
 use content::IndexEntry;
 use content::{ComponentSpec, Manifest, PropSpec, PropType};
-use publish::{check, check_each, snapshot, CarriedPost, PostSource};
+use publish::{check, check_each, content_hash, purge_tags, snapshot, CarriedPost, PostSource};
 
 fn manifest() -> Manifest {
     Manifest {
@@ -32,6 +32,7 @@ fn entry(slug: &str, title: &str, date: &str, tags: &[&str], draft: bool) -> Ind
         description: None,
         tags: tags.iter().map(|t| t.to_string()).collect(),
         draft,
+        content_hash: String::new(),
     }
 }
 
@@ -207,6 +208,82 @@ fn snapshot_orders_same_date_posts_by_slug() {
     let plan = snapshot(&parsed, Vec::new(), "abc123").unwrap();
     let slugs: Vec<_> = plan.index.iter().map(|e| e.slug.as_str()).collect();
     assert_eq!(slugs, ["alpha", "zeta"]);
+}
+
+/// Every entry is stamped with its payload's hash — including carried ones,
+/// so pre-hash entries heal in place.
+#[test]
+fn snapshot_stamps_every_entry_with_its_payload_hash() {
+    let parsed = check(&[post("good", "Good", "2026-05-01", "Fine.")], &manifest()).unwrap();
+    let carried = vec![CarriedPost {
+        entry: entry("broken", "Broken", "2026-01-01", &[], false),
+        payload: r#"{"stored":"payload"}"#.into(),
+    }];
+    let plan = snapshot(&parsed, carried, "abc123").unwrap();
+
+    for entry in &plan.index {
+        let write = plan
+            .post_writes
+            .iter()
+            .find(|write| write.key.ends_with(&format!("post:{}", entry.slug)))
+            .unwrap();
+        assert_eq!(
+            entry.content_hash,
+            content_hash(&write.value),
+            "{}",
+            entry.slug
+        );
+    }
+}
+
+/// Identical payloads hash identically across snapshots; that equality is
+/// what lets a publish skip untouched posts.
+#[test]
+fn content_hash_is_stable_and_content_sensitive() {
+    assert_eq!(content_hash("same"), content_hash("same"));
+    assert_ne!(content_hash("same"), content_hash("changed"));
+    assert_eq!(content_hash("x").len(), 64);
+}
+
+fn hashed(slug: &str, hash: &str) -> IndexEntry {
+    let mut entry = entry(slug, "T", "2026-01-01", &[], false);
+    entry.content_hash = hash.into();
+    entry
+}
+
+#[test]
+fn purge_tags_are_empty_when_nothing_changed() {
+    let index = [hashed("a", "h1"), hashed("b", "h2")];
+    assert!(purge_tags(&index, &index).is_empty());
+}
+
+#[test]
+fn purge_tags_cover_changed_added_and_removed_posts_plus_views() {
+    let prev = [
+        hashed("edited", "h1"),
+        hashed("kept", "h2"),
+        hashed("removed", "h3"),
+    ];
+    let next = [
+        hashed("edited", "h1-new"),
+        hashed("kept", "h2"),
+        hashed("added", "h4"),
+    ];
+    assert_eq!(
+        purge_tags(&prev, &next),
+        ["post:added", "post:edited", "post:removed", "views"]
+    );
+}
+
+/// Entries from pre-hash snapshots read as changed: over-purge, never staleness.
+#[test]
+fn purge_tags_treat_missing_hashes_as_changed() {
+    let unhashed = [hashed("a", "")];
+    assert_eq!(purge_tags(&unhashed, &unhashed), ["post:a", "views"]);
+    assert_eq!(
+        purge_tags(&unhashed, &[hashed("a", "h1")]),
+        ["post:a", "views"]
+    );
 }
 
 /// The slug is a directory name the parser never sees; check gates it.

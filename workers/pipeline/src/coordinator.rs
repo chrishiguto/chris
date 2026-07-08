@@ -186,7 +186,12 @@ impl PublishCoordinator {
             .map_err(|err| err.to_string())?;
 
         // Purge and retention are best-effort; the publish already happened.
-        net::purge_site(env).await;
+        // The diff scopes the purge to what actually changed — an unchanged
+        // reconcile purges nothing.
+        let tags = publish::purge_tags(&prev_index, &plan.index);
+        if !tags.is_empty() {
+            net::purge_site(env, &tags).await;
+        }
         self.retain(&kv, &head).await;
         self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
             .await;

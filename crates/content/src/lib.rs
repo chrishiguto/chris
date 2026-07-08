@@ -117,6 +117,11 @@ pub struct IndexEntry {
     pub tags: Vec<String>,
     #[serde(default)]
     pub draft: bool,
+    /// Hash of the serialized post payload; scoped cache purges diff on it.
+    /// Empty on pre-hash snapshots, which reads as "changed" (over-purge,
+    /// never staleness).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub content_hash: String,
 }
 
 impl IndexEntry {
@@ -134,6 +139,7 @@ impl IndexEntry {
             description: frontmatter.description.clone(),
             tags: frontmatter.tags.clone(),
             draft: frontmatter.draft,
+            content_hash: String::new(),
         }
     }
 }
