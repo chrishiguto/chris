@@ -4,12 +4,11 @@
 use std::path::Path;
 use std::process::ExitCode;
 
-use content::{CurrentPointer, Diagnostic, IndexEntry};
+use content::{CurrentPointer, Diagnostic};
 
 const USAGE: &str = "usage:
   xtask check [--content-dir DIR]
-  xtask plan --sha LABEL [--content-dir DIR] --index FILE --out DIR [--origin URL]
-  xtask pointer FILE
+  xtask plan --sha LABEL [--content-dir DIR] --out DIR
   xtask ast FILE.mdx";
 
 fn main() -> ExitCode {
@@ -17,7 +16,6 @@ fn main() -> ExitCode {
     let result = match args.first().map(String::as_str) {
         Some("check") => check(&args[1..]),
         Some("plan") => plan(&args[1..]),
-        Some("pointer") => pointer(&args[1..]),
         Some("ast") => ast(&args[1..]),
         _ => Err(USAGE.into()),
     };
@@ -45,19 +43,12 @@ fn check(args: &[String]) -> Result<String, String> {
 }
 
 /// The whole tree becomes one snapshot — a broken post blocks the plan.
-/// The previous index feeds only the purge set.
 fn plan(args: &[String]) -> Result<String, String> {
-    let flags = parse_flags(
-        args,
-        &["--sha", "--content-dir", "--index", "--out", "--origin"],
-    )?;
+    let flags = parse_flags(args, &["--sha", "--content-dir", "--out"])?;
     let content_dir = flags
         .get("--content-dir")
         .cloned()
         .unwrap_or_else(default_content_dir);
-    let index_file = flags
-        .get("--index")
-        .ok_or("plan: --index FILE is required")?;
     let out_dir = flags.get("--out").ok_or("plan: --out DIR is required")?;
     let sha = flags
         .get("--sha")
@@ -67,8 +58,7 @@ fn plan(args: &[String]) -> Result<String, String> {
     let manifest = app::manifest();
     let posts = xtask::check_tree(Path::new(&content_dir), &manifest)
         .map_err(|diags| render_diags(&diags))?;
-    let prev_index = read_index(Path::new(&index_file))?;
-    let plan = publish::snapshot(&prev_index, &posts, Vec::new(), &sha)
+    let plan = publish::snapshot(&posts, Vec::new(), &sha)
         .map_err(|err| format!("serializing snapshot plan: {err}"))?;
 
     let out = Path::new(&out_dir);
@@ -86,48 +76,11 @@ fn plan(args: &[String]) -> Result<String, String> {
     let pointer = serde_json::to_value(CurrentPointer { sha: sha.clone() })
         .map_err(|err| format!("serializing pointer: {err}"))?;
     write_json(out, "pointer.json", &pointer)?;
-    // One purge-N.json per API-capped chunk; stale chunks from a previous,
-    // larger plan must not ride along.
-    for stale in purge_files(out)? {
-        std::fs::remove_file(&stale).map_err(|err| format!("removing stale purge file: {err}"))?;
-    }
-    let origin = flags.get("--origin").cloned().unwrap_or_default();
-    let chunks = plan.purge_chunks(&origin);
-    for (n, chunk) in chunks.iter().enumerate() {
-        write_json(out, &format!("purge-{n}.json"), &serde_json::json!(chunk))?;
-    }
 
     Ok(format!(
-        "planned snapshot {sha}: {} posts, {} purge paths in {} chunks → {out_dir}",
+        "planned snapshot {sha}: {} posts → {out_dir}",
         plan.index.len(),
-        plan.purge.len(),
-        chunks.len(),
     ))
-}
-
-fn purge_files(dir: &Path) -> Result<Vec<std::path::PathBuf>, String> {
-    let entries = std::fs::read_dir(dir).map_err(|err| format!("reading {dir:?}: {err}"))?;
-    let mut files = Vec::new();
-    for entry in entries {
-        let entry = entry.map_err(|err| format!("reading {dir:?}: {err}"))?;
-        let name = entry.file_name();
-        let name = name.to_string_lossy();
-        if name.starts_with("purge-") && name.ends_with(".json") {
-            files.push(entry.path());
-        }
-    }
-    Ok(files)
-}
-
-/// Resolves a captured `current` pointer to the previous index's KV key —
-/// the key grammar never leaks into bash.
-fn pointer(args: &[String]) -> Result<String, String> {
-    let [path] = args else {
-        return Err(USAGE.into());
-    };
-    let raw = std::fs::read_to_string(path).map_err(|err| format!("{path}: {err}"))?;
-    let sha = xtask::parse_pointer(&raw).map_err(|err| format!("{path}: {err}"))?;
-    Ok(content::index_key_at(sha.as_deref()))
 }
 
 fn ast(args: &[String]) -> Result<String, String> {
@@ -137,14 +90,6 @@ fn ast(args: &[String]) -> Result<String, String> {
     let source = std::fs::read_to_string(path).map_err(|err| format!("{path}: {err}"))?;
     let doc = content::parse(&source, path).map_err(|diags| render_diags(&diags))?;
     serde_json::to_string_pretty(&doc).map_err(|err| format!("{path}: failed to serialize: {err}"))
-}
-
-/// Reads the previous index; unexpected content fails closed rather than
-/// silently planning a fresh index.
-fn read_index(path: &Path) -> Result<Vec<IndexEntry>, String> {
-    let raw = std::fs::read_to_string(path)
-        .map_err(|err| format!("{}: cannot read index: {err}", path.display()))?;
-    xtask::parse_index(&raw).map_err(|err| format!("{}: {err}", path.display()))
 }
 
 fn write_json(dir: &Path, name: &str, value: &serde_json::Value) -> Result<(), String> {

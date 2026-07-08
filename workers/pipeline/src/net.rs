@@ -1,17 +1,19 @@
 //! Outbound transport: GitHub API, commit statuses, cache purge. No
 //! decisions live here.
 
-use worker::{console_error, Env, Fetch, Headers, Method, Request, RequestInit, Response};
+use worker::{
+    console_error, console_log, Env, Fetch, Headers, Method, Request, RequestInit, Response,
+};
 
-use crate::{purge_body, purge_url, status_payload, statuses_url, StatusState, STATUS_CONTEXT};
+use crate::{status_payload, statuses_url, StatusState, STATUS_CONTEXT};
 
 const GITHUB_TOKEN: &str = "GITHUB_TOKEN";
-/// Zone of the site's custom domain; empty until one exists.
-const ZONE_ID_VAR: &str = "CLOUDFLARE_ZONE_ID";
-/// Absolute origin the site serves on — purge-by-URL needs full URLs.
-const SITE_ORIGIN_VAR: &str = "SITE_ORIGIN";
-/// Secret scoped to Zone → Cache Purge.
-const PURGE_TOKEN: &str = "CLOUDFLARE_PURGE_TOKEN";
+/// Service binding to the site worker — only it can reach its own cache.
+const SITE_BINDING: &str = "SITE";
+/// Shared with the site worker: authenticates `/__purge` calls.
+const PURGE_SECRET: &str = "PURGE_SHARED_SECRET";
+/// The binding ignores the host; the path selects the site's purge route.
+const PURGE_ENDPOINT: &str = "https://site.internal/__purge";
 /// GitHub rejects API requests without a User-Agent.
 const USER_AGENT: &str = "chris-blog-pipeline";
 
@@ -137,46 +139,37 @@ pub(crate) async fn post_status(
     }
 }
 
-/// Best-effort purge-by-URL: KV is the truth and the site's 7-day TTL
-/// backstops a miss. Skips until a custom domain's zone and origin exist.
-pub(crate) async fn purge(env: &Env, plan: &publish::SnapshotPlan) {
-    let var = |name: &str| {
-        env.var(name)
-            .ok()
-            .map(|value| value.to_string())
-            .filter(|value| !value.is_empty())
-    };
-    let (Some(zone), Some(origin)) = (var(ZONE_ID_VAR), var(SITE_ORIGIN_VAR)) else {
-        worker::console_log!(
-            "cache purge skipped: {ZONE_ID_VAR}/{SITE_ORIGIN_VAR} not configured (no custom domain yet)"
-        );
-        return;
-    };
-    let Ok(token) = env.secret(PURGE_TOKEN) else {
-        console_error!(
-            "cache purge skipped: {PURGE_TOKEN} secret missing while a zone is configured"
-        );
-        return;
-    };
-    let url = purge_url(&zone);
-    let token = token.to_string();
-    let requests = plan.purge_chunks(&origin).into_iter().map(|chunk| {
-        let (url, token) = (&url, &token);
-        async move {
-            if let Err(err) = purge_request(url, token, purge_body(&chunk)).await {
-                console_error!("cache purge failed (TTL backstop applies): {err}");
-            }
-        }
-    });
-    futures_util::future::join_all(requests).await;
+/// Best-effort: KV is the truth and the site's 7-day TTL backstops a miss.
+/// Workers Cache is private to the site worker, so the purge is a call into
+/// it over the service binding, not a Cloudflare API request.
+pub(crate) async fn purge_site(env: &Env) {
+    if let Err(err) = purge_request(env).await {
+        console_error!("cache purge failed (TTL backstop applies): {err}");
+    }
 }
 
-async fn purge_request(url: &str, token: &str, body: String) -> std::result::Result<(), String> {
-    let auth = format!("Bearer {token}");
-    let headers = [
-        ("authorization", auth.as_str()),
-        ("content-type", "application/json"),
-    ];
-    let response = send(Method::Post, url, &headers, Some(body)).await?;
-    expect_status(&response, 200, url)
+async fn purge_request(env: &Env) -> std::result::Result<(), String> {
+    let site = env
+        .service(SITE_BINDING)
+        .map_err(|err| format!("{SITE_BINDING} binding: {err}"))?;
+    let secret = env
+        .secret(PURGE_SECRET)
+        .map_err(|err| format!("{PURGE_SECRET} secret: {err}"))?;
+    let headers = Headers::new();
+    headers
+        .set("authorization", &format!("Bearer {secret}"))
+        .map_err(|err| err.to_string())?;
+    let mut init = RequestInit::new();
+    init.with_method(Method::Post).with_headers(headers);
+    let request = Request::new_with_init(PURGE_ENDPOINT, &init).map_err(|err| err.to_string())?;
+    let response = site
+        .fetch_request(request)
+        .await
+        .map_err(|err| err.to_string())?;
+    let status = response.status().as_u16();
+    if status != 200 {
+        return Err(format!("{PURGE_ENDPOINT} returned {status}"));
+    }
+    console_log!("site cache purged");
+    Ok(())
 }
