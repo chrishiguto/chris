@@ -1,6 +1,6 @@
 # ADR-0007: Single publish operation, two invokers; CI provides ordering
 
-**Status**: Accepted (2026-07-03); amended 2026-07-04 — Check Runs replaced by commit statuses (see note in Decision); amended 2026-07-07 — the ordering mechanism (pending list + CI drain) is superseded by ADR-0009 (see note at the end)
+**Status**: Accepted (2026-07-03); amended 2026-07-04 — Check Runs replaced by commit statuses (see note in Decision); amended 2026-07-07 — the ordering mechanism (pending list + CI drain) is superseded by ADR-0009 (see note at the end); amended 2026-07-08 — the webhook + `workflow_dispatch` invokers replaced by one GitHub Actions workflow calling a synchronous `/publish` (see note at the end)
 **Related**: PRD `docs/prds/prd-leptos-workers-blog-v1.md`; depends on ADR-0004, ADR-0006; superseded in part by ADR-0009
 
 ## Context
@@ -73,3 +73,15 @@ without redesign.
 > Object; the `pending` list, drain, and per-SHA retry machinery are gone. Deploy-before-
 > publish is enforced by validation against the deployed manifest (the post-deploy trigger
 > retries carried-forward failures) instead of by parking. See ADR-0009.
+
+> **Amendment (2026-07-08, single Actions trigger)**: the two *invokers* this ADR decided (a
+> webhook fast path plus a `workflow_dispatch` code path) collapse into one. A single GitHub
+> Actions workflow on `push` to main + `pull_request` calls the pipeline's **synchronous**
+> `/publish` for every merge, deploying the workers first when a paths filter sees code. The
+> worker no longer classifies pushes or posts a `blog/publish` commit status; observability is
+> the Actions run plus the native `environment: content` deployment GitHub records on the
+> merged PR (linking to the run), with a pre-merge `check` job. This forfeits the ~2 s content
+> fast path deliberately — Option 2's cost, now accepted, because one visible workflow beats
+> two trigger mechanisms and a status invisible on the PR. What still stands: one publish
+> operation, deploy-before-publish for code, GitHub credentials confined to the pipeline
+> worker, and the break-glass `just publish`. See ADR-0009's 2026-07-08 amendment.

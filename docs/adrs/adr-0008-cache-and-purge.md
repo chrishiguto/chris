@@ -92,7 +92,9 @@ changes nothing. This restores the "post N never evicts post M" invariant the AD
 amendment relaxed (it is the per-post-source-hash revisit that amendment promised). Two
 hardening lessons from the 2026-07-08 incident (pointer flipped, purge silently skipped on a
 missing pipeline secret, pages stale for hours behind a green check): a failed purge now
-fails the `blog/publish` commit status instead of only logging, and CI purges `site` right
+makes the reconcile outcome `ok: false` (failing the publish run — originally the
+`blog/publish` commit status; see ADR-0009's 2026-07-08 amendment) instead of only logging,
+and CI purges `site` right
 after the site deploy (via `just purge`, which fails the run loudly) — defensive, because the
 version-keyed-cold-start claim in the previous amendment has not been verified in production
 and cached entries were observed serving after deploys. If a controlled test (warm page →

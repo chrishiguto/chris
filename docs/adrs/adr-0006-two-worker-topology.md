@@ -41,3 +41,11 @@ them to justify a service boundary).
 - Good: SSR binary stays lean (size limit pressure, ADR context: 10 MB gzipped budget);
   secrets never touch the public-facing worker; independent deploy cadences.
 - Bad: two wrangler configs and two deploys to keep coherent (shared KV namespace id, etc.).
+
+> **Amendment (2026-07-08)**: the pipeline worker no longer validates webhooks, routes by
+> diff, or posts commit statuses — those moved to a single GitHub Actions workflow (ADR-0009's
+> 2026-07-08 amendment). It now exposes one authenticated `/publish` that reconciles
+> synchronously and returns the outcome. Its secrets drop to `GITHUB_TOKEN` (Contents RO) plus
+> the publish and purge shared secrets; `GITHUB_WEBHOOK_SECRET` is retired. The read-vs-write
+> two-worker split this ADR decided is unchanged — the DO the write path grew lives in the
+> pipeline worker (as ADR-0009 noted).

@@ -29,6 +29,7 @@ bindings = [{ name = "COORDINATOR", class_name = "PublishCoordinator" }]
 tag = "v1"
 new_sqlite_classes = ["PublishCoordinator"]
 
-# Secrets (wrangler secret put, never vars): GITHUB_WEBHOOK_SECRET,
-# GITHUB_TOKEN, PUBLISH_SHARED_SECRET, PURGE_SHARED_SECRET (same value the
-# site worker holds).
+# Secrets (wrangler secret put, never vars): GITHUB_TOKEN (fine-grained PAT,
+# Contents RO — reads post sources during a reconcile), PUBLISH_SHARED_SECRET
+# (authenticates CI's /publish call), PURGE_SHARED_SECRET (same value the site
+# worker holds).

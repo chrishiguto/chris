@@ -1,74 +1,120 @@
-# Fired by the pipeline worker on code pushes. Deploy precedes the /publish
-# callback, which reconciles to HEAD — stale runs can't publish old content.
+# One workflow for everything that happens around main:
+#  - pull_request: validate the content tree (and code) before merge, shown
+#    in the PR's checks.
+#  - push to main: deploy the workers if code changed, then reconcile content
+#    to HEAD. `environment: content` makes GitHub record the deployment on the
+#    merged PR, linking straight to this run — the run IS the observability.
 name: publish
 
 on:
-  workflow_dispatch:
-    inputs:
-      sha:
-        description: Commit that triggered the publish
-        required: true
-        type: string
+  push:
+    branches: [main]
+  pull_request:
 
-# Superseded queued runs are fine: every /publish callback reconciles to HEAD.
+# Serialize main pushes (a reconcile converges to HEAD, so queued runs are
+# fine); collapse superseded PR pushes.
 concurrency:
-  group: publish
-  cancel-in-progress: false
+  group: publish-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
-# Cloudflare credentials stay step-scoped — never ambient env for
-# third-party actions or dependency build scripts.
 jobs:
-  publish:
+  # Pre-merge gate. Validates against the branch's own manifest, so it covers
+  # code-bearing branches too; no secrets, so it runs on forks.
+  check:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.sha }}
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
-
       - uses: Swatinem/rust-cache@v2
-
       - uses: extractions/setup-just@v3
-
       - uses: cargo-bins/cargo-binstall@732870f031d2fb36309d0deaf36abcc704a7be65 # v1.20.1
-
       - name: Install cargo-leptos, worker-build, and leptosfmt
+        run: cargo binstall -y cargo-leptos worker-build leptosfmt
+      - name: Lint and validate content
+        run: just check
+      - name: Run the test suite
+        run: just test
+
+  # Post-merge. Code steps run only when code changed; the reconcile always
+  # runs and gates the job (and its deployment) on the real outcome.
+  publish:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: content
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Deploy must precede publish so content validates against the freshly
+      # deployed manifest. Colocated per-post Rust (content/**/*.rs) is code.
+      - name: Classify the push
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - '**/*.rs'
+              - 'app/**'
+              - 'crates/**'
+              - 'workers/**'
+              - '.github/workflows/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'justfile'
+              - '**/wrangler.toml'
+
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.changes.outputs.code == 'true'
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        if: steps.changes.outputs.code == 'true'
+      - uses: extractions/setup-just@v3
+        if: steps.changes.outputs.code == 'true'
+      - uses: cargo-bins/cargo-binstall@732870f031d2fb36309d0deaf36abcc704a7be65 # v1.20.1
+        if: steps.changes.outputs.code == 'true'
+      - name: Install cargo-leptos, worker-build, and leptosfmt
+        if: steps.changes.outputs.code == 'true'
         run: cargo binstall -y cargo-leptos worker-build leptosfmt
 
       - name: Lint and validate content
+        if: steps.changes.outputs.code == 'true'
         run: just check
-
       - name: Run the test suite
+        if: steps.changes.outputs.code == 'true'
         run: just test
 
       # Deploys rebuild via wrangler's [build] hook; this build only feeds the size gate.
       - name: Build both workers
+        if: steps.changes.outputs.code == 'true'
         run: |
           just build
           just build-pipeline
-
-      # Fails past the 10 MB gzipped Workers limit, warns at 5 MB
       - name: Enforce the worker size budget
+        if: steps.changes.outputs.code == 'true'
         run: just size
 
       - name: Deploy the site worker
+        if: steps.changes.outputs.code == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy
 
-      # Cached HTML embeds the previous build's hydration markup and asset
-      # URLs, and cache entries can outlive a deploy — evict the site tag so
-      # nothing stale hydrates against the new wasm. `just purge` fails the
-      # run loudly on any error. SITE_URL (repo variable) overrides the
-      # derived workers.dev URL.
+      # A code deploy changes every page's hydration markup and asset URLs, so
+      # the reconcile's per-post purge isn't enough — evict the whole site tag.
+      # Defensive until Workers Cache's version-keyed cold starts are verified.
+      # SITE_URL (repo variable) overrides the derived workers.dev URL.
       - name: Purge the site cache
+        if: steps.changes.outputs.code == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
@@ -85,29 +131,45 @@ jobs:
           just purge
 
       - name: Deploy the pipeline worker
+        if: steps.changes.outputs.code == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy-pipeline
 
-      # Reconcile after deploy so content lands against the fresh manifest;
+      # Always: reconcile content to HEAD through the pipeline. The response is
+      # the outcome; a validation or purge failure (ok=false) or a transport
+      # error fails the job, so the deployment on the merged PR goes red.
       # PIPELINE_URL (repo variable) overrides the derived workers.dev URL.
-      - name: Trigger the publish reconcile
+      - name: Publish (reconcile to HEAD)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           PUBLISH_SHARED_SECRET: ${{ secrets.PUBLISH_SHARED_SECRET }}
           PIPELINE_URL: ${{ vars.PIPELINE_URL }}
-          SHA: ${{ inputs.sha }}
           BRANCH: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
           if [ -z "$PIPELINE_URL" ]; then
             subdomain=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
               | jq -r '.result.subdomain')
             PIPELINE_URL="https://chris-pipeline.$subdomain.workers.dev"
           fi
-          curl -sf -X POST "$PIPELINE_URL/publish" \
+          response=$(curl -sS -w '\n%{http_code}' -X POST "$PIPELINE_URL/publish" \
             -H "Authorization: Bearer $PUBLISH_SHARED_SECRET" \
             -H "Content-Type: application/json" \
-            --data "{\"sha\":\"$SHA\",\"repository\":\"$GITHUB_REPOSITORY\",\"branch\":\"$BRANCH\"}"
+            --data "{\"repository\":\"$GITHUB_REPOSITORY\",\"branch\":\"$BRANCH\"}")
+          body=$(echo "$response" | head -n -1)
+          code=$(echo "$response" | tail -n1)
+          echo "$body"
+          if [ "$code" != "200" ]; then
+            echo "::error::publish failed (HTTP $code)"
+            exit 1
+          fi
+          summary=$(echo "$body" | jq -r '.summary')
+          echo "publish: $summary"
+          if [ "$(echo "$body" | jq -r '.ok')" != "true" ]; then
+            echo "::error::$summary"
+            exit 1
+          fi

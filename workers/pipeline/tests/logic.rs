@@ -1,134 +1,12 @@
 //! Native tests for the pipeline worker's pure decision logic.
 
 use pipeline::{
-    classify, code_push_description, contents_url, decide_push, dispatch_payload, dispatch_url,
-    failure_description, head_ref_url, parse_head_ref, parse_tree_listing, purge_scope,
-    reconcile_description, status_payload, statuses_url, tree_post_slugs, tree_url, PublishRequest,
-    PushClass, PushCommit, PushEvent, ReconcileConfig, ReconcileOutcome, StatusState,
-    WebhookAction, STATUS_CONTEXT, WORKFLOW_FILE,
+    contents_url, failure_description, head_ref_url, parse_head_ref, parse_tree_listing,
+    purge_scope, tree_post_slugs, tree_url, PublishOutcome, ReconcileConfig,
 };
-
-fn commit(added: &[&str], modified: &[&str], removed: &[&str]) -> PushCommit {
-    let paths = |list: &[&str]| list.iter().map(|p| p.to_string()).collect();
-    PushCommit {
-        added: paths(added),
-        modified: paths(modified),
-        removed: paths(removed),
-    }
-}
 
 fn slugs(list: &[&str]) -> Vec<String> {
     list.iter().map(|s| s.to_string()).collect()
-}
-
-// --- webhook payload ---
-
-#[test]
-fn push_event_deserializes_the_fields_the_decision_needs() {
-    let event: PushEvent =
-        serde_json::from_str(include_str!("fixtures/push.json")).expect("payload should parse");
-    assert_eq!(event.git_ref, "refs/heads/main");
-    assert_eq!(event.after, "6113728f27ae82c7b1a177c8d03f9e96e0adf246");
-    assert!(!event.deleted);
-    assert_eq!(event.repository.full_name, "chrishiguto/chris");
-    assert_eq!(event.repository.default_branch, "main");
-    assert!(event.is_default_branch());
-    assert_eq!(event.commits.len(), 1);
-    assert_eq!(event.commits[0].added, ["content/blog/hello/index.mdx"]);
-    assert_eq!(event.commits[0].modified, ["docs/DOCS_INDEX.md"]);
-}
-
-#[test]
-fn branch_pushes_are_not_default_branch() {
-    let mut event: PushEvent =
-        serde_json::from_str(include_str!("fixtures/push.json")).expect("payload should parse");
-    event.git_ref = "refs/heads/feature/prd-1".to_string();
-    assert!(!event.is_default_branch());
-}
-
-// --- classification ---
-// (the source-path grammar is content's; post_slug is tested there)
-
-#[test]
-fn content_only_push_takes_the_fast_path() {
-    let class = classify(&[commit(
-        &["content/blog/hello/index.mdx"],
-        &["content/blog/older/index.mdx"],
-        &[],
-    )]);
-    assert_eq!(class, PushClass::ContentOnly);
-}
-
-#[test]
-fn removed_post_source_still_takes_the_fast_path() {
-    // A removal reconciles like any content change: the rebuild targets HEAD.
-    let class = classify(&[commit(&[], &[], &["content/blog/hello/index.mdx"])]);
-    assert_eq!(class, PushClass::ContentOnly);
-}
-
-#[test]
-fn docs_only_push_is_ignored() {
-    let class = classify(&[commit(&["README.md"], &["docs/DOCS_INDEX.md"], &[])]);
-    assert_eq!(class, PushClass::Ignore);
-}
-
-#[test]
-fn non_post_content_files_alone_are_ignored() {
-    let class = classify(&[commit(&[], &["content/blog/hello/notes.txt"], &[])]);
-    assert_eq!(class, PushClass::Ignore);
-}
-
-#[test]
-fn mixed_push_takes_the_code_path_and_counts_touched_posts() {
-    let class = classify(&[commit(
-        &["content/blog/hello/index.mdx"],
-        &["app/src/post.rs"],
-        &[],
-    )]);
-    assert_eq!(class, PushClass::Code { touched_posts: 1 });
-}
-
-#[test]
-fn colocated_components_count_as_code() {
-    // Per-post Rust must ride the deploy path even under content/
-    let class = classify(&[commit(&["content/blog/hello/components.rs"], &[], &[])]);
-    assert_eq!(class, PushClass::Code { touched_posts: 0 });
-}
-
-#[test]
-fn build_defining_files_count_as_code() {
-    for path in [
-        "Cargo.toml",
-        "Cargo.lock",
-        "justfile",
-        "wrangler.toml",
-        "app/style/main.css",
-        "crates/registry/Cargo.toml",
-        "workers/pipeline/wrangler.toml",
-        ".github/workflows/deploy.yml",
-    ] {
-        assert_eq!(
-            classify(&[commit(&[], &[path], &[])]),
-            PushClass::Code { touched_posts: 0 },
-            "{path} should classify as code"
-        );
-    }
-}
-
-#[test]
-fn a_slug_touched_by_many_commits_counts_once() {
-    // one slug across added/modified/removed counts once; the count only
-    // feeds the status message
-    let class = classify(&[
-        commit(&["content/blog/hello/index.mdx"], &[], &[]),
-        commit(&[], &["app/src/lib.rs"], &["content/blog/hello/index.mdx"]),
-    ]);
-    assert_eq!(class, PushClass::Code { touched_posts: 1 });
-}
-
-#[test]
-fn empty_push_is_ignored() {
-    assert_eq!(classify(&[]), PushClass::Ignore);
 }
 
 // --- reconcile vocabulary ---
@@ -150,7 +28,7 @@ fn tree_post_slugs_filters_sorts_and_dedups() {
 }
 
 #[test]
-fn reconcile_config_round_trips_as_the_trigger_payload() {
+fn reconcile_config_round_trips_as_the_publish_target() {
     let config = ReconcileConfig {
         repository: "chrishiguto/chris".into(),
         branch: "main".into(),
@@ -199,33 +77,17 @@ fn a_tree_response_without_a_tree_array_is_an_error() {
     assert!(parse_tree_listing(&json).is_err());
 }
 
-// --- commit status building ---
+// --- publish outcome ---
 
 #[test]
-fn reconcile_description_reports_success_and_carried_failures() {
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 3,
-            failed: 0,
-            carried: 0,
-            purged: true,
-        },
-        &[],
-    );
-    assert_eq!(state, StatusState::Success);
-    assert_eq!(description, "reconciled: 3 posts published");
+fn outcome_summarizes_success_and_carried_failures() {
+    let out = PublishOutcome::new(3, 0, 0, true, &[]);
+    assert!(out.ok);
+    assert_eq!(out.summary, "reconciled: 3 posts published");
 
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 1,
-            failed: 0,
-            carried: 0,
-            purged: true,
-        },
-        &[],
-    );
-    assert_eq!(state, StatusState::Success);
-    assert_eq!(description, "reconciled: 1 post published");
+    let out = PublishOutcome::new(1, 0, 0, true, &[]);
+    assert!(out.ok);
+    assert_eq!(out.summary, "reconciled: 1 post published");
 
     let diag = content::Diagnostic {
         message: "unknown component <OrbitSimulatr>".to_string(),
@@ -233,85 +95,59 @@ fn reconcile_description_reports_success_and_carried_failures() {
         line: Some(3),
         column: None,
     };
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 2,
-            failed: 1,
-            carried: 1,
-            purged: true,
-        },
-        &[diag],
-    );
-    assert_eq!(state, StatusState::Failure);
+    let out = PublishOutcome::new(2, 1, 1, true, &[diag]);
+    assert!(!out.ok);
     assert_eq!(
-        description,
+        out.summary,
         "1 post failed validation (previous versions kept); \
          content/blog/broken/index.mdx: unknown component <OrbitSimulatr>"
     );
 }
 
 /// A failed post with no previous version to carry drops from the index;
-/// the status must not claim it was kept.
+/// the summary must not claim it was kept.
 #[test]
-fn reconcile_description_does_not_claim_kept_for_dropped_posts() {
+fn outcome_does_not_claim_kept_for_dropped_posts() {
     let diag = content::Diagnostic {
         message: "unknown component <Nope>".to_string(),
         file: Some("content/blog/new-and-broken/index.mdx".to_string()),
         line: None,
         column: None,
     };
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 2,
-            failed: 2,
-            carried: 1,
-            purged: true,
-        },
-        &[diag],
-    );
-    assert_eq!(state, StatusState::Failure);
+    let out = PublishOutcome::new(2, 2, 1, true, &[diag]);
+    assert!(!out.ok);
     assert!(
-        description.contains("previous versions kept where available"),
-        "{description}"
+        out.summary
+            .contains("previous versions kept where available"),
+        "{}",
+        out.summary
     );
 }
 
-/// KV can flip and the purge still fail — readers see stale pages, so a
-/// green "published" must never paper over it.
+/// KV can flip and the purge still fail — readers see stale pages, so the
+/// outcome must not be `ok`, and the summary must say so.
 #[test]
-fn reconcile_description_fails_the_status_when_the_purge_fails() {
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 2,
-            failed: 0,
-            carried: 0,
-            purged: false,
-        },
-        &[],
-    );
-    assert_eq!(state, StatusState::Failure);
+fn outcome_is_not_ok_when_the_purge_fails() {
+    let out = PublishOutcome::new(2, 0, 0, false, &[]);
+    assert!(!out.ok);
     assert_eq!(
-        description,
+        out.summary,
         "reconciled: 2 posts published; cache purge failed — pages may be stale"
     );
 
     // A validation failure and a purge failure both surface.
-    let (state, description) = reconcile_description(
-        ReconcileOutcome {
-            published: 1,
-            failed: 1,
-            carried: 1,
-            purged: false,
-        },
-        &[],
+    let out = PublishOutcome::new(1, 1, 1, false, &[]);
+    assert!(!out.ok);
+    assert!(
+        out.summary.contains("cache purge failed"),
+        "{}",
+        out.summary
     );
-    assert_eq!(state, StatusState::Failure);
-    assert!(description.contains("cache purge failed"), "{description}");
-    assert!(description.contains("failed validation"), "{description}");
+    assert!(out.summary.contains("failed validation"), "{}", out.summary);
 }
 
 /// Debt from a failed purge widens the next scope — without it, a same-HEAD
-/// reconcile would diff to nothing and go green while the cache is stale.
+/// reconcile would diff to nothing while the cache is stale.
 #[test]
 fn purge_scope_merges_debt_into_the_stale_tags_deduped() {
     let stale = vec!["post:a".to_string(), "views".to_string()];
@@ -360,50 +196,6 @@ fn failure_description_is_concise_and_counts_diagnostics() {
     );
 }
 
-#[test]
-fn code_push_description_counts_the_content_changes() {
-    assert_eq!(
-        code_push_description(3),
-        "code push: 3 content changes publish after the CI deploy"
-    );
-    assert_eq!(
-        code_push_description(0),
-        "code push: publish reconciles after the CI deploy"
-    );
-}
-
-#[test]
-fn status_payload_carries_the_context_and_clamps_the_description() {
-    let payload = status_payload(StatusState::Success, "published hello");
-    let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-    assert_eq!(json["state"], "success");
-    assert_eq!(json["context"], STATUS_CONTEXT);
-    assert_eq!(json["description"], "published hello");
-    assert_eq!(STATUS_CONTEXT, "blog/publish");
-
-    // the Commit Status API caps descriptions at 140 characters
-    let long = "x".repeat(200);
-    let payload = status_payload(StatusState::Failure, &long);
-    let json: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
-    let description = json["description"].as_str().expect("string");
-    assert_eq!(description.chars().count(), 140);
-    assert!(description.ends_with('…'));
-}
-
-#[test]
-fn status_states_serialize_lowercase() {
-    for (state, expected) in [
-        (StatusState::Pending, "pending"),
-        (StatusState::Success, "success"),
-        (StatusState::Failure, "failure"),
-        (StatusState::Error, "error"),
-    ] {
-        let json: serde_json::Value =
-            serde_json::from_str(&status_payload(state, "x")).expect("valid json");
-        assert_eq!(json["state"], expected);
-    }
-}
-
 // --- GitHub API request shapes ---
 
 #[test]
@@ -411,10 +203,6 @@ fn github_urls_pin_repo_path_and_sha() {
     assert_eq!(
         contents_url("chrishiguto/chris", "hello", "abc123"),
         "https://api.github.com/repos/chrishiguto/chris/contents/content/blog/hello/index.mdx?ref=abc123"
-    );
-    assert_eq!(
-        statuses_url("chrishiguto/chris", "abc123"),
-        "https://api.github.com/repos/chrishiguto/chris/statuses/abc123"
     );
     assert_eq!(
         head_ref_url("chrishiguto/chris", "main"),
@@ -426,40 +214,21 @@ fn github_urls_pin_repo_path_and_sha() {
     );
 }
 
-// --- workflow dispatch (the code path) ---
-
 #[test]
-fn dispatch_url_targets_the_publish_workflow() {
-    assert_eq!(
-        dispatch_url("chrishiguto/chris"),
-        "https://api.github.com/repos/chrishiguto/chris/actions/workflows/publish.yml/dispatches"
-    );
-    assert_eq!(WORKFLOW_FILE, "publish.yml");
-}
-
-#[test]
-fn dispatch_payload_carries_branch_ref_and_commit_sha() {
-    let json: serde_json::Value =
-        serde_json::from_str(&dispatch_payload("main", "abc123")).expect("valid json");
-    assert_eq!(json["ref"], "main");
-    assert_eq!(json["inputs"]["sha"], "abc123");
-}
-
-#[test]
-fn publish_request_carries_repository_and_branch() {
-    // CI also sends `sha`; serde ignores it — a reconcile targets HEAD.
-    let request: PublishRequest = serde_json::from_str(
+fn publish_body_deserializes_into_the_reconcile_config() {
+    // The /publish body is a ReconcileConfig; an unknown field (a legacy
+    // `sha`, say) is ignored so wire drift can't 400 the call.
+    let config: ReconcileConfig = serde_json::from_str(
         r#"{"sha":"abc123","repository":"chrishiguto/chris","branch":"main"}"#,
     )
-    .expect("valid request");
-    assert_eq!(request.repository, "chrishiguto/chris");
-    assert_eq!(request.branch, "main");
+    .expect("a body with an extra field still deserializes");
+    assert_eq!(config.repository, "chrishiguto/chris");
+    assert_eq!(config.branch, "main");
 
-    // a caller predating the branch field still parses; the handler rejects it
-    let legacy: PublishRequest =
-        serde_json::from_str(r#"{"sha":"abc123","repository":"chrishiguto/chris"}"#)
-            .expect("legacy request still parses");
-    assert!(legacy.branch.is_empty());
+    // A body missing `branch` fails to parse — the handler turns that into a 400.
+    assert!(
+        serde_json::from_str::<ReconcileConfig>(r#"{"repository":"chrishiguto/chris"}"#).is_err()
+    );
 }
 
 // --- manifest ---
@@ -473,77 +242,5 @@ fn manifest_exposes_the_real_app_vocabulary() {
     assert!(
         names.contains(&"Callout") && names.contains(&"Counter"),
         "expected the app vocabulary, got {names:?}"
-    );
-}
-
-// --- the webhook decision tree ---
-
-fn push_event(git_ref: &str, deleted: bool, commits: Vec<PushCommit>) -> PushEvent {
-    let mut event: PushEvent =
-        serde_json::from_str(include_str!("fixtures/push.json")).expect("payload should parse");
-    event.git_ref = git_ref.to_string();
-    event.deleted = deleted;
-    event.commits = commits;
-    event
-}
-
-#[test]
-fn deleted_refs_and_non_default_branches_are_ignored() {
-    let content = || vec![commit(&["content/blog/hello/index.mdx"], &[], &[])];
-    assert_eq!(
-        decide_push(&push_event("refs/heads/main", true, content())),
-        WebhookAction::Ignore("ignored: not a default-branch push")
-    );
-    assert_eq!(
-        decide_push(&push_event("refs/heads/feature/x", false, content())),
-        WebhookAction::Ignore("ignored: not a default-branch push")
-    );
-}
-
-#[test]
-fn a_push_touching_nothing_relevant_is_ignored() {
-    let event = push_event(
-        "refs/heads/main",
-        false,
-        vec![commit(&["docs/DOCS_INDEX.md"], &[], &[])],
-    );
-    assert_eq!(
-        decide_push(&event),
-        WebhookAction::Ignore("ignored: no content or code changes")
-    );
-}
-
-#[test]
-fn a_content_only_push_reconciles_to_the_default_branch() {
-    let event = push_event(
-        "refs/heads/main",
-        false,
-        vec![commit(&["content/blog/hello/index.mdx"], &[], &[])],
-    );
-    assert_eq!(
-        decide_push(&event),
-        WebhookAction::Reconcile(ReconcileConfig {
-            repository: "chrishiguto/chris".to_string(),
-            branch: "main".to_string(),
-        })
-    );
-}
-
-#[test]
-fn a_code_push_dispatches_ci_with_the_touched_post_count() {
-    let event = push_event(
-        "refs/heads/main",
-        false,
-        vec![commit(
-            &["app/src/lib.rs", "content/blog/hello/index.mdx"],
-            &[],
-            &[],
-        )],
-    );
-    assert_eq!(
-        decide_push(&event),
-        WebhookAction::DispatchCi {
-            description: code_push_description(1),
-        }
     );
 }

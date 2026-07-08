@@ -29,15 +29,15 @@ that widget is live — drag the slider. it's a leptos island, hydrated on the c
 </Callout>
 ```
 
-when i push, a worker picks up the webhook, parses the post into a typed ast, writes it to kv,
-purges the urls that changed and reports back as a commit status on the commit. the post is live a
-couple of seconds later, and since publishing only ever touches what changed, there's no site
-rebuild involved — publishing post number 200 costs the same as publishing post number 2.
+when i merge a pr, a github action calls the pipeline worker, which parses the post into a typed
+ast, writes it to kv, and purges the urls that changed. github records it as a deployment on the
+merged pr, linking straight to the run. the post is live moments later, and since publishing only
+ever touches what changed, there's no site rebuild involved — publishing post number 200 costs the
+same as publishing post number 2.
 
 a post can also bring its own one-off interactive component: a `components.rs` sitting next to
-the `index.mdx`, real rust with full rust-analyzer support. pushes that include code take a
-different path — ci builds and deploys first, then publishes the post. code deploys, content
-flows.
+the `index.mdx`, real rust with full rust-analyzer support. merges that include code do more work
+first — ci builds and deploys the workers, then publishes the post. code deploys, content flows.
 
 ## the rule that holds it together
 
@@ -50,14 +50,14 @@ content doesn't even know something changed.
 ## how a post goes live
 
 ```
-git push → webhook → pipeline worker
+open a pr → ci validates content + code → a check shows on the pr
+merge to main → one github action:
 │
-├─ only content/**/*.mdx changed
-│    → fast path: fetch → parse → validate → kv → purge → commit status.  live in ~2s.
+├─ content only  → call the pipeline: fetch → parse → validate → kv → purge (reconcile to head)
 │
-└─ any .rs / app code changed
-     → ci: build → deploy workers → purge everything → publish the pending posts.
-       ordering comes free from ci being sequential — no distributed state machine.
+└─ code changed  → build → deploy workers → purge site → then call the pipeline
+│
+either way → a "deployed to content" deployment lands on the merged pr, linking to the run
 ```
 
 ## layout
@@ -72,7 +72,7 @@ crates/
 app/                 leptos ui: routes, layout, ast renderer, shared components
 workers/
   site/              ssr worker — leptos_axum (wasm) + axum + cache api + kv reads
-  pipeline/          webhook + publish op + github checks + purge
+  pipeline/          the /publish reconcile op (coordinator durable object) + purge
 content/
   blog/{slug}/index.mdx [+ components.rs]
 ```
