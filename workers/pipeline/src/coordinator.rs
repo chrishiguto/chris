@@ -17,8 +17,8 @@ use worker::{
 };
 
 use crate::{
-    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, reconcile_description,
-    tree_url, ReconcileConfig,
+    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, purge_scope,
+    reconcile_description, tree_url, ReconcileConfig, ReconcileOutcome,
 };
 
 /// Every caller addresses this one instance, which serializes all publishes.
@@ -33,6 +33,8 @@ const CONFIG_KEY: &str = "config";
 const DIRTY_KEY: &str = "dirty";
 const HISTORY_KEY: &str = "history";
 const LAST_STATUS_KEY: &str = "last-status";
+/// Tags a failed purge left uncovered; later reconciles retry them.
+const PENDING_PURGE_KEY: &str = "pending-purge";
 
 /// Snapshots kept for rollback; older ones are swept after a flip.
 const KEEP_SNAPSHOTS: usize = 10;
@@ -185,11 +187,36 @@ impl PublishCoordinator {
             .await
             .map_err(|err| err.to_string())?;
 
-        // Purge and retention are best-effort; the publish already happened.
-        net::purge_site(env).await;
+        // Purge and retention never unwind the publish — the flip already
+        // happened; a failed purge rides into the status instead and leaves
+        // its tags as debt the next reconcile retries.
+        let storage = self.state.storage();
+        let debt: Option<Vec<String>> = match storage.get(PENDING_PURGE_KEY).await {
+            Ok(debt) => Some(debt.unwrap_or_default()),
+            Err(err) => {
+                console_error!("purge-debt read failed (escalating to a site purge): {err}");
+                None
+            }
+        };
+        let tags = purge_scope(publish::stale_tags(&prev_index, &plan.index), debt);
+        let purged = tags.is_empty() || net::purge_site(env, &tags).await;
+        if !purged {
+            if let Err(err) = storage.put(PENDING_PURGE_KEY, &tags).await {
+                console_error!(
+                    "purge-debt write failed (a stale page may outlive its red status): {err}"
+                );
+            }
+        } else if let Err(err) = storage.delete(PENDING_PURGE_KEY).await {
+            console_error!("purge-debt clear failed (the next reconcile may over-purge): {err}");
+        }
         self.retain(&kv, &head).await;
-        self.report(repo, &head, parsed.len(), failed, carried_count, &diags)
-            .await;
+        let outcome = ReconcileOutcome {
+            published: parsed.len(),
+            failed,
+            carried: carried_count,
+            purged,
+        };
+        self.report(repo, &head, outcome, &diags).await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
             parsed.len()
@@ -203,12 +230,10 @@ impl PublishCoordinator {
         &self,
         repo: &str,
         head: &str,
-        published: usize,
-        failed: usize,
-        carried: usize,
+        outcome: ReconcileOutcome,
         diags: &[Diagnostic],
     ) {
-        let (state, description) = reconcile_description(published, failed, carried, diags);
+        let (state, description) = reconcile_description(outcome, diags);
         let stamp = format!("{head}|{state:?}|{description}");
         let storage = self.state.storage();
         let last: Option<String> = storage.get(LAST_STATUS_KEY).await.unwrap_or_else(|err| {

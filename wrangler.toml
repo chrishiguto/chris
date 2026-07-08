@@ -3,7 +3,9 @@ main = "workers/site/build/index.js"
 compatibility_date = "2026-07-07"
 
 # Workers Cache fronts the fetch handler: hits are served before the worker
-# runs, keyed per deployed version, stored per each response's Cache-Control.
+# runs, stored per each response's Cache-Control, evicted by Cache-Tag
+# through /__purge. (Docs say keys include the deployed version; CI still
+# purges after deploys until that is verified in production.)
 [cache]
 enabled = true
 
@@ -21,5 +23,5 @@ directory = "./target/site"
 binding = "BLOG"
 id = "86ddce8f97854520bb4c9ec79cd838f0"
 
-# Secrets (wrangler secret put): PURGE_SHARED_SECRET — authenticates the
-# pipeline's POST /__purge calls (same value the pipeline worker holds).
+# Secrets (wrangler secret put): PURGE_SHARED_SECRET — authenticates
+# POST /__purge calls (same value the pipeline worker and CI hold).

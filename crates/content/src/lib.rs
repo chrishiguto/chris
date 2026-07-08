@@ -11,10 +11,10 @@ pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
 mod routes;
 pub use routes::{
-    index_key_at, post_key, post_key_at, post_path, post_slug, snapshot_index_key,
+    index_key_at, post_key, post_key_at, post_path, post_slug, post_tag, snapshot_index_key,
     snapshot_key_sha, snapshot_post_key, source_path, tag_path, valid_slug, CurrentPointer,
     CONTENT_ROOT, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POST_FILE, RSS_PATH,
-    SITEMAP_PATH, SNAPSHOT_KEY_SPACE,
+    SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, VIEWS_TAG,
 };
 
 #[cfg(feature = "parse")]
@@ -117,6 +117,11 @@ pub struct IndexEntry {
     pub tags: Vec<String>,
     #[serde(default)]
     pub draft: bool,
+    /// Hash of the serialized post payload; scoped cache purges diff on it.
+    /// Empty on pre-hash snapshots, which reads as "changed" (over-purge,
+    /// never staleness).
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub content_hash: String,
 }
 
 impl IndexEntry {
@@ -134,6 +139,7 @@ impl IndexEntry {
             description: frontmatter.description.clone(),
             tags: frontmatter.tags.clone(),
             draft: frontmatter.draft,
+            content_hash: String::new(),
         }
     }
 }

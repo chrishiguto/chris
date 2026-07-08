@@ -13,6 +13,7 @@ fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
         description: None,
         tags: vec![],
         draft: false,
+        content_hash: String::new(),
     }
 }
 

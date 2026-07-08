@@ -63,6 +63,27 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy
 
+      # Cached HTML embeds the previous build's hydration markup and asset
+      # URLs, and cache entries can outlive a deploy — evict the site tag so
+      # nothing stale hydrates against the new wasm. `just purge` fails the
+      # run loudly on any error. SITE_URL (repo variable) overrides the
+      # derived workers.dev URL.
+      - name: Purge the site cache
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          PURGE_SHARED_SECRET: ${{ secrets.PURGE_SHARED_SECRET }}
+          SITE_ORIGIN: ${{ vars.SITE_URL }}
+        run: |
+          if [ -z "$SITE_ORIGIN" ]; then
+            subdomain=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+              | jq -r '.result.subdomain')
+            SITE_ORIGIN="https://chris-site.$subdomain.workers.dev"
+          fi
+          export SITE_ORIGIN
+          just purge
+
       - name: Deploy the pipeline worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

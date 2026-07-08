@@ -3,8 +3,11 @@
 //! Snapshots are immutable; the caller flips `current` last, so readers never see a blend.
 
 use content::{
-    snapshot_index_key, snapshot_post_key, AstError, Diagnostic, Document, IndexEntry, Manifest,
+    post_tag, snapshot_index_key, snapshot_post_key, AstError, Diagnostic, Document, IndexEntry,
+    Manifest, VIEWS_TAG,
 };
+use sha2::{Digest, Sha256};
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Clone)]
 pub struct PostSource {
@@ -114,39 +117,78 @@ fn check_slug(post: &PostSource) -> Option<Diagnostic> {
     })
 }
 
+/// Content-addresses one serialized post payload; index entries carry it so
+/// the next publish can tell changed posts from untouched ones.
+pub fn content_hash(payload: &str) -> String {
+    format!("{:x}", Sha256::digest(payload.as_bytes()))
+}
+
+/// Cache tags a flip from `prev` to `next` made stale: every added, removed,
+/// or changed post, plus the shared views tag once anything changed at all.
+/// Empty means readers see no difference — nothing to purge. Entries without
+/// a hash always count as changed.
+pub fn stale_tags(prev: &[IndexEntry], next: &[IndexEntry]) -> Vec<String> {
+    let prev_hashes: BTreeMap<&str, &str> = prev
+        .iter()
+        .map(|entry| (entry.slug.as_str(), entry.content_hash.as_str()))
+        .collect();
+    let next_slugs: BTreeSet<&str> = next.iter().map(|entry| entry.slug.as_str()).collect();
+
+    let mut changed: BTreeSet<&str> = BTreeSet::new();
+    for entry in next {
+        if entry.content_hash.is_empty()
+            || prev_hashes.get(entry.slug.as_str()) != Some(&entry.content_hash.as_str())
+        {
+            changed.insert(&entry.slug);
+        }
+    }
+    changed.extend(
+        prev_hashes
+            .keys()
+            .filter(|slug| !next_slugs.contains(*slug)),
+    );
+
+    let mut tags: Vec<String> = changed.iter().map(|slug| post_tag(slug)).collect();
+    if !tags.is_empty() {
+        tags.push(VIEWS_TAG.to_string());
+    }
+    tags
+}
+
 /// Lays out one immutable snapshot: the index is exactly checked + carried
-/// posts — absent from both means retired.
+/// posts — absent from both means retired. Every entry gets its payload's
+/// hash, so pre-hash entries riding in as carried posts heal in place.
 pub fn snapshot(
     posts: &[ParsedPost],
     carried: Vec<CarriedPost>,
     sha: &str,
 ) -> Result<SnapshotPlan, AstError> {
-    let mut index: Vec<IndexEntry> = posts
-        .iter()
-        .map(|post| IndexEntry::new(&post.slug, &post.document.frontmatter))
-        .chain(carried.iter().map(|post| post.entry.clone()))
-        .collect();
+    let mut index: Vec<IndexEntry> = Vec::with_capacity(posts.len() + carried.len());
+    let mut post_writes: Vec<KvWrite> = Vec::with_capacity(posts.len() + carried.len());
+    for post in posts {
+        let payload = post.document.to_json()?;
+        let mut entry = IndexEntry::new(&post.slug, &post.document.frontmatter);
+        entry.content_hash = content_hash(&payload);
+        index.push(entry);
+        post_writes.push(KvWrite {
+            key: snapshot_post_key(sha, &post.slug),
+            value: payload,
+        });
+    }
+    for CarriedPost { mut entry, payload } in carried {
+        entry.content_hash = content_hash(&payload);
+        post_writes.push(KvWrite {
+            key: snapshot_post_key(sha, &entry.slug),
+            value: payload,
+        });
+        index.push(entry);
+    }
     index.sort_by(|a, b| b.date.cmp(&a.date).then_with(|| a.slug.cmp(&b.slug)));
 
     let index_write = KvWrite {
         key: snapshot_index_key(sha),
         value: serde_json::to_string(&index).map_err(AstError::Json)?,
     };
-    let post_writes = posts
-        .iter()
-        .map(|post| {
-            Ok(KvWrite {
-                key: snapshot_post_key(sha, &post.slug),
-                value: post.document.to_json()?,
-            })
-        })
-        .chain(carried.into_iter().map(|post| {
-            Ok(KvWrite {
-                key: snapshot_post_key(sha, &post.entry.slug),
-                value: post.payload,
-            })
-        }))
-        .collect::<Result<Vec<_>, AstError>>()?;
 
     Ok(SnapshotPlan {
         post_writes,

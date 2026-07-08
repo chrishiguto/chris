@@ -15,7 +15,7 @@ mod server {
         extract::{FromRef, Path, State},
         http::{
             header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
-            HeaderValue, Request, Response, StatusCode,
+            HeaderName, HeaderValue, Request, Response, StatusCode,
         },
         response::IntoResponse,
         routing::{get, post},
@@ -38,6 +38,8 @@ mod server {
     // TODO: evaluate Cloudflare Secrets Store for this cross-worker shared secret.
     /// Shared with the pipeline worker: authenticates purge calls.
     const PURGE_SECRET: &str = "PURGE_SHARED_SECRET";
+    /// A purge body is a short tag list; anything bigger is malformed.
+    const PURGE_BODY_LIMIT: usize = 16 * 1024;
 
     #[derive(Clone)]
     struct AppState {
@@ -102,8 +104,9 @@ mod server {
         Ok(revalidated(response, if_none_match.as_deref()))
     }
 
-    /// Purges every cached page. Best-effort on the caller's side (the
-    /// publish already happened), so failures answer loudly with a 502.
+    /// Purges the requested cache tags (`{"tags":[...]}`; no body means the
+    /// site-wide tag). Failures answer loudly with a 502 so callers can
+    /// report them.
     #[worker::send]
     async fn purge_route(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
         // A missing secret is a server misconfiguration (500), not a rejected
@@ -112,14 +115,22 @@ mod server {
             console_error!("{PURGE_SECRET} secret missing — cannot authenticate purge");
             return (StatusCode::INTERNAL_SERVER_ERROR, "purge misconfigured").into_response();
         };
-        let header = req
-            .headers()
+        let (parts, body) = req.into_parts();
+        let header = parts
+            .headers
             .get(AUTHORIZATION)
             .and_then(|value| value.to_str().ok());
         if !verify_bearer(&secret.to_string(), header) {
             return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         }
-        match purge::purge_everything().await {
+        let Ok(body) = axum::body::to_bytes(body, PURGE_BODY_LIMIT).await else {
+            return (StatusCode::BAD_REQUEST, "unreadable purge body").into_response();
+        };
+        let tags = match cache::parse_purge_body(&body) {
+            Ok(tags) => tags,
+            Err(err) => return (StatusCode::BAD_REQUEST, err).into_response(),
+        };
+        match purge::purge_tags(&tags).await {
             Ok(()) => (StatusCode::OK, "purged").into_response(),
             Err(err) => {
                 console_error!("cache purge failed: {err}");
@@ -129,14 +140,23 @@ mod server {
     }
 
     /// Opts a response into Workers Cache — `s-maxage` stores at the edge,
-    /// `max-age=0` keeps browsers revalidating — plus the snapshot-sha ETag.
-    fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>) {
-        response.headers_mut().insert(
+    /// `max-age=0` keeps browsers revalidating — plus the snapshot-sha ETag
+    /// and the `Cache-Tag` scopes purges select on. Fail-closed: tags are a
+    /// purge's only handle on a cached entry, so a tag set that can't be a
+    /// header leaves the response uncached rather than cached unpurgeable.
+    fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>, tags: &str) {
+        let Ok(tag_header) = HeaderValue::from_str(tags) else {
+            console_error!("cache tags {tags:?} form no valid header — response left uncached");
+            return;
+        };
+        let headers = response.headers_mut();
+        headers.insert(HeaderName::from_static("cache-tag"), tag_header);
+        headers.insert(
             CACHE_CONTROL,
             HeaderValue::from_static(cache::CACHE_CONTROL),
         );
         if let Some(value) = sha.and_then(|sha| HeaderValue::from_str(&cache::etag(sha)).ok()) {
-            response.headers_mut().insert(ETAG, value);
+            headers.insert(ETAG, value);
         }
     }
 
@@ -186,7 +206,11 @@ mod server {
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
         } else if cacheable {
-            mark_cacheable(&mut response, sha.as_deref());
+            mark_cacheable(
+                &mut response,
+                sha.as_deref(),
+                &cache::post_cache_tags(&slug),
+            );
         }
         response
     }
@@ -202,7 +226,7 @@ mod server {
             provide_context(IndexData(index.clone()))
         })
         .await;
-        mark_cacheable(&mut response, sha.as_deref());
+        mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
         response
     }
 
@@ -226,7 +250,7 @@ mod server {
         })
         .await;
         if known {
-            mark_cacheable(&mut response, sha.as_deref());
+            mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
         } else {
             *response.status_mut() = StatusCode::NOT_FOUND;
         }
@@ -276,7 +300,7 @@ mod server {
         };
         let mut response =
             ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response();
-        mark_cacheable(&mut response, sha.as_deref());
+        mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
         response
     }
 

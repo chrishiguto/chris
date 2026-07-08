@@ -1,6 +1,9 @@
 //! Native tests for the pure cache policy.
 
-use site::cache::{etag, is_entity_header, not_modified, revalidates};
+use site::cache::{
+    etag, is_entity_header, not_modified, parse_purge_body, post_cache_tags, revalidates,
+    view_cache_tags,
+};
 
 #[test]
 fn etag_is_the_quoted_snapshot_sha() {
@@ -43,4 +46,34 @@ fn entity_headers_are_the_content_family() {
     assert!(is_entity_header("content-length"));
     assert!(!is_entity_header("etag"));
     assert!(!is_entity_header("cache-control"));
+}
+
+#[test]
+fn cache_tags_pair_the_site_scope_with_the_specific_one() {
+    assert_eq!(post_cache_tags("hello"), "site,post:hello");
+    assert_eq!(view_cache_tags(), "site,views");
+}
+
+/// The break-glass contract: a bodyless purge means "everything".
+#[test]
+fn parse_purge_body_defaults_an_empty_body_to_the_site_tag() {
+    assert_eq!(parse_purge_body(b"").unwrap(), vec!["site"]);
+    assert_eq!(parse_purge_body(b" \n\t").unwrap(), vec!["site"]);
+}
+
+#[test]
+fn parse_purge_body_reads_an_explicit_list() {
+    assert_eq!(
+        parse_purge_body(br#"{"tags":["post:hello","views"]}"#).unwrap(),
+        vec!["post:hello", "views"]
+    );
+}
+
+#[test]
+fn parse_purge_body_rejects_malformed_bodies() {
+    assert!(parse_purge_body(b"not json").is_err());
+    assert!(parse_purge_body(br#"{"tags":[]}"#).is_err());
+    assert!(parse_purge_body(br#"{"tags":[""]}"#).is_err());
+    assert!(parse_purge_body(br#"{"tags":["  "]}"#).is_err());
+    assert!(parse_purge_body(br#"{"urls":["/"]}"#).is_err());
 }
