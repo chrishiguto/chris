@@ -69,9 +69,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy-pipeline
 
-      # No purge step: Workers Cache keys on the deployed version, so every
-      # deploy starts from an empty cache by construction.
-
       # Reconcile after deploy so content lands against the fresh manifest;
       # PIPELINE_URL (repo variable) overrides the derived workers.dev URL.
       - name: Trigger the publish reconcile
