@@ -1,4 +1,5 @@
-//! Worker shim: routing, KV reads, and the Cache API front.
+//! Worker shim: routing and KV reads. Workers Cache fronts the fetch
+//! handler at the platform layer, so a hit never reaches this code.
 pub mod cache;
 pub mod feeds;
 
@@ -11,7 +12,7 @@ mod server {
         extract::{FromRef, Path, State},
         http::{
             header::{CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
-            HeaderValue, Method, Request, Response, StatusCode,
+            HeaderValue, Request, Response, StatusCode,
         },
         response::IntoResponse,
         routing::get,
@@ -23,7 +24,7 @@ mod server {
     };
     use leptos::prelude::*;
     use tower_service::Service;
-    use worker::{console_error, Cache, Env};
+    use worker::{console_error, Env};
 
     const KV_BINDING: &str = "BLOG";
     /// Axum `{param}` forms of `content::post_path` / `content::tag_path`.
@@ -46,7 +47,7 @@ mod server {
     async fn fetch(
         req: worker::HttpRequest,
         env: Env,
-        ctx: worker::Context,
+        _ctx: worker::Context,
     ) -> worker::Result<Response<Body>> {
         // The async renderer spawns through the global executor; registering
         // it is once-per-isolate, so later requests hit `AlreadySet`.
@@ -66,56 +67,24 @@ mod server {
             .and_then(|value| value.to_str().ok())
             .map(String::from);
 
-        // Cache front: a hit returns before any KV read or render.
-        let key = (req.method() == Method::GET)
-            .then(|| {
-                let uri = req.uri();
-                cache::cache_key(
-                    uri.scheme_str(),
-                    uri.authority().map(|authority| authority.as_str()),
-                    uri.path(),
-                )
-            })
-            .flatten();
-        let cache = Cache::default();
-        let mut response = 'response: {
-            if let Some(key) = &key {
-                if let Some(hit) = cached(&cache, key).await {
-                    break 'response hit;
-                }
-            }
+        // One listing handler serves all listing pages; the leptos
+        // router picks the page from the URL.
+        let mut router = LISTING_PAGES
+            .iter()
+            .fold(
+                Router::new()
+                    .route(POST_ROUTE, get(post_page))
+                    .route(TAG_ROUTE, get(tag_page))
+                    .route(RSS_PATH, get(feed_xml))
+                    .route(SITEMAP_PATH, get(sitemap_xml)),
+                |r, path| r.route(path, get(listing_page)),
+            )
+            .fallback(not_found_page)
+            .with_state(state);
 
-            // One listing handler serves all listing pages; the leptos
-            // router picks the page from the URL.
-            let mut router = LISTING_PAGES
-                .iter()
-                .fold(
-                    Router::new()
-                        .route(POST_ROUTE, get(post_page))
-                        .route(TAG_ROUTE, get(tag_page))
-                        .route(RSS_PATH, get(feed_xml))
-                        .route(SITEMAP_PATH, get(sitemap_xml)),
-                    |r, path| r.route(path, get(listing_page)),
-                )
-                .fallback(not_found_page)
-                .with_state(state);
-
-            let response = router.call(req).await?;
-            let cache_control = response
-                .headers()
-                .get(CACHE_CONTROL)
-                .and_then(|value| value.to_str().ok());
-            match key {
-                Some(key) if cache::should_cache(response.status().as_u16(), cache_control) => {
-                    // The cache keeps the full body; only the client copy
-                    // may thin to a 304.
-                    store(&ctx, key, response).await
-                }
-                _ => response,
-            }
-        };
+        let mut response = router.call(req).await?;
         // No explicit Cache-Control means no-store: drafts, 404s, and errors
-        // must never gain heuristic freshness downstream.
+        // must never gain Workers Cache's heuristic freshness.
         if !response.headers().contains_key(CACHE_CONTROL) {
             response
                 .headers_mut()
@@ -124,66 +93,8 @@ mod server {
         Ok(revalidated(response, if_none_match.as_deref()))
     }
 
-    /// Best-effort: a lookup error is a loud miss, never a 500.
-    async fn cached(cache: &Cache, key: &str) -> Option<Response<Body>> {
-        let hit = match cache.get(key, false).await {
-            Ok(hit) => hit?,
-            Err(err) => {
-                console_error!("cache lookup for {key} failed: {err}");
-                return None;
-            }
-        };
-        match worker::HttpResponse::try_from(hit) {
-            Ok(response) => {
-                let mut response = response.map(Body::new);
-                mark_cache_state(&mut response, "hit");
-                Some(response)
-            }
-            Err(err) => {
-                console_error!("cached response for {key} unusable: {err}");
-                None
-            }
-        }
-    }
-
-    /// Buffers the body: one copy to the cache, one to the client. The put
-    /// runs via `wait_until` off the miss path; a failed put never fails a render.
-    async fn store(ctx: &worker::Context, key: String, response: Response<Body>) -> Response<Body> {
-        let (parts, body) = response.into_parts();
-        let bytes = match axum::body::to_bytes(body, usize::MAX).await {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                console_error!("buffering {key} for the cache failed: {err}");
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "the rendered page could not be buffered",
-                )
-                    .into_response();
-            }
-        };
-        let copy = Response::from_parts(parts.clone(), Body::from(bytes.clone()));
-        match worker::Response::try_from(copy) {
-            Ok(copy) => ctx.wait_until(async move {
-                if let Err(err) = Cache::default().put(&key, copy).await {
-                    console_error!("cache put for {key} failed: {err}");
-                }
-            }),
-            Err(err) => console_error!("cache copy of {key} unusable: {err}"),
-        }
-        let mut response = Response::from_parts(parts, Body::from(bytes));
-        mark_cache_state(&mut response, "miss");
-        response
-    }
-
-    /// `x-blog-cache: hit|miss` — sent to the client, never stored.
-    fn mark_cache_state(response: &mut Response<Body>, state: &'static str) {
-        response
-            .headers_mut()
-            .insert("x-blog-cache", HeaderValue::from_static(state));
-    }
-
-    /// Opts a response into the cache front: the exact `Cache-Control` that
-    /// [`cache::should_cache`] gates on, plus the snapshot-sha ETag.
+    /// Opts a response into Workers Cache — `s-maxage` stores at the edge,
+    /// `max-age=0` keeps browsers revalidating — plus the snapshot-sha ETag.
     fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>) {
         response.headers_mut().insert(
             CACHE_CONTROL,
