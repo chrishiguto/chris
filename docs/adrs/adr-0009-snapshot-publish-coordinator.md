@@ -72,7 +72,22 @@ semantically what the old enumerated set approximated: any flip invalidates ever
 — is deleted outright; `publish::snapshot` no longer takes the previous index, and
 `xtask plan` no longer reads a pointer or index (`just publish` shrank to plan → bulk put
 → flip → one authenticated curl). Auth is a shared secret (`PURGE_SHARED_SECRET`, held by
-both workers) checked constant-time, the same pattern as `/publish`. Purge stays
+both workers, checked constant-time by the shared `authn` crate — the same gate as
+`/publish`; this header-secret + constant-time-compare pattern, and the webhook's HMAC
+verification, follow Cloudflare's own Worker auth examples:
+[Sign requests](https://developers.cloudflare.com/workers/examples/signing-requests/) and
+GitHub's [webhook validation](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)).
+It is an authenticated HTTP POST rather than a typed RPC call because of how Workers Cache
+scopes purges: purge is scoped to the entrypoint that owns the cached responses, and this
+site caches on its *default* public fetch entrypoint, so the purge must run there.
+Cloudflare's secret-free alternative is to move caching into a private named
+`WorkerEntrypoint` (their `CachedBackend` reference pattern), reachable only over the service
+binding, and expose `purge()` as an RPC method on it — but workers-rs cannot author named
+`WorkerEntrypoint` classes, so that restructure is unavailable. (A workers-rs capability gap,
+not a consequence of the `=0.8.3` pin: experimental wasm-bindgen RPC has existed since 0.6.7,
+but only on the public default entrypoint, so it would not remove the gate either.) `fetch`
+over the service binding to the gated public route is therefore the transport, and the secret
+gate is load-bearing, not optional. Purge stays
 best-effort after the flip: a failure logs loudly and the 7-day `s-maxage` TTL (or the
 next deploy's fresh version-keyed cache) backstops it. The zone purge credentials
 (`CLOUDFLARE_ZONE_ID`, `SITE_ORIGIN`, `CLOUDFLARE_PURGE_TOKEN`) leave the pipeline

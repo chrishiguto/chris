@@ -1,12 +1,11 @@
-//! Pure decision core: signature verification, push classification, status
-//! building — natively testable. Transport lives behind the `worker` feature.
+//! Pure decision core: push classification, status building, request/response
+//! shaping — natively testable. Transport lives behind the `worker` feature;
+//! HMAC verification lives in the shared `authn` crate.
 
 use std::collections::BTreeSet;
 
 use content::{post_slug, source_path, Diagnostic};
-use hmac::{Hmac, Mac};
 use serde::{Deserialize, Serialize};
-use sha2::Sha256;
 
 #[cfg(feature = "worker")]
 mod coordinator;
@@ -57,34 +56,6 @@ pub struct PushCommit {
     pub modified: Vec<String>,
     #[serde(default)]
     pub removed: Vec<String>,
-}
-
-/// GitHub signs the raw body with HMAC-SHA256 (`X-Hub-Signature-256:
-/// sha256=<hex>`); comparison is constant-time.
-pub fn verify_signature(secret: &str, body: &[u8], header: Option<&str>) -> bool {
-    let Some(expected) = header
-        .and_then(|value| value.strip_prefix("sha256="))
-        .and_then(decode_hex)
-    else {
-        return false;
-    };
-    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
-        return false;
-    };
-    mac.update(body);
-    mac.verify_slice(&expected).is_ok()
-}
-
-fn decode_hex(hex: &str) -> Option<Vec<u8>> {
-    let digit = |byte: u8| char::from(byte).to_digit(16);
-    (!hex.is_empty() && hex.len().is_multiple_of(2))
-        .then(|| {
-            hex.as_bytes()
-                .chunks(2)
-                .map(|pair| u8::try_from(digit(pair[0])? * 16 + digit(pair[1])?).ok())
-                .collect()
-        })
-        .flatten()
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -148,21 +119,6 @@ pub struct PublishRequest {
     /// Empty only from a caller predating the field; the handler rejects it.
     #[serde(default)]
     pub branch: String,
-}
-
-/// Only CI may call `/publish`: exact `Bearer <secret>` match. Both sides
-/// go through HMAC so the comparison is constant-time with no length oracle.
-pub fn verify_publish_auth(secret: &str, header: Option<&str>) -> bool {
-    let Some(token) = header.and_then(|value| value.strip_prefix("Bearer ")) else {
-        return false;
-    };
-    let Ok(mac) = Hmac::<Sha256>::new_from_slice(b"publish-auth") else {
-        return false;
-    };
-    let expected = mac.clone().chain_update(secret.as_bytes()).finalize();
-    mac.chain_update(token.as_bytes())
-        .verify_slice(&expected.into_bytes())
-        .is_ok()
 }
 
 /// Sorted slugs of every post source in one recursive tree listing.

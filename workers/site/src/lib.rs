@@ -1,6 +1,5 @@
 //! Worker shim: routing and KV reads. Workers Cache fronts the fetch
 //! handler at the platform layer, so a hit never reaches this code.
-pub mod auth;
 pub mod cache;
 pub mod feeds;
 #[cfg(feature = "ssr")]
@@ -8,8 +7,9 @@ mod purge;
 
 #[cfg(feature = "ssr")]
 mod server {
-    use crate::{auth, cache, feeds, purge};
+    use crate::{cache, feeds, purge};
     use app::{app::shell, listing::IndexData, post::PostData};
+    use authn::verify_bearer;
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
@@ -35,6 +35,7 @@ mod server {
     const TAG_ROUTE: &str = "/tags/{tag}";
     /// The pipeline's purge hook; Workers Cache is private to this worker.
     const PURGE_ROUTE: &str = "/__purge";
+    // TODO: evaluate Cloudflare Secrets Store for this cross-worker shared secret.
     /// Shared with the pipeline worker: authenticates purge calls.
     const PURGE_SECRET: &str = "PURGE_SHARED_SECRET";
 
@@ -105,16 +106,17 @@ mod server {
     /// publish already happened), so failures answer loudly with a 502.
     #[worker::send]
     async fn purge_route(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
-        let secret = state
-            .env
-            .secret(PURGE_SECRET)
-            .map(|secret| secret.to_string());
+        // A missing secret is a server misconfiguration (500), not a rejected
+        // caller (401) — the same split the pipeline's authed routes make.
+        let Ok(secret) = state.env.secret(PURGE_SECRET) else {
+            console_error!("{PURGE_SECRET} secret missing — cannot authenticate purge");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "purge misconfigured").into_response();
+        };
         let header = req
             .headers()
             .get(AUTHORIZATION)
             .and_then(|value| value.to_str().ok());
-        let authorized = secret.is_ok_and(|secret| auth::verify_bearer(&secret, header));
-        if !authorized {
+        if !verify_bearer(&secret.to_string(), header) {
             return (StatusCode::UNAUTHORIZED, "unauthorized").into_response();
         }
         match purge::purge_everything().await {

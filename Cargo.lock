@@ -103,6 +103,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "authn"
+version = "0.1.0"
+dependencies = [
+ "hmac",
+ "sha2",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1289,13 +1297,12 @@ name = "pipeline"
 version = "0.1.0"
 dependencies = [
  "app",
+ "authn",
  "content",
  "futures-util",
- "hmac",
  "publish",
  "serde",
  "serde_json",
- "sha2",
  "wasm-bindgen",
  "worker",
 ]
@@ -1814,15 +1821,14 @@ version = "0.1.0"
 dependencies = [
  "any_spawner",
  "app",
+ "authn",
  "axum",
  "content",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
- "hmac",
  "leptos",
  "leptos_axum",
  "serde_json",
- "sha2",
  "tower-service",
  "wasm-bindgen",
  "worker",

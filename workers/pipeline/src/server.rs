@@ -4,10 +4,13 @@ use worker::{console_error, Env, Method, Request, RequestInit, Response, Result}
 
 use crate::net::post_status;
 use crate::{
-    coordinator, decide_push, dispatch_payload, dispatch_url, verify_publish_auth,
-    verify_signature, PublishRequest, PushEvent, ReconcileConfig, StatusState, WebhookAction,
+    coordinator, decide_push, dispatch_payload, dispatch_url, PublishRequest, PushEvent,
+    ReconcileConfig, StatusState, WebhookAction,
 };
+use authn::{verify_bearer, verify_signature};
 
+// TODO: evaluate Cloudflare Access service tokens for these external callers,
+// and Secrets Store for the shared secrets.
 const WEBHOOK_SECRET: &str = "GITHUB_WEBHOOK_SECRET";
 /// Shared with CI (an Actions secret): authenticates `/publish` callbacks.
 const PUBLISH_SECRET: &str = "PUBLISH_SHARED_SECRET";
@@ -70,7 +73,7 @@ async fn webhook(req: &mut Request, env: &Env) -> Result<Response> {
 async fn publish_callback(req: &mut Request, env: &Env) -> Result<Response> {
     let secret = env.secret(PUBLISH_SECRET)?.to_string();
     let auth = req.headers().get("authorization")?;
-    if !verify_publish_auth(&secret, auth.as_deref()) {
+    if !verify_bearer(&secret, auth.as_deref()) {
         return Response::error("unauthorized", 401);
     }
     let Ok(request) = serde_json::from_slice::<PublishRequest>(&req.bytes().await?) else {

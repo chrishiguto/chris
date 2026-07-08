@@ -73,8 +73,10 @@ empty cache by construction — the binary-coupling hazard dissolves and the CI
 below, "build-ID cache-key generations", arrived as a platform primitive). Purging now happens
 only from inside the owning worker (`cache.purge` via `cloudflare:workers` — purge-by-tag and
 `purgeEverything`, no Enterprise gate, no zone); the publish-time purge is the site worker's
-secret-gated `POST /__purge` route, called by the pipeline after every pointer flip —
-mechanics in ADR-0009's amendment.
+secret-gated `POST /__purge` route (an HTTP route, not RPC: purge is scoped to the
+cache-owning entrypoint — here the *default* public one — and workers-rs cannot author the
+private named `WorkerEntrypoint` that would host a secret-free RPC purge), called by the
+pipeline after every pointer flip — mechanics and rationale in ADR-0009's amendment.
 
 ## Options considered
 

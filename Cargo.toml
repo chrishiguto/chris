@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "app",
+    "crates/authn",
     "crates/content",
     "crates/publish",
     "crates/xtask",
@@ -13,6 +14,7 @@ members = [
 
 [workspace.dependencies]
 app = { path = "app" }
+authn = { path = "crates/authn" }
 content = { path = "crates/content" }
 publish = { path = "crates/publish" }
 registry = { path = "crates/registry" }
