@@ -15,11 +15,15 @@ extern "C" {
     fn purge(this: &CacheApi, options: &JsValue) -> Result<js_sys::Promise, JsValue>;
 }
 
-/// `cache.purge({purgeEverything: true})` — global via Instant Purge, scoped
-/// to this worker's entrypoint. Resolves to `{success, errors}`.
-pub(crate) async fn purge_everything() -> Result<(), String> {
+/// `cache.purge({tags})` — global via Instant Purge, scoped to this worker's
+/// entrypoint. Resolves to `{success, errors}`.
+pub(crate) async fn purge_tags(tags: &[String]) -> Result<(), String> {
     let options = js_sys::Object::new();
-    js_sys::Reflect::set(&options, &"purgeEverything".into(), &JsValue::TRUE).map_err(fail)?;
+    let list = js_sys::Array::new();
+    for tag in tags {
+        list.push(&JsValue::from_str(tag));
+    }
+    js_sys::Reflect::set(&options, &"tags".into(), &list).map_err(fail)?;
     let promise = CACHE
         .with(|cache| cache.purge(options.as_ref()))
         .map_err(fail)?;

@@ -21,7 +21,9 @@ getrandom = { workspace = true }
 getrandom03 = { workspace = true }
 leptos = { workspace = true, optional = true }
 leptos_axum = { workspace = true, optional = true }
-serde_json = { workspace = true, optional = true }
+# Ungated: the cache module parses purge bodies natively.
+serde = { workspace = true }
+serde_json = { workspace = true }
 tower-service = { workspace = true, optional = true }
 # The purge module imports `cloudflare:workers` directly, so the macro's
 # generated `::wasm_bindgen` paths need a direct dependency.
@@ -38,7 +40,6 @@ ssr = [
   "dep:axum",
   "dep:leptos",
   "dep:leptos_axum",
-  "dep:serde_json",
   "dep:tower-service",
   "dep:wasm-bindgen",
   "dep:worker",

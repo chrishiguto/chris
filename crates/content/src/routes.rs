@@ -101,6 +101,19 @@ pub const SITEMAP_PATH: &str = "/sitemap.xml";
 /// The index-backed XML feeds; purged on every publish (not sitemap-listed).
 pub const FEED_PATHS: [&str; 2] = [RSS_PATH, SITEMAP_PATH];
 
+/// Cache tag carried by every cacheable response; purging it evicts the site.
+pub const SITE_TAG: &str = "site";
+
+/// Cache tag shared by the index-backed views (listings, tag pages, feeds):
+/// they project every post, so any content change purges them together.
+pub const VIEWS_TAG: &str = "views";
+
+/// Cache tag of one post's page; scoped purges evict exactly the posts that
+/// changed.
+pub fn post_tag(slug: &str) -> String {
+    format!("post:{slug}")
+}
+
 /// Authoring tree root: one `{CONTENT_ROOT}/{slug}/{POST_FILE}` per post.
 pub const CONTENT_ROOT: &str = "content/blog";
 
@@ -156,6 +169,12 @@ mod tests {
     fn source_path_inverts_post_slug() {
         assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
         assert_eq!(post_slug(&source_path("hello")), Some("hello"));
+    }
+
+    #[test]
+    fn purge_tags_name_one_post_or_a_shared_scope() {
+        assert_eq!(post_tag("hello"), "post:hello");
+        assert_ne!(SITE_TAG, VIEWS_TAG);
     }
 
     #[test]
