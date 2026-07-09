@@ -8,7 +8,7 @@ pub mod render;
 /// The `black_box` anchor is load-bearing: without a referenced `app` symbol
 /// the linker drops the rlib and the vocabulary comes back empty.
 pub fn manifest() -> content::Manifest {
-    std::hint::black_box(app::PRELOADED_FONTS);
+    std::hint::black_box(app::GOOGLE_FONTS_URL);
     registry::manifest()
 }
 

@@ -24,7 +24,7 @@
     margin-top: 0.75rem;
     font-family: var(--font-mono);
     font-size: 0.8125rem;
-    color: var(--color-ink-faint);
+    color: var(--color-ink-3);
   }
 
   .post-body h1,
@@ -33,8 +33,9 @@
   .post-body h4,
   .post-body h5,
   .post-body h6 {
-    font-family: var(--font-heading);
-    font-weight: 700;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.02em;
     line-height: 1.3;
     margin: 2.25em 0 0.75em;
     text-wrap: balance;
@@ -62,14 +63,17 @@
   }
 
   .post-body h6 {
-    color: var(--color-ink-muted);
+    color: var(--color-ink-2);
   }
 
   .post-body p {
     margin-block: 1.25em;
   }
 
+  /* Prose links keep a static underline until the Slice 2 restyle; the base
+     layer's animated one would double up, so switch it off here. */
   .post-body a {
+    background-image: none;
     color: var(--color-accent);
     text-decoration: underline;
     text-decoration-thickness: 1px;
@@ -88,7 +92,7 @@
   .post-body code {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    background-color: var(--color-surface-raised);
+    background-color: var(--color-surface-2);
     border: 1px solid var(--color-line);
     border-radius: 0.25rem;
     padding: 0.125em 0.375em;
@@ -97,7 +101,7 @@
   .post-body pre {
     margin-block: 1.5em;
     padding: 1rem 1.25rem;
-    background-color: var(--color-surface-raised);
+    background-color: var(--color-surface-2);
     border: 1px solid var(--color-line);
     border-radius: 0.5rem;
     overflow-x: auto;
@@ -133,14 +137,14 @@
   }
 
   .post-body li::marker {
-    color: var(--color-ink-faint);
+    color: var(--color-ink-3);
   }
 
   .post-body blockquote {
     margin-block: 1.5em;
     padding-inline-start: 1.25em;
     border-inline-start: 3px solid var(--color-line);
-    color: var(--color-ink-muted);
+    color: var(--color-ink-2);
     font-style: italic;
   }
 
@@ -171,8 +175,8 @@
   .tag {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    color: var(--color-ink-muted);
-    background-color: var(--color-surface-raised);
+    color: var(--color-ink-2);
+    background-color: var(--color-surface-2);
     border: 1px solid var(--color-line);
     border-radius: 9999px;
     padding: 0.125rem 0.625rem;
@@ -182,6 +186,7 @@
   .tag a {
     color: inherit;
     text-decoration: none;
+    background-image: none;
   }
 
   .tag a:hover {
@@ -200,18 +205,22 @@
     border-bottom: 1px solid var(--color-line);
   }
 
+  /* Block links: the base layer's animated underline reads wrong on a whole
+     row, so it stays off until the Slice 8 PostRow redesign. */
   .post-list a {
     display: block;
     padding-block: 1.25rem;
     text-decoration: none;
+    background-image: none;
     color: inherit;
   }
 
   .post-list h2 {
     margin: 0;
-    font-family: var(--font-heading);
+    font-family: var(--font-sans);
     font-size: 1.125rem;
-    font-weight: 700;
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   .post-list a:hover h2 {
@@ -230,26 +239,22 @@
     background-color: color-mix(in oklab, var(--callout-hue) 7%, var(--color-surface));
   }
 
-  .callout-note {
-    --callout-hue: var(--hue-note);
-  }
-
+  /* Two hue families (PRD): note/tip read as accent, warning/danger as danger;
+     severity comes through intensity, not four rainbow hues. */
+  .callout-note,
   .callout-tip {
-    --callout-hue: var(--hue-tip);
+    --callout-hue: var(--color-accent);
   }
 
-  .callout-warning {
-    --callout-hue: var(--hue-warning);
-  }
-
+  .callout-warning,
   .callout-danger {
-    --callout-hue: var(--hue-danger);
+    --callout-hue: var(--color-danger);
   }
 
   .callout-title {
     margin: 0 0 0.5em;
-    font-family: var(--font-heading);
-    font-weight: 700;
+    font-family: var(--font-sans);
+    font-weight: 600;
     font-size: 0.9375rem;
     color: color-mix(in oklab, var(--callout-hue) 75%, var(--color-ink));
   }
@@ -266,9 +271,9 @@
   .component-error {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    color: var(--hue-danger);
-    background-color: color-mix(in oklab, var(--hue-danger) 12%, var(--color-surface));
-    border: 1px dashed var(--hue-danger);
+    color: var(--color-danger);
+    background-color: color-mix(in oklab, var(--color-danger) 12%, var(--color-surface));
+    border: 1px dashed var(--color-danger);
     border-radius: 0.25rem;
     padding: 0.125em 0.5em;
   }

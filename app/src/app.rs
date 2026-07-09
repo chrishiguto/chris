@@ -9,13 +9,9 @@ use crate::components::{Header, NotFound};
 use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
 
-/// Preloaded to beat first paint: with `font-display: optional` (main.css)
-/// a face that misses it is never swapped in.
-pub const PRELOADED_FONTS: [&str; 3] = [
-    "/fonts/lora-latin-400-normal.woff2",
-    "/fonts/libre-baskerville-latin-700-normal.woff2",
-    "/fonts/ibm-plex-mono-latin-400-normal.woff2",
-];
+/// Geist + Geist Mono from Google Fonts; `swap` deliberately reverses the v1
+/// self-hosted/`optional` strategy (PRD: design-system migration).
+pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap";
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // cargo-leptos targets id="leptos" on the link below for CSS hot-reload.
@@ -26,19 +22,9 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
-                {PRELOADED_FONTS
-                    .map(|href| {
-                        view! {
-                            <link
-                                rel="preload"
-                                href=href
-                                r#as="font"
-                                type="font/woff2"
-                                crossorigin="anonymous"
-                            />
-                        }
-                    })
-                    .collect_view()}
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+                <link rel="stylesheet" href=GOOGLE_FONTS_URL />
                 <link rel="stylesheet" id="leptos" href=css_href />
                 <link
                     rel="alternate"

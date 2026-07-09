@@ -41,7 +41,7 @@ fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
 }
 
 fn empty_state(message: String) -> impl IntoView {
-    view! { <p class="mt-6 text-ink-muted">{message}</p> }
+    view! { <p class="mt-6 text-ink-2">{message}</p> }
 }
 
 const NOTHING_PUBLISHED: &str = "Nothing published yet — check back soon.";
@@ -133,7 +133,7 @@ pub fn HomePage() -> impl IntoView {
         None,
         "chris",
         view! {
-            <p class="mt-6 leading-relaxed text-ink-muted">
+            <p class="mt-6 leading-relaxed text-ink-2">
                 "Engineering notes — Rust end-to-end: Leptos SSR on Cloudflare Workers."
             </p>
             <div class="mt-10">{listing}</div>

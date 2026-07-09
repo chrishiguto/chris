@@ -10,7 +10,7 @@ pub fn NotFound(
         None,
         "404",
         view! {
-            <p class="mt-6 text-ink-muted">{message}</p>
+            <p class="mt-6 text-ink-2">{message}</p>
             <a href="/" class="mt-4 inline-block text-accent underline">
                 "back home"
             </a>
