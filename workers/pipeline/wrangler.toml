@@ -14,12 +14,6 @@ command = "just build-pipeline"
 binding = "BLOG"
 id = "86ddce8f97854520bb4c9ec79cd838f0"
 
-# Workers Cache is private to the site worker, so publishes purge through
-# its authenticated /__purge route over this binding.
-[[services]]
-binding = "SITE"
-service = "chris-site"
-
 # One Durable Object instance serializes every content mutation.
 # SQLite-backed is the only kind available on the Workers Free plan.
 [durable_objects]
@@ -30,6 +24,6 @@ tag = "v1"
 new_sqlite_classes = ["PublishCoordinator"]
 
 # Secrets (wrangler secret put, never vars): GITHUB_TOKEN (fine-grained PAT,
-# Contents RO — reads post sources during a reconcile), PUBLISH_SHARED_SECRET
-# (authenticates CI's /publish call), PURGE_SHARED_SECRET (same value the site
-# worker holds).
+# Contents RO — reads post sources during a reconcile) and PUBLISH_SHARED_SECRET
+# (authenticates CI's /publish call). The cache purge is CI's job now, so the
+# pipeline holds no purge secret and binds no SITE service.

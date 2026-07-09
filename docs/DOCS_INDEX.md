@@ -47,8 +47,11 @@ summary, key topics.
   purgeEverything, publishes purge only changed posts via index `content_hash` diffs, failed
   purges make the publish run fail (outcome `ok: false`) and persist as debt later reconciles
   retry, tagging is fail-closed (no valid tag header → no caching), CI purges `site` after deploys pending
-  version-keying verification). Topics: caching, purge, cache tags, workers cache, deploys,
-  islands.
+  version-keying verification; amended 2026-07-09: the content purge moves to CI over HTTP —
+  `cache.purge` is entrypoint-scoped so the pipeline's binding purge no-op'd, `/publish` now
+  returns the stale-tag scope and CI evicts it via the site's public `/__purge`, retiring the
+  in-worker purge, the `SITE` binding, the pipeline's purge secret, and the purge-debt ledger).
+  Topics: caching, purge, cache tags, workers cache, deploys, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
@@ -56,8 +59,11 @@ summary, key topics.
   (amended 2026-07-07: the purge set is deleted — the coordinator calls the site's `/__purge`
   over a service binding instead; amended 2026-07-08: one Actions workflow calls a synchronous
   `/publish`, the alarm/commit-status/deployment-API machinery is removed, and observability
-  rides a native `content` deployment on the merged PR). Topics: snapshots, atomic publish,
-  reconcile, durable objects, convergence, rollback, retention.
+  rides a native `content` deployment on the merged PR; amended 2026-07-09: the coordinator
+  stops purging — the service-binding purge was a no-op (`cache.purge` runs in the caller's
+  entrypoint), so it returns the stale-tag scope for CI to purge over HTTP and the `purged`
+  field, purge-debt ledger, `SITE` binding, and `purge_scope` are deleted). Topics: snapshots,
+  atomic publish, reconcile, durable objects, convergence, rollback, retention.
 - `docs/adrs/adr-0010-ci-reconcile-drop-worker.md` — ADR (**Proposed**, not implemented) — the
   deferred "Architecture 2": now that every publish rides one Actions workflow, delete the
   pipeline worker + coordinator DO and reconcile directly from CI via `xtask` + `wrangler`

@@ -2,7 +2,7 @@
 
 use pipeline::{
     contents_url, failure_description, head_ref_url, parse_head_ref, parse_tree_listing,
-    purge_scope, tree_post_slugs, tree_url, PublishOutcome, ReconcileConfig,
+    tree_post_slugs, tree_url, PublishOutcome, ReconcileConfig,
 };
 
 fn slugs(list: &[&str]) -> Vec<String> {
@@ -81,11 +81,11 @@ fn a_tree_response_without_a_tree_array_is_an_error() {
 
 #[test]
 fn outcome_summarizes_success_and_carried_failures() {
-    let out = PublishOutcome::new(3, 0, 0, true, &[]);
+    let out = PublishOutcome::new(3, 0, 0, vec![], &[]);
     assert!(out.ok);
     assert_eq!(out.summary, "reconciled: 3 posts published");
 
-    let out = PublishOutcome::new(1, 0, 0, true, &[]);
+    let out = PublishOutcome::new(1, 0, 0, vec![], &[]);
     assert!(out.ok);
     assert_eq!(out.summary, "reconciled: 1 post published");
 
@@ -95,7 +95,7 @@ fn outcome_summarizes_success_and_carried_failures() {
         line: Some(3),
         column: None,
     };
-    let out = PublishOutcome::new(2, 1, 1, true, &[diag]);
+    let out = PublishOutcome::new(2, 1, 1, vec![], &[diag]);
     assert!(!out.ok);
     assert_eq!(
         out.summary,
@@ -114,7 +114,7 @@ fn outcome_does_not_claim_kept_for_dropped_posts() {
         line: None,
         column: None,
     };
-    let out = PublishOutcome::new(2, 2, 1, true, &[diag]);
+    let out = PublishOutcome::new(2, 2, 1, vec![], &[diag]);
     assert!(!out.ok);
     assert!(
         out.summary
@@ -124,56 +124,29 @@ fn outcome_does_not_claim_kept_for_dropped_posts() {
     );
 }
 
-/// KV can flip and the purge still fail — readers see stale pages, so the
-/// outcome must not be `ok`, and the summary must say so.
+/// The stale scope rides into the outcome (as a JSON array) so CI can purge
+/// it over HTTP; `ok` tracks validation only and never the purge.
 #[test]
-fn outcome_is_not_ok_when_the_purge_fails() {
-    let out = PublishOutcome::new(2, 0, 0, false, &[]);
+fn outcome_carries_the_purge_scope_for_ci() {
+    let out = PublishOutcome::new(2, 0, 0, vec!["post:a".into(), "views".into()], &[]);
+    assert!(out.ok);
+    let json = serde_json::to_value(&out).expect("serializes");
+    assert_eq!(json["tags"], serde_json::json!(["post:a", "views"]));
+    assert_eq!(json["ok"], serde_json::json!(true));
+
+    // Nothing changed: no tags, still ok.
+    let out = PublishOutcome::new(0, 0, 0, vec![], &[]);
+    assert!(out.ok);
+    assert!(out.tags.is_empty());
+    assert_eq!(
+        serde_json::to_value(&out).expect("serializes")["tags"],
+        serde_json::json!([])
+    );
+
+    // A validation failure reddens `ok` but the changed tags still surface.
+    let out = PublishOutcome::new(1, 1, 1, vec!["post:a".into(), "views".into()], &[]);
     assert!(!out.ok);
-    assert_eq!(
-        out.summary,
-        "reconciled: 2 posts published; cache purge failed — pages may be stale"
-    );
-
-    // A validation failure and a purge failure both surface.
-    let out = PublishOutcome::new(1, 1, 1, false, &[]);
-    assert!(!out.ok);
-    assert!(
-        out.summary.contains("cache purge failed"),
-        "{}",
-        out.summary
-    );
-    assert!(out.summary.contains("failed validation"), "{}", out.summary);
-}
-
-/// Debt from a failed purge widens the next scope — without it, a same-HEAD
-/// reconcile would diff to nothing while the cache is stale.
-#[test]
-fn purge_scope_merges_debt_into_the_stale_tags_deduped() {
-    let stale = vec!["post:a".to_string(), "views".to_string()];
-    let debt = vec!["post:b".to_string(), "views".to_string()];
-    assert_eq!(
-        purge_scope(stale, Some(debt)),
-        ["post:a", "post:b", "views"]
-    );
-}
-
-#[test]
-fn purge_scope_of_an_unchanged_reconcile_is_the_debt_alone() {
-    let debt = vec!["post:a".to_string()];
-    assert_eq!(purge_scope(vec![], Some(debt)), ["post:a"]);
-    assert!(purge_scope(vec![], Some(vec![])).is_empty());
-}
-
-/// An unreadable debt ledger could be hiding any tag, so the scope widens to
-/// the whole site: over-purge, never staleness.
-#[test]
-fn purge_scope_escalates_unreadable_debt_to_a_site_purge() {
-    assert_eq!(purge_scope(vec![], None), ["site"]);
-    assert_eq!(
-        purge_scope(vec!["post:a".to_string()], None),
-        ["post:a", "site"]
-    );
+    assert_eq!(out.tags, ["post:a", "views"]);
 }
 
 #[test]

@@ -90,10 +90,11 @@ publish:
         echo "purge skipped (SITE_ORIGIN or the purge secret missing) — TTL or the CI purge converges"
     fi
 
-# break-glass full cache purge (the `site` tag); publishes and deploys purge
-# their own scopes — this is for everything else. The secret comes from
-# $PURGE_SHARED_SECRET (CI) or .secrets/purge_shared_secret (local).
-purge:
+# cache purge over the site's public /__purge — the only entrypoint that can
+# evict its Workers Cache. `tags` is a JSON array; the default `["site"]` is
+# the break-glass full purge (deploys use it), CI passes the reconcile's scope.
+# The secret comes from $PURGE_SHARED_SECRET (CI) or .secrets/purge_shared_secret.
+purge tags='["site"]':
     #!/usr/bin/env bash
     set -euo pipefail
     : "${SITE_ORIGIN:?set SITE_ORIGIN to the deployed site origin}"
@@ -101,7 +102,7 @@ purge:
     curl -sf -X POST "${SITE_ORIGIN%/}/__purge" \
         -H "Authorization: Bearer $secret" \
         -H "Content-Type: application/json" \
-        --data '{"tags":["site"]}' > /dev/null
+        --data '{"tags":{{tags}}}' > /dev/null
 
 # one-time toolchain setup (rust + node assumed)
 setup:

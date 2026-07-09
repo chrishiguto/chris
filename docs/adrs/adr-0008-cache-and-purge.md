@@ -102,6 +102,23 @@ no-op deploy → still `HIT`?) confirms deploys self-invalidate, the CI purge st
 redundant; if it refutes it, the previous amendment's "empty cache by construction" claim is
 wrong and this purge is load-bearing.
 
+*Amendment (2026-07-09, content purge moves to CI over HTTP):* the coordinator's post-flip
+`/__purge` call went out over the `SITE` service binding — but `cache.purge()` is scoped to the
+entrypoint that *runs* it, and over a binding that is the pipeline's entrypoint, not the site's.
+It no-op'd against the site's cache while returning success, so content-only merges were
+green-while-stale for the full `s-maxage` (KV flipped, `purged: true`, pages served the
+pre-merge snapshot). The only entrypoint that can evict the site's Workers Cache is the site
+worker itself as top-level — i.e. `/__purge` over public HTTP, exactly what the post-deploy
+`just purge` step already does. So the content purge moves to CI: `/publish` returns the
+computed scope as `PublishOutcome.tags` (empty when nothing changed), and the workflow's
+Publish step POSTs `${SITE_ORIGIN}/__purge` with those tags (`just purge "<tags>"`, retried for
+Instant-Purge propagation, failing the job on a hard non-200 → break-glass `just purge`). The
+in-worker purge is deleted whole: `net::purge_site`, the `SITE` binding, the
+`PURGE_SHARED_SECRET` the pipeline held, and the coordinator's purge-debt ledger all go — CI's
+retry covers transient failures and a hard failure goes red, so there is nothing left to carry
+as debt. The `purged` field leaves `PublishOutcome`; `ok` now reflects validation only. (See
+ADR-0009's 2026-07-09 amendment for the coordinator side.)
+
 Two invariants keep the scoped design honest — both close holes a future implementer could
 easily reopen. First, *purge debt*: a failed purge leaves its tag scope in the coordinator's
 storage; every later reconcile merges that debt into its own scope and clears it only once a
@@ -109,7 +126,10 @@ purge lands. Deriving purge success from the index diff alone is not enough — 
 reconcile of an unchanged HEAD diffs to nothing and would post green over a still-stale
 cache, silently re-hiding the very failure the status exists to surface. A debt ledger that
 cannot be read escalates the scope to a full `site` purge — over-purge, never staleness.
-Second, tagging is *fail-closed*: `Cache-Tag` is written before `Cache-Control`, so a tag
+*(Retired by the 2026-07-09 amendment: with the purge moved to CI there is no in-worker purge
+to fail and no debt to carry — CI retries a transient failure and reddens the run on a hard
+one, where a same-HEAD re-run re-derives the same scope from git and purges again.)* Second,
+tagging is *fail-closed*: `Cache-Tag` is written before `Cache-Control`, so a tag
 set that cannot form a valid header value leaves the response uncached (with a loud log)
 rather than cached
 untagged. Tags are the only handle a purge ever gets on a cached entry — an untagged entry
