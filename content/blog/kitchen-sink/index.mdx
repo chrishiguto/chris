@@ -1,5 +1,5 @@
 ---
-title: Everything the renderer can emit
+title: One page, every node
 date: 2026-07-04
 description: Every AST node type and Callout kind on one page — the theme's QA read.
 tags: [meta, theme]
@@ -10,17 +10,17 @@ kind, in one long read. If a construct exists in `CONTENT.md`, it appears
 here — when the theme changes, read this page top to bottom in *both* color
 schemes before shipping.
 
-<Callout kind="note" title="Yet another pass">
-  This paragraph and the counter further down arrived in one more content-only
-  edit — same file, new `content_hash`. If you are reading them on the live
-  site, the merge purged the `post:kitchen-sink` tag and the edge refetched
-  exactly one page.
-</Callout>
-
 <Callout kind="tip" title="You found the easter egg">
   If this callout is visible, the latest pass shipped as a content-only publish
   — no Rust recompiled, no wasm redeployed. A snapshot write, a pointer flip,
   and a tag-scoped purge did all the work while the worker never blinked.
+</Callout>
+
+<Callout kind="note" title="One more pass">
+  This paragraph and the extra counter near the bottom arrived in yet another
+  content-only edit — same file, new `content_hash`. If you are reading them on
+  the live site, the merge purged the `post:kitchen-sink` tag and the edge
+  refetched exactly one page and left every other post cold in the cache.
 </Callout>
 
 ## Prose and inline marks
@@ -41,15 +41,15 @@ their children still parsed as markdown.
 
 Unordered, for shapes of things:
 
+- KV stores meaning, and nothing else
 - deployed code owns presentation
 - caches are purged by tag, never rebuilt by hand
-- KV stores meaning, and nothing else
 
 Ordered, starting mid-sequence the way real numbered digressions do:
 
-7. parse at publish time
-8. render at request time
-9. purge exactly the tags that changed
+11. parse at publish time
+12. render at request time
+13. purge exactly the tags that changed
 
 #### Code
 
@@ -113,6 +113,12 @@ And a third, seeded higher still, because a QA page should never wonder whether
 three of them step on each other:
 
 <Counter initial={100} />
+
+A fourth arrived with this pass — the same content-only edit that swapped the
+two callouts up top — to prove the count is bounded only by the prose, never by
+a rebuild:
+
+<Counter initial={256} />
 
 ## An image
 
