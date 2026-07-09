@@ -17,6 +17,12 @@ pub fn view_cache_tags() -> String {
     format!("{SITE_TAG},{VIEWS_TAG}")
 }
 
+/// `Cache-Tag` for static pages (`/about`): the site scope alone — they
+/// change on deploy (which purges `site`), never on publish.
+pub fn static_cache_tags() -> String {
+    SITE_TAG.to_string()
+}
+
 /// Tags out of a `/__purge` body. No body means `[SITE_TAG]` — the
 /// break-glass full purge; anything else must be `{"tags":[...]}` with
 /// non-blank entries.

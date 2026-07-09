@@ -115,12 +115,13 @@ fn empty_index_still_yields_a_valid_feed() {
 }
 
 #[test]
-fn sitemap_lists_home_post_list_posts_and_tag_pages() {
+fn sitemap_lists_home_post_list_static_pages_posts_and_tag_pages() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     for loc in [
         "<loc>https://example.com/</loc>",
         "<loc>https://example.com/posts</loc>",
         "<loc>https://example.com/tags</loc>",
+        "<loc>https://example.com/about</loc>",
         "<loc>https://example.com/tags/rust</loc>",
         "<loc>https://example.com/tags/wasm</loc>",
         "<loc>https://example.com/posts/newer</loc>",
@@ -134,6 +135,16 @@ fn sitemap_lists_home_post_list_posts_and_tag_pages() {
     );
     // Post URLs carry their publication date as lastmod.
     assert!(xml.contains("<lastmod>2026-03-01</lastmod>"), "{xml}");
+}
+
+// Static pages change on deploy, not publish, so no date is honest as lastmod.
+#[test]
+fn sitemap_lists_static_pages_without_lastmod() {
+    let xml = feeds::sitemap(ORIGIN, &[]);
+    assert!(
+        xml.contains("<url><loc>https://example.com/about</loc></url>"),
+        "{xml}"
+    );
 }
 
 #[test]

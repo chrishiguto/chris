@@ -98,6 +98,13 @@ pub fn tag_filter_path(tag: &str) -> String {
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
 pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
 
+/// The about page's public path (and cache key / purge path).
+pub const ABOUT_PATH: &str = "/about";
+
+/// Hardcoded pages with no KV read: routed and sitemapped, but cached under
+/// the site tag alone — they change on deploy, never on publish.
+pub const STATIC_PAGES: [&str; 1] = [ABOUT_PATH];
+
 /// The Atom feed's public path (and cache key / purge path).
 pub const RSS_PATH: &str = "/rss.xml";
 
@@ -180,6 +187,12 @@ mod tests {
     #[test]
     fn tag_filter_path_rides_the_listing_hash() {
         assert_eq!(tag_filter_path("rust"), "/posts#rust");
+    }
+
+    #[test]
+    fn static_pages_carry_the_about_path() {
+        assert_eq!(ABOUT_PATH, "/about");
+        assert!(STATIC_PAGES.contains(&ABOUT_PATH));
     }
 
     #[test]

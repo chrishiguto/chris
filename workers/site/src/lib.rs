@@ -22,7 +22,7 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, ABOUT_PATH, CURRENT_KEY,
         LISTING_PAGES, RSS_PATH, SITEMAP_PATH,
     };
     use leptos::prelude::*;
@@ -85,6 +85,7 @@ mod server {
                 Router::new()
                     .route(POST_ROUTE, get(post_page))
                     .route(TAG_ROUTE, get(tag_page))
+                    .route(ABOUT_PATH, get(about_page))
                     .route(RSS_PATH, get(feed_xml))
                     .route(SITEMAP_PATH, get(sitemap_xml))
                     .route(PURGE_ROUTE, post(purge_route)),
@@ -227,6 +228,15 @@ mod server {
         })
         .await;
         mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
+        response
+    }
+
+    /// Hardcoded page, no KV read: nothing to inject and no snapshot sha to
+    /// serve as an ETag; cached under the site tag alone (deploy-purged).
+    #[worker::send]
+    async fn about_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let mut response = render_page(&state, req, || ()).await;
+        mark_cacheable(&mut response, None, &cache::static_cache_tags());
         response
     }
 

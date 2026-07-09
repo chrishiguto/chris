@@ -5,6 +5,7 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 
+use crate::about::AboutPage;
 use crate::components::{Header, NotFound};
 use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
@@ -65,6 +66,7 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("") view=HomePage />
                     <Route path=StaticSegment("posts") view=PostsPage />
                     <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
+                    <Route path=StaticSegment("about") view=AboutPage />
                     <Route path=StaticSegment("tags") view=TagsPage />
                     <Route path=(StaticSegment("tags"), ParamSegment("tag")) view=TagPage />
                 </Routes>
