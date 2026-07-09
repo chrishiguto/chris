@@ -1,5 +1,7 @@
 use leptos::prelude::*;
 
+use super::ThemeToggle;
+
 #[component]
 pub fn Header() -> impl IntoView {
     view! {
@@ -8,13 +10,14 @@ pub fn Header() -> impl IntoView {
                 <a href="/" class="text-lg font-semibold tracking-tight">
                     "chris"
                 </a>
-                <nav class="flex gap-4">
+                <nav class="flex items-center gap-4">
                     <a href="/posts" class="font-mono text-sm text-ink-2 hover:text-accent">
                         "posts"
                     </a>
                     <a href="/tags" class="font-mono text-sm text-ink-2 hover:text-accent">
                         "tags"
                     </a>
+                    <ThemeToggle />
                 </nav>
             </div>
         </header>

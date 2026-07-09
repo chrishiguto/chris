@@ -13,6 +13,13 @@ use crate::post::PostPage;
 /// self-hosted/`optional` strategy (PRD: design-system migration).
 pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap";
 
+/// Re-applies a stored explicit theme before any stylesheet loads, so the
+/// first paint can't flash the wrong theme (ADR-0011). A constant: the served
+/// HTML is byte-identical for every visitor, keeping the edge cache one
+/// response per URL. Unknown stored values are ignored — `color-scheme`
+/// then keeps following the system preference.
+pub const THEME_SCRIPT: &str = r#"try{var t=localStorage.getItem("chris-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}"#;
+
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // cargo-leptos targets id="leptos" on the link below for CSS hot-reload.
     let css_href = format!("/pkg/{}.css", options.output_name);
@@ -22,6 +29,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
+                <script inner_html=THEME_SCRIPT></script>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
                 <link rel="stylesheet" href=GOOGLE_FONTS_URL />

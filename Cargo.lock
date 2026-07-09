@@ -42,6 +42,7 @@ dependencies = [
  "registry",
  "serde",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

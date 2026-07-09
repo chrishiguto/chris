@@ -42,6 +42,9 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 tower-service = "0.3"
 wasm-bindgen = "0.2"
+# Already in the graph via leptos; declared directly only to switch on the
+# web-sys features the ThemeToggle island needs (Storage, MediaQueryList).
+web-sys = "0.3"
 # Pinned: 0.8.4+ pulls wasm-streams 0.6 alongside server_fn's 0.5 and fat LTO
 # fails on duplicate wasm-bindgen shims. Unpin once server_fn catches up.
 worker = { version = "=0.8.3", features = ["http", "axum"] }

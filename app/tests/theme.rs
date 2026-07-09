@@ -5,9 +5,11 @@
 use std::fs;
 use std::path::Path;
 
-use app::app::{shell, GOOGLE_FONTS_URL};
+use app::app::{shell, GOOGLE_FONTS_URL, THEME_SCRIPT};
+use app::components::Header;
 use app::render::render_document;
 use leptos::prelude::{LeptosOptions, RenderHtml};
+use leptos::view;
 
 mod common;
 
@@ -318,6 +320,80 @@ fn fonts_load_from_google_with_swap() {
     assert!(
         !html.contains("as=\"font\"") && !html.contains("/fonts/"),
         "font preloads went out with the self-hosted faces: {html}"
+    );
+}
+
+// ADR-0011: a stored explicit theme is re-applied by a blocking inline
+// script ahead of every stylesheet, so the first paint can't flash the wrong
+// theme — and the script is a constant, so the served HTML never varies.
+#[test]
+fn stored_theme_is_applied_pre_paint() {
+    for part in [
+        "localStorage.getItem(\"chris-theme\")",
+        "\"light\"",
+        "\"dark\"",
+        "dataset.theme",
+    ] {
+        assert!(
+            THEME_SCRIPT.contains(part),
+            "theme script missing `{part}`: {THEME_SCRIPT}"
+        );
+    }
+    let html = shell_html();
+    let script = html
+        .find(THEME_SCRIPT)
+        .expect("the inline theme script must ship in the shell head");
+    let stylesheet = html
+        .find("rel=\"stylesheet\"")
+        .expect("the shell links stylesheets");
+    assert!(
+        script < stylesheet,
+        "the theme script must run before any stylesheet loads"
+    );
+}
+
+// The toggle island SSRs both glyphs (ADR-0011): CSS picks the visible one,
+// so the button can't flash a stale icon before hydration.
+#[test]
+fn theme_toggle_ssrs_both_glyphs_as_an_island() {
+    let html = common::ssr(|| {}, || view! { <Header /> });
+    assert!(
+        html.contains("<leptos-island"),
+        "the toggle must hydrate as an island: {html}"
+    );
+    for needle in [
+        "class=\"theme-toggle\"",
+        "aria-label=\"toggle theme\"",
+        "glyph-moon",
+        "glyph-sun",
+        "☾",
+        "☀",
+    ] {
+        assert!(html.contains(needle), "toggle missing `{needle}`: {html}");
+    }
+}
+
+// The glyphs follow the effective scheme in CSS alone: an explicit
+// `data-theme` wins, the system preference decides otherwise; hover rotates
+// the glyph per the design's motion rules unless reduced motion is set.
+#[test]
+fn theme_toggle_glyphs_follow_the_effective_scheme() {
+    let css = stylesheet();
+    for selector in [
+        ".theme-toggle",
+        ".theme-toggle .glyph-sun",
+        ":root[data-theme=\"dark\"] .theme-toggle .glyph-moon",
+        ":root:not([data-theme]) .theme-toggle .glyph-moon",
+    ] {
+        assert!(css.contains(selector), "no `{selector}` in the stylesheet");
+    }
+    assert!(
+        css.contains("(prefers-color-scheme: dark)"),
+        "the unset state must follow the system preference"
+    );
+    assert!(
+        css.contains("rotate(-20deg)"),
+        "hover must rotate the glyph per the design's motion rules"
     );
 }
 

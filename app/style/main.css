@@ -145,3 +145,68 @@
     background-size: 100% 1px;
   }
 }
+
+/* ThemeToggle (ADR-0011): both glyphs ship in the server HTML; these rules
+   show the one matching the effective scheme — an explicit `data-theme`
+   wins, the system preference decides otherwise — so nothing can flash a
+   stale icon before hydration. Moon invites the switch to dark, sun back. */
+
+@layer components {
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    color: var(--color-ink-2);
+    cursor: pointer;
+    transition:
+      color 120ms var(--ease-out),
+      background-color 120ms var(--ease-out);
+  }
+
+  .theme-toggle:hover {
+    color: var(--color-accent);
+    background-color: var(--color-surface-2);
+  }
+
+  .theme-toggle .glyph {
+    display: inline-block;
+    font-size: 1.125rem;
+    line-height: 1;
+    transition: transform 400ms var(--ease-out-expo);
+  }
+
+  .theme-toggle:hover .glyph {
+    transform: rotate(-20deg);
+  }
+
+  .theme-toggle .glyph-sun {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .theme-toggle .glyph-moon {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .theme-toggle .glyph-sun {
+    display: inline-block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .theme-toggle .glyph-moon {
+      display: none;
+    }
+
+    :root:not([data-theme]) .theme-toggle .glyph-sun {
+      display: inline-block;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .theme-toggle .glyph,
+    .theme-toggle:hover .glyph {
+      transition: none;
+      transform: none;
+    }
+  }
+}

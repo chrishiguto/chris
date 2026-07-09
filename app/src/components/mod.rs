@@ -6,9 +6,11 @@ use leptos_meta::Title;
 pub mod blog;
 pub mod header;
 pub mod not_found;
+pub mod theme_toggle;
 
 pub use header::Header;
 pub use not_found::NotFound;
+pub use theme_toggle::ThemeToggle;
 
 /// Shared page scaffold; every page except the post article renders through it.
 pub(crate) fn page(
