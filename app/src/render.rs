@@ -1,29 +1,47 @@
 //! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
 //! every presentational decision lives here.
 
-use content::{Document, Node};
+use content::{tag_filter_path, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
 pub fn render_document(doc: &Document) -> impl IntoView {
+    // Pills close the article and land on the pre-filtered listing (ADR-0012).
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
         let tags: Vec<_> = doc
             .frontmatter
             .tags
             .iter()
-            .map(|tag| view! { <li class="tag">{tag.clone()}</li> })
+            .map(|tag| {
+                view! {
+                    <li>
+                        <a class="tag" href=tag_filter_path(tag)>
+                            <span class="tag-hash" aria-hidden="true">
+                                "#"
+                            </span>
+                            {tag.clone()}
+                        </a>
+                    </li>
+                }
+            })
             .collect();
         view! { <ul class="post-tags">{tags}</ul> }
     });
-    // Prose sits in `.post-body` so its element selectors never hit the header.
+    // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post mx-auto max-w-2xl px-6">
+            <a class="back-link" href="/posts">
+                <span class="back-link-arrow" aria-hidden="true">
+                    "←"
+                </span>
+                "back to all posts"
+            </a>
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
-                <p class="post-date">{doc.frontmatter.date.clone()}</p>
-                {tags}
+                <p class="post-meta">{doc.frontmatter.date.clone()}</p>
             </header>
             <div class="post-body">{render_nodes(&doc.ast)}</div>
+            {tags}
         </article>
     }
 }

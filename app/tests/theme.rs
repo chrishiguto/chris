@@ -221,6 +221,26 @@ fn stale_v1_tokens_are_gone() {
     }
 }
 
+// The design's reading experience: 17px / 65ch / 1.75, plus the Slice 2
+// article chrome (mono meta row, back link, tag-pill hash glyph).
+#[test]
+fn post_prose_reads_at_the_design_measure() {
+    let css = stylesheet();
+    for (property, why) in [
+        ("font-size: 1.0625rem", "article body must read at 17px"),
+        ("line-height: 1.75", "article body must lead at 1.75"),
+        ("max-width: 65ch", "prose must cap at the 65ch measure"),
+    ] {
+        assert!(css.contains(property), "{why} (`{property}`)");
+    }
+    for class in [".post-meta", ".back-link", ".tag-hash"] {
+        assert!(
+            css.contains(class),
+            "no `{class}` styling in the stylesheet"
+        );
+    }
+}
+
 #[test]
 fn callout_and_error_surfaces_are_styled() {
     let css = stylesheet();

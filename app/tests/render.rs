@@ -419,30 +419,67 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
     }
 }
 
+// Tag pills sit at the article bottom and land on the pre-filtered
+// listing via the URL hash (ADR-0012).
 #[test]
-fn post_header_renders_frontmatter_tags() {
+fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
         html.contains("<ul class=\"post-tags\">"),
         "tag list missing: {html}"
     );
+    for tag in ["rust", "wasm"] {
+        assert!(
+            html.contains(&format!("<a href=\"/posts#{tag}\" class=\"tag\">")),
+            "`{tag}` pill must link to the filtered listing: {html}"
+        );
+    }
+    let body = html.find("post-body").expect("post body missing");
+    let tags = html.find("post-tags").expect("tag list missing");
+    assert!(tags > body, "tags must follow the article body: {html}");
     assert!(
-        html.contains("<li class=\"tag\">rust</li>"),
-        "tag missing: {html}"
-    );
-    assert!(
-        html.contains("<li class=\"tag\">wasm</li>"),
-        "tag missing: {html}"
+        !html[..body].contains("post-tags"),
+        "the header must not carry tags anymore: {html}"
     );
 }
 
 #[test]
-fn post_header_omits_empty_tag_list() {
+fn post_omits_empty_tag_list() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
         !html.contains("post-tags"),
         "untagged post must not render an empty list: {html}"
+    );
+}
+
+// "back to all posts" sits above the title (design mock: TextLink arrow=back).
+#[test]
+fn post_renders_back_link_above_the_title() {
+    let doc = doc_with_tags(vec![]);
+    let html = strip_markers(render_document(&doc).to_html());
+    assert!(
+        html.contains("class=\"back-link\" href=\"/posts\""),
+        "back link missing: {html}"
+    );
+    assert!(
+        html.contains("back to all posts"),
+        "back link label missing: {html}"
+    );
+    let back = html.find("back-link").expect("back link missing");
+    let title = html.find("<h1>").expect("title missing");
+    assert!(back < title, "back link must precede the title: {html}");
+}
+
+// The header meta row is mono chrome (`.post-meta`); the raw ISO date rides
+// in it until Slice 10 adds formatting and read time.
+#[test]
+fn post_header_renders_mono_meta_row_with_the_date() {
+    let doc = doc_with_tags(vec![]);
+    let html = strip_markers(render_document(&doc).to_html());
+    assert!(
+        html.contains("<p class=\"post-meta\">2026-07-04</p>"),
+        "meta row with the raw ISO date missing: {html}"
     );
 }

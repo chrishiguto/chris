@@ -89,6 +89,12 @@ pub fn tag_path(tag: &str) -> String {
     format!("/tags/{tag}")
 }
 
+/// A tag's filter target on the writing page (ADR-0012): the tag rides in the
+/// URL hash, so the server and cache still see exactly one `/posts` page.
+pub fn tag_filter_path(tag: &str) -> String {
+    format!("/posts#{tag}")
+}
+
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
 pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
 
@@ -169,6 +175,11 @@ mod tests {
     fn source_path_inverts_post_slug() {
         assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
         assert_eq!(post_slug(&source_path("hello")), Some("hello"));
+    }
+
+    #[test]
+    fn tag_filter_path_rides_the_listing_hash() {
+        assert_eq!(tag_filter_path("rust"), "/posts#rust");
     }
 
     #[test]
