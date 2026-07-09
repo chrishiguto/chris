@@ -77,8 +77,9 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
         if: steps.changes.outputs.code == 'true'
+      # Always installed: the publish step's break-glass purge runs `just purge`
+      # on every push, including content-only ones that skip the code steps.
       - uses: extractions/setup-just@v3
-        if: steps.changes.outputs.code == 'true'
       - uses: cargo-bins/cargo-binstall@732870f031d2fb36309d0deaf36abcc704a7be65 # v1.20.1
         if: steps.changes.outputs.code == 'true'
       - name: Install cargo-leptos, worker-build, and leptosfmt
