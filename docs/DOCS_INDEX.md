@@ -10,6 +10,14 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
+- `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer: adopt the
+  claude.ai/design "chris" design system (Geist type via Google Fonts, warm-tonal oklch
+  palette declared once via `light-dark()`, role+numeric token names, theme-toggle island,
+  `~/chris` IA with `/about` and a footer, tags reworked to an in-page filter island with
+  URL-hash state, computed read time, formatted dates, two-hue callouts, code-copy island,
+  motion grammar); four hand-rolled islands total, no pipeline invariants disturbed.
+  Topics: design system, tailwind v4, theming, tokens, geist, islands, tags, read time,
+  about page, prd.
 
 ## ADRs
 
@@ -70,6 +78,17 @@ summary, key topics.
   (ADR-0009's rejected Option 3, unblocked by dropping the fast path); captured for later
   evaluation with tradeoffs and open questions. Topics: simplification, ci reconcile, proposed,
   worker removal, serialization.
+- `docs/adrs/adr-0011-client-side-theming.md` — ADR (Accepted) — theme is a pure client
+  concern: tokens declared once via CSS `light-dark()`, `data-theme` flips `color-scheme`,
+  localStorage persists the choice, an inline pre-paint script prevents flash, a hand-rolled
+  toggle island flips it; server HTML is identical for everyone so Workers Cache sees zero
+  variance. Topics: theming, dark mode, light-dark, islands, caching, css tokens.
+- `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
+  SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
+  toggling visibility of server-rendered rows (`data-tags`), state in the URL hash
+  (`/posts#tag`) so the cache key space never grows; `views` tag narrows to listings + feeds;
+  revisit when pagination arrives. Topics: tags, islands, url hash, sitemap, purge scope,
+  routes.
 
 ## Guides
 
