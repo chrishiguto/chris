@@ -1,5 +1,5 @@
 ---
-title: From one push to a purged edge
+title: Two paths out of one push
 date: 2026-07-04
 description: A post and its co-located island ship in one push — CI builds, deploys, then publishes.
 tags: [meta]
@@ -7,28 +7,39 @@ tags: [meta]
 
 # Code rides a deploy
 
-<Callout kind="note" title="Edited again, still no code">
-  This post was retitled once to exercise the Workers Cache path, and edited
-  again here with nothing but prose. A content-only publish flips the `current`
-  pointer and purges the `post:ci-code-path` tag through the site worker's
-  `/__purge` — no wasm redeploy, no CI build.
+<Callout kind="note" title="Retitled again, still no code">
+  This post has been retitled a few times now to exercise the Workers Cache
+  path, and this pass is more of the same: pure prose. A content-only publish
+  flips the `current` pointer and purges the `post:ci-code-path` tag through the
+  site worker's `/__purge` — no wasm redeploy, no CI build.
 </Callout>
 
-The stages widget below is not part of the site's shared vocabulary — it
-lives in `components.rs` right next to this file (ADR-0004). Pushing that
-component *with* the post is a mixed commit: the pipeline worker parks the
-post as pending, fires the publish workflow, and CI builds, checks the size
-budget, deploys both workers, and only then drains the post through
-`/publish`.
+A push can take one of two paths, and which one depends entirely on whether it
+carries code. This file has walked both.
+
+The stages widget below is not part of the site's shared vocabulary — it lives
+in `components.rs` right next to this file (ADR-0004). Pushing that component
+*with* the post was a mixed commit: the pipeline worker parked the post as
+pending, fired the publish workflow, and CI built, checked the size budget,
+deployed both workers, and only then drained the post through `/publish`.
 
 <DeployStages total={4} />
 
 Advance through the stages — build, size gate, deploy, publish. The island
 hydrates because the deploy that carried its code always lands first.
 
-Contrast that with an edit like this one: the component already shipped, so
-the same file changes flow through the *instant* path instead. Nothing
-compiles; only the snapshot and the pointer move. The shared counter below is
-proof — it was already in the vocabulary, so dropping it in cost zero builds:
+<Callout kind="tip" title="The instant path">
+  Contrast that with an edit like this one. The component already shipped, so
+  the same file now flows through the *instant* path instead: nothing compiles,
+  and only the snapshot and the pointer move.
+</Callout>
+
+The shared counter below is the proof — it was already in the vocabulary, so
+dropping a second one in cost zero builds:
 
 <Counter initial={1} />
+
+<Counter initial={9} />
+
+Two islands, one page, and not a single line of Rust recompiled to get them
+here.
