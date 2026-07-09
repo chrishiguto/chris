@@ -92,6 +92,9 @@ best-effort after the flip: a failure logs loudly and the 7-day `s-maxage` TTL (
 next deploy's fresh version-keyed cache) backstops it. The zone purge credentials
 (`CLOUDFLARE_ZONE_ID`, `SITE_ORIGIN`, `CLOUDFLARE_PURGE_TOKEN`) leave the pipeline
 entirely; a custom domain is no longer a purge prerequisite.
+*(Superseded by the 2026-07-09 amendment below: the `SITE`-binding purge was a no-op
+— `cache.purge()` runs in the caller's entrypoint — so the purge moves to CI over HTTP
+and this in-worker call, its binding, and its secret are deleted.)*
 
 *Amendment (2026-07-08, single Actions trigger + synchronous reconcile):* the
 dual trigger — a GitHub webhook to `POST /webhook` (HMAC-verified, push
@@ -119,6 +122,25 @@ trigger mechanism and an invisible-on-the-PR status are not worth the seconds.
 Secrets shrink: `GITHUB_WEBHOOK_SECRET` is retired and the fine-grained PAT
 drops to Contents RO (no `workflow_dispatch` Actions scope, no Deployments
 scope).
+
+*Amendment (2026-07-09, the coordinator stops purging):* the post-flip
+`/__purge` call over the `SITE` service binding was a silent no-op —
+`cache.purge()` is scoped to the entrypoint that runs it, and over a binding
+that is the pipeline's, not the site's, so content-only merges went
+green-while-stale (ADR-0008's 2026-07-09 amendment has the platform detail).
+The coordinator no longer purges. It computes the stale scope
+(`publish::stale_tags` diffing the previous index against the new one) and
+returns it as `PublishOutcome.tags`; the Actions Publish step evicts those
+tags by calling the site's public `/__purge` over HTTP — the only entrypoint
+that can. Deleted with the in-worker purge: `net::purge_site`, the `SITE`
+binding, the `PURGE_SHARED_SECRET` the pipeline held, the `pending-purge` debt
+ledger and its escalation, and `purge_scope`. `PublishOutcome` drops `purged`
+(so `ok` reflects validation only) and keeps `tags`. The purge-debt invariant
+retires with the ledger: CI retries a transient failure and reddens the run on
+a hard one, and a same-HEAD re-run re-derives the identical scope from git, so
+there is nothing to carry across runs. What the DO still owns is unchanged:
+single-instance serialization, the immutable snapshot + `current` flip, and
+retention.
 
 ## Costs accepted
 

@@ -2,9 +2,7 @@
 //! publish outcome — natively testable. Transport lives behind the `worker`
 //! feature; the `/publish` bearer check lives in the shared `authn` crate.
 
-use std::collections::BTreeSet;
-
-use content::{post_slug, source_path, Diagnostic, SITE_TAG};
+use content::{post_slug, source_path, Diagnostic};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "worker")]
@@ -86,11 +84,13 @@ pub struct PublishOutcome {
     /// How many failures actually had a previous version to keep — claiming
     /// "kept" for a dropped post would lie.
     pub carried: usize,
-    /// Whether the purge covered everything the flip (plus debt) made stale.
-    pub purged: bool,
-    /// False when a post failed validation or the purge did not land: readers
-    /// still see stale or missing pages, so the run (and its deployment) must
-    /// go red rather than hide it.
+    /// Cache tags this flip made stale (changed/added/removed posts plus
+    /// `views`), empty when nothing changed. CI purges them from the site's
+    /// public `/__purge` — the only entrypoint that can evict its Workers
+    /// Cache; the coordinator no longer purges.
+    pub tags: Vec<String>,
+    /// False when a post failed validation: readers still see stale or missing
+    /// pages, so the run (and its deployment) must go red rather than hide it.
     pub ok: bool,
     /// One human line for the run log and the deployment description.
     pub summary: String,
@@ -101,11 +101,11 @@ impl PublishOutcome {
         published: usize,
         failed: usize,
         carried: usize,
-        purged: bool,
+        tags: Vec<String>,
         diags: &[Diagnostic],
     ) -> Self {
         let posts = |n: usize| format!("{n} post{}", if n == 1 { "" } else { "s" });
-        let mut summary = match failed {
+        let summary = match failed {
             0 => format!("reconciled: {} published", posts(published)),
             n => {
                 let kept = if carried == n {
@@ -120,32 +120,15 @@ impl PublishOutcome {
                 )
             }
         };
-        if !purged {
-            summary.push_str("; cache purge failed — pages may be stale");
-        }
         Self {
             published,
             failed,
             carried,
-            purged,
-            ok: failed == 0 && purged,
+            tags,
+            ok: failed == 0,
             summary,
         }
     }
-}
-
-/// One reconcile's purge scope: the tags this flip made stale plus the debt
-/// a previously failed purge left behind, so a same-HEAD reconcile still
-/// retries it. An unreadable debt ledger (`None`) escalates to a full site
-/// purge — over-purge, never staleness.
-pub fn purge_scope(stale: Vec<String>, debt: Option<Vec<String>>) -> Vec<String> {
-    let debt = debt.unwrap_or_else(|| vec![SITE_TAG.to_string()]);
-    stale
-        .into_iter()
-        .chain(debt)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
 }
 
 /// Raw-content fetch pinned to the observed HEAD — every source in one

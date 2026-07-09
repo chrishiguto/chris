@@ -32,18 +32,16 @@ A **reconcile** (always converging to HEAD as observed at its start):
    publish is atomic from the reader's side. A post that fails validation
    rides in as its previously published payload (or stays out if it never
    published).
-3. Purges exactly what the publish changed from the site's Workers Cache (one
-   authenticated `POST /__purge` over the `SITE` service binding, body
-   `{"tags":[…]}`): the added/removed/changed posts' `post:{slug}` tags plus
-   the shared `views` tag — nothing when the reconcile changed nothing.
-   Retains the last 10 snapshots (rollback depth) and sweeps older ones.
-4. Returns a `PublishOutcome`: `{published, failed, carried, purged, ok,
-   summary}`. `ok` is false when a post failed validation **or** the purge
-   did not land — pages stale or missing behind a green check is the incident
-   class this guards against. A failed purge also leaves its tags behind as
-   debt: every later reconcile merges the debt into its own purge and clears
-   it only once a purge lands, so `ok` returns to true only when the cache
-   truly converged.
+3. Retains the last 10 snapshots (rollback depth) and sweeps older ones. The
+   coordinator does **not** purge the cache: `cache.purge` only evicts the
+   cache of the entrypoint that runs it, so a purge over a service binding
+   no-ops against the site's cache (see Cache and purge below).
+4. Returns a `PublishOutcome`: `{published, failed, carried, tags, ok,
+   summary}`. `tags` is the stale cache-tag scope — the added/removed/changed
+   posts' `post:{slug}` plus the shared `views` tag, diffed from the index
+   `content_hash`es, empty when nothing changed — which CI purges from the
+   site over HTTP. `ok` is false when a post failed validation: pages stale or
+   missing behind a green check is the incident class this guards against.
 
 The CI half is one workflow, `.github/workflows/publish.yml`:
 
@@ -54,7 +52,9 @@ The CI half is one workflow, `.github/workflows/publish.yml`:
   paths filter decides code-vs-content. If the push touched code it runs
   check/test, builds, gates the size budget (fail > 10 MB gzipped, warn
   > 5 MB), deploys the site, purges the `site` cache tag, and deploys the
-  pipeline. It then **always** calls `/publish` and fails the job when the
+  pipeline. It then **always** calls `/publish`, purges the stale-tag scope the
+  outcome reports from the site's public `/__purge` (retried; a hard failure
+  fails the job → break-glass `just purge`), and fails the job when the
   outcome's `ok` is false (or the call errored). Because the job declares
   `environment: content`, GitHub records a deployment on the merged PR that
   links straight to this run — the run, with its steps and the `/publish`
@@ -86,13 +86,16 @@ before the worker runs. Consequences for this worker:
   tags are the only handle a purge gets on a cached entry, so a tag set that
   can't form a valid header leaves the response uncached (loudly) rather
   than cached unpurgeable.
-- **Publish purges are scoped.** Index entries carry a `content_hash` of the
-  serialized post payload; the coordinator diffs the previous index against
-  the new one and purges exactly the changed/added/removed posts plus
-  `views`. Post N never evicts post M. A failed purge logs loudly, makes the
-  reconcile's outcome `ok: false` (so the run and its deployment go red), and
-  persists as debt the next reconcile retries; the 7-day `s-maxage` TTL stays
-  the last-resort backstop.
+- **Publish purges are scoped, and run from CI.** Index entries carry a
+  `content_hash` of the serialized post payload; the coordinator diffs the
+  previous index against the new one and returns exactly the
+  changed/added/removed posts plus `views` as the outcome's `tags`. Post N
+  never evicts post M. CI purges that scope by POSTing the site's public
+  `/__purge` (`just purge "<tags>"`) — the coordinator can't, because
+  `cache.purge` only evicts the entrypoint that runs it and over the service
+  binding that is the pipeline's, not the site's. CI retries for propagation
+  and fails the run on a hard failure (break-glass: `just purge`); the 7-day
+  `s-maxage` TTL stays the last-resort backstop.
 - **Deploys purge `site`** from CI right after the site deploy (see above —
   defensive until version-keyed cold starts are verified in production).
 
@@ -107,8 +110,8 @@ routing are still testable; the purge itself verifies in production.
 
 - Secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts: Edit + Workers KV
   Storage: Edit), `PUBLISH_SHARED_SECRET` (same value as the worker secret
-  below), and `PURGE_SHARED_SECRET` (same value both workers hold — the
-  deploy's `site`-tag purge uses it).
+  below), and `PURGE_SHARED_SECRET` (the value the site worker holds — CI uses
+  it for both the deploy `site`-tag purge and the post-publish content purge).
 - Variables: `CLOUDFLARE_ACCOUNT_ID` (required); `SITE_URL` and
   `PIPELINE_URL` (optional — without them the workflow derives the
   `chris-site.<subdomain>.workers.dev` / `chris-pipeline.<subdomain>
@@ -130,12 +133,9 @@ routing are still testable; the purge itself verifies in production.
     (the reconcile reads post sources at HEAD; nothing else).
   - `.secrets/publish_shared_secret` — shared with the `PUBLISH_SHARED_SECRET`
     Actions secret; authenticates CI's `/publish` call.
-  - `.secrets/purge_shared_secret` — held by **both** workers as
-    `PURGE_SHARED_SECRET`; authenticates the pipeline's (and break-glass
-    curl's) calls to the site's `/__purge`.
-- The `SITE` service binding in `workers/pipeline/wrangler.toml` names the
-  deployed site worker (`chris-site`), so the site deploys first on a fresh
-  account.
+  - `.secrets/purge_shared_secret` — held by the **site** worker as
+    `PURGE_SHARED_SECRET` (and by CI); authenticates the CI and break-glass
+    `/__purge` calls. The pipeline no longer holds it.
 
 ## Deploy
 
@@ -143,13 +143,13 @@ routing are still testable; the purge itself verifies in production.
 just deploy-pipeline
 wrangler secret put GITHUB_TOKEN --config workers/pipeline/wrangler.toml < .secrets/github_pipeline_token
 wrangler secret put PUBLISH_SHARED_SECRET --config workers/pipeline/wrangler.toml < .secrets/publish_shared_secret
-wrangler secret put PURGE_SHARED_SECRET --config workers/pipeline/wrangler.toml < .secrets/purge_shared_secret
-# the site worker's half of the purge handshake — its only secret
+# the site worker holds the purge secret; CI and break-glass use it to call /__purge
 wrangler secret put PURGE_SHARED_SECRET < .secrets/purge_shared_secret
 ```
 
-GitHub credentials live **only** in this worker; the site worker holds
-nothing but the purge secret, which grants nothing beyond a cache flush.
+GitHub credentials live **only** in the pipeline worker; the site worker holds
+nothing but the purge secret, which grants nothing beyond a cache flush. The
+pipeline no longer holds the purge secret at all — the purge is a CI concern.
 
 ## Verify content publish
 
@@ -202,6 +202,6 @@ nothing but the purge secret, which grants nothing beyond a cache flush.
   `GITHUB_WEBHOOK_SECRET` worker secret, and reduce the fine-grained PAT to
   **Contents RO** — the `workflow_dispatch` (Actions RW) and deployment-record
   (Deployments RW) scopes are no longer used.
-- **Coordinator state**: the DO stores only its snapshot history and any
-  outstanding purge debt. Deleting the object's storage is safe — the next
-  publish re-seeds nothing it needs and the reconcile is idempotent.
+- **Coordinator state**: the DO stores only its snapshot history. Deleting the
+  object's storage is safe — the next publish re-seeds nothing it needs and the
+  reconcile is idempotent.

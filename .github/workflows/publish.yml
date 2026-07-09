@@ -137,16 +137,21 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
         run: just deploy-pipeline
 
-      # Always: reconcile content to HEAD through the pipeline. The response is
-      # the outcome; a validation or purge failure (ok=false) or a transport
-      # error fails the job, so the deployment on the merged PR goes red.
-      # PIPELINE_URL (repo variable) overrides the derived workers.dev URL.
+      # Always: reconcile content to HEAD through the pipeline, then purge the
+      # scope it reports. The response is the outcome; a validation failure
+      # (ok=false), a failed purge, or a transport error fails the job, so the
+      # deployment on the merged PR goes red. cache.purge is scoped to the
+      # entrypoint that runs it, so the eviction must come from the site worker
+      # over public HTTP — the pipeline's own binding purge can't reach it.
+      # PIPELINE_URL / SITE_URL (repo variables) override the derived workers.dev URLs.
       - name: Publish (reconcile to HEAD)
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           PUBLISH_SHARED_SECRET: ${{ secrets.PUBLISH_SHARED_SECRET }}
+          PURGE_SHARED_SECRET: ${{ secrets.PURGE_SHARED_SECRET }}
           PIPELINE_URL: ${{ vars.PIPELINE_URL }}
+          SITE_ORIGIN: ${{ vars.SITE_URL }}
           BRANCH: ${{ github.ref_name }}
         run: |
           set -euo pipefail
@@ -169,6 +174,34 @@ jobs:
           fi
           summary=$(echo "$body" | jq -r '.summary')
           echo "publish: $summary"
+
+          # Evict exactly what the flip changed, regardless of the validation
+          # outcome (a carry-forward still flips the snapshot). Empty scope =>
+          # nothing changed => nothing to purge. Retry for Instant-Purge
+          # propagation; a hard failure fails the job (break-glass: just purge).
+          tags=$(echo "$body" | jq -c '.tags')
+          if [ "$tags" != "[]" ]; then
+            if [ -z "$SITE_ORIGIN" ]; then
+              subdomain=$(curl -sf -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+                | jq -r '.result.subdomain')
+              SITE_ORIGIN="https://chris-site.$subdomain.workers.dev"
+            fi
+            export SITE_ORIGIN
+            for attempt in 1 2 3; do
+              if just purge "$tags"; then
+                echo "purge: evicted $tags"
+                break
+              fi
+              if [ "$attempt" = 3 ]; then
+                echo "::error::cache purge failed after 3 attempts ($tags)"
+                exit 1
+              fi
+              echo "purge attempt $attempt failed; retrying in 5s"
+              sleep 5
+            done
+          fi
+
           if [ "$(echo "$body" | jq -r '.ok')" != "true" ]; then
             echo "::error::$summary"
             exit 1

@@ -17,8 +17,8 @@ use worker::{
 };
 
 use crate::{
-    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, purge_scope, tree_url,
-    PublishOutcome, ReconcileConfig,
+    contents_url, head_ref_url, net, parse_head_ref, parse_tree_listing, tree_url, PublishOutcome,
+    ReconcileConfig,
 };
 
 /// Every caller addresses this one instance, which serializes all publishes.
@@ -30,8 +30,6 @@ const KV_BINDING: &str = "BLOG";
 
 /// DO storage keys.
 const HISTORY_KEY: &str = "history";
-/// Tags a failed purge left uncovered; later reconciles retry them.
-const PENDING_PURGE_KEY: &str = "pending-purge";
 
 /// Snapshots kept for rollback; older ones are swept after a flip.
 const KEEP_SNAPSHOTS: usize = 10;
@@ -170,28 +168,11 @@ impl PublishCoordinator {
             .await
             .map_err(|err| err.to_string())?;
 
-        // Purge and retention never unwind the publish — the flip already
-        // happened; a failed purge rides into the outcome instead and leaves
-        // its tags as debt the next reconcile retries.
-        let storage = self.state.storage();
-        let debt: Option<Vec<String>> = match storage.get(PENDING_PURGE_KEY).await {
-            Ok(debt) => Some(debt.unwrap_or_default()),
-            Err(err) => {
-                console_error!("purge-debt read failed (escalating to a site purge): {err}");
-                None
-            }
-        };
-        let tags = purge_scope(publish::stale_tags(&prev_index, &plan.index), debt);
-        let purged = tags.is_empty() || net::purge_site(env, &tags).await;
-        if !purged {
-            if let Err(err) = storage.put(PENDING_PURGE_KEY, &tags).await {
-                console_error!(
-                    "purge-debt write failed (a stale page may outlive its red status): {err}"
-                );
-            }
-        } else if let Err(err) = storage.delete(PENDING_PURGE_KEY).await {
-            console_error!("purge-debt clear failed (the next reconcile may over-purge): {err}");
-        }
+        // The flip already happened; the cache purge is CI's job (over the
+        // site's public `/__purge` — the only entrypoint that can evict its
+        // Workers Cache). The coordinator only names the stale scope and rides
+        // it into the outcome. Retention stays best-effort.
+        let tags = publish::stale_tags(&prev_index, &plan.index);
         self.retain(&kv, &head).await;
         console_log!(
             "reconciled {repo}@{head}: {} published, {failed} failed",
@@ -201,7 +182,7 @@ impl PublishCoordinator {
             parsed.len(),
             failed,
             carried_count,
-            purged,
+            tags,
             &diags,
         ))
     }
