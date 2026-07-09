@@ -1,5 +1,5 @@
 ---
-title: Two paths out of one push
+title: Which road a push takes
 date: 2026-07-04
 description: A post and its co-located island ship in one push — CI builds, deploys, then publishes.
 tags: [meta]
@@ -7,39 +7,50 @@ tags: [meta]
 
 # Code rides a deploy
 
-<Callout kind="note" title="Retitled again, still no code">
-  This post has been retitled a few times now to exercise the Workers Cache
-  path, and this pass is more of the same: pure prose. A content-only publish
-  flips the `current` pointer and purges the `post:ci-code-path` tag through the
-  site worker's `/__purge` — no wasm redeploy, no CI build.
+<Callout kind="note" title="Retitled yet again, still no code">
+  Another pass, another title, and once more nothing but prose behind it. A
+  content-only publish flips the `current` pointer and purges the
+  `post:ci-code-path` tag through the site worker's `/__purge` — no wasm
+  redeploy, no CI build, no wondering whether the island survived.
 </Callout>
 
-A push can take one of two paths, and which one depends entirely on whether it
-carries code. This file has walked both.
+Every push lands on one of two roads, and the fork is decided by a single
+question: does the commit carry code? This file has travelled both, more than
+once.
 
-The stages widget below is not part of the site's shared vocabulary — it lives
-in `components.rs` right next to this file (ADR-0004). Pushing that component
-*with* the post was a mixed commit: the pipeline worker parked the post as
-pending, fired the publish workflow, and CI built, checked the size budget,
-deployed both workers, and only then drained the post through `/publish`.
+Take the road with code first. The stages widget below is not part of the
+site's shared vocabulary — it lives in `components.rs` right next to this file
+(ADR-0004). Shipping that component *with* the post was a mixed commit: the
+pipeline worker parked the post as pending, fired the publish workflow, and CI
+built, checked the size budget, deployed both workers, and only then drained
+the post through `/publish`.
 
 <DeployStages total={4} />
 
 Advance through the stages — build, size gate, deploy, publish. The island
-hydrates because the deploy that carried its code always lands first.
+hydrates because the deploy that carried its code always lands before the
+content that needs it.
 
-<Callout kind="tip" title="The instant path">
-  Contrast that with an edit like this one. The component already shipped, so
-  the same file now flows through the *instant* path instead: nothing compiles,
-  and only the snapshot and the pointer move.
+<Callout kind="tip" title="Now the instant road">
+  An edit like this one takes the other fork. The component already shipped, so
+  the same file skips CI entirely: nothing compiles, nothing redeploys, and only
+  the snapshot and the pointer move.
 </Callout>
 
-The shared counter below is the proof — it was already in the vocabulary, so
-dropping a second one in cost zero builds:
+The counters below are the receipt. Both were already in the shared vocabulary,
+so dropping a third one in this pass cost exactly zero builds:
 
 <Counter initial={1} />
 
 <Counter initial={9} />
 
-Two islands, one page, and not a single line of Rust recompiled to get them
+<Counter initial={17} />
+
+Three islands, one page, and not a single line of Rust recompiled to put them
 here.
+
+<Callout kind="warning" title="The tell">
+  If any of the three counters failed to hydrate, the deploy that owns their
+  code fell behind the content that references them — the one ordering this
+  whole two-road design exists to guarantee.
+</Callout>
