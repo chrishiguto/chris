@@ -12,6 +12,11 @@ pub use header::Header;
 pub use not_found::NotFound;
 pub use theme_toggle::ThemeToggle;
 
+/// Mono section label (design SectionLabel); shared by the home and about pages.
+pub(crate) fn section_label(text: &'static str) -> impl IntoView {
+    view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
+}
+
 /// Shared page scaffold; every page except the post article renders through it.
 pub(crate) fn page(
     title: Option<String>,

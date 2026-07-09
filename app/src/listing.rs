@@ -5,13 +5,13 @@ use content::{post_path, tag_path, IndexEntry};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
-use crate::components::page;
+use crate::components::{page, section_label};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
 pub struct IndexData(pub Vec<IndexEntry>);
 
-pub const RECENT_POSTS: usize = 5;
+pub const RECENT_POSTS: usize = 3;
 
 fn listed_entries() -> Vec<IndexEntry> {
     use_context::<IndexData>()
@@ -22,21 +22,31 @@ fn listed_entries() -> Vec<IndexEntry> {
         .collect()
 }
 
-/// Markup shape `main.css` styles: `ul.post-list > li > a > h2 + p.post-date`.
+/// Design PostRow: the whole row is the link; the arrow slides in on hover
+/// via CSS. `data-tags` feeds the Slice 9 tag-filter island.
+fn post_row(entry: IndexEntry) -> impl IntoView {
+    view! {
+        <li data-tags=entry.tags.join(" ")>
+            <a href=post_path(&entry.slug) class="post-row">
+                <span class="post-row-top">
+                    <span class="post-row-title">
+                        {entry.title} <span class="post-row-lead" aria-hidden="true">
+                            "→"
+                        </span>
+                    </span>
+                    <span class="post-row-meta">{entry.date}</span>
+                </span>
+                {entry
+                    .description
+                    .map(|description| view! { <span class="post-row-desc">{description}</span> })}
+            </a>
+        </li>
+    }
+}
+
+/// Markup shape `post.css` styles: `ul.post-list > li[data-tags] > a.post-row`.
 fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
-    let items: Vec<_> = entries
-        .into_iter()
-        .map(|entry| {
-            view! {
-                <li>
-                    <a href=post_path(&entry.slug)>
-                        <h2>{entry.title}</h2>
-                        <p class="post-date">{entry.date}</p>
-                    </a>
-                </li>
-            }
-        })
-        .collect();
+    let items: Vec<_> = entries.into_iter().map(post_row).collect();
     view! { <ul class="post-list">{items}</ul> }
 }
 
@@ -52,7 +62,7 @@ pub fn PostsPage() -> impl IntoView {
     let listing = if entries.is_empty() {
         empty_state(NOTHING_PUBLISHED.into()).into_any()
     } else {
-        post_list(entries).into_any()
+        view! { <div class="mt-8">{post_list(entries)}</div> }.into_any()
     };
     page(Some("posts — chris".into()), "posts", listing)
 }
@@ -103,7 +113,7 @@ pub fn TagListing(tag: String) -> impl IntoView {
     let listing = if matching.is_empty() {
         empty_state(format!("Nothing is tagged \"{tag}\".")).into_any()
     } else {
-        post_list(matching).into_any()
+        view! { <div class="mt-8">{post_list(matching)}</div> }.into_any()
     };
     page(Some(format!("#{tag} — chris")), format!("#{tag}"), listing)
 }
@@ -117,26 +127,36 @@ pub fn TagPage() -> impl IntoView {
 #[component]
 pub fn HomePage() -> impl IntoView {
     let entries = listed_entries();
+    let total = entries.len();
     let recent: Vec<_> = entries.into_iter().take(RECENT_POSTS).collect();
-    let listing = if recent.is_empty() {
+    let latest = if recent.is_empty() {
         empty_state(NOTHING_PUBLISHED.into()).into_any()
     } else {
         view! {
-            {post_list(recent)}
-            <a href="/posts" class="font-mono text-sm text-accent hover:underline">
-                "all posts →"
-            </a>
+            <div class="mt-4">{post_list(recent)}</div>
+            <p class="mt-4 text-ink-2">
+                "that's the latest three. " <a href="/posts" class="plink">
+                    {format!("read all {total} posts →")}
+                </a>
+            </p>
         }
         .into_any()
     };
     page(
         None,
-        "chris",
+        "hey, i'm chris",
         view! {
-            <p class="mt-6 leading-relaxed text-ink-2">
-                "Engineering notes — Rust end-to-end: Leptos SSR on Cloudflare Workers."
+            <p class="mt-5 max-w-[48ch] leading-relaxed text-ink-2">
+                "software engineer. i write about code, systems, and figuring things out — in english e às vezes em português. this site is my notebook, left open on purpose."
             </p>
-            <div class="mt-10">{listing}</div>
+            <p class="mt-6 max-w-[52ch] leading-relaxed text-ink-2">
+                "new here? start with " <a href="/posts" class="plink">
+                    "the writing"
+                </a> ", or read a little more " <a href="/about" class="plink">
+                    "about me"
+                </a> "."
+            </p>
+            <div class="mt-14">{section_label("latest writing")} {latest}</div>
         },
     )
 }

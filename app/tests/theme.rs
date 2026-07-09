@@ -265,12 +265,47 @@ fn callout_and_error_surfaces_are_styled() {
 #[test]
 fn listing_and_tag_surfaces_are_styled() {
     let css = stylesheet();
-    for class in [".post-list", ".post-tags", ".tag"] {
+    for class in [
+        ".post-list",
+        ".post-row",
+        ".post-row-lead",
+        ".post-row-meta",
+        ".post-row-desc",
+        ".post-tags",
+        ".tag",
+        ".plink",
+    ] {
         assert!(
             css.contains(class),
             "no `{class}` styling in the stylesheet"
         );
     }
+}
+
+// The PostRow hover contract (design PostRow.jsx): title turns accent, the
+// arrow slides in; the slide transform is off under reduced motion, and the
+// description truncates to a single line.
+#[test]
+fn post_rows_hover_and_truncate_per_the_design() {
+    let css = stylesheet();
+    for rule in [
+        ".post-row:hover .post-row-title",
+        ".post-row:hover .post-row-lead",
+        "text-overflow: ellipsis",
+    ] {
+        assert!(css.contains(rule), "no `{rule}` in the stylesheet");
+    }
+    let transform_disabled = css
+        .split("@media (prefers-reduced-motion: reduce)")
+        .skip(1)
+        .any(|block| {
+            let scope = block.split("@media").next().unwrap_or(block);
+            scope.contains(".post-row-lead") && scope.contains("transform: none")
+        });
+    assert!(
+        transform_disabled,
+        "the arrow slide must be disabled under prefers-reduced-motion"
+    );
 }
 
 // Geist + Geist Mono come from Google Fonts with `display=swap`; the v1

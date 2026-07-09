@@ -58,13 +58,6 @@
     }
   }
 
-  .post-date {
-    margin-top: 0.75rem;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-ink-3);
-  }
-
   /* The 65ch reading measure; the header and full-bleed surfaces sit outside. */
   .post-body {
     max-width: 65ch;
@@ -250,38 +243,92 @@
     color: var(--color-accent);
   }
 
-  /* Listing markup shape: ul.post-list > li > a > h2 + p.post-date */
+  /* Listing rows (design PostRow), a dividerless stack; the markup shape is
+     ul.post-list > li[data-tags] > a.post-row. Context spacing belongs to the
+     pages, so the list itself carries no margin. */
 
   .post-list {
-    margin-block: 2rem;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .post-list li {
-    border-bottom: 1px solid var(--color-line);
-  }
-
-  /* Block links: the base layer's animated underline reads wrong on a whole
-     row, so it stays off until the Slice 8 PostRow redesign. */
-  .post-list a {
-    display: block;
-    padding-block: 1.25rem;
-    text-decoration: none;
+  /* The whole row is the link; a block link keeps the base-layer underline off.
+     Negative inline margin lets the row padding overhang the text column. */
+  .post-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0.625rem 0.75rem;
+    margin-inline: -0.75rem;
+    border-radius: 0.375rem;
     background-image: none;
     color: inherit;
   }
 
-  .post-list h2 {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
+  .post-row-top {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
   }
 
-  .post-list a:hover h2 {
+  .post-row-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
+    transition: color 200ms var(--ease-out);
+  }
+
+  /* The slide-in arrow: invisible at rest, fades and slides in on row hover,
+     slightly delayed so it reads as a response to the title turning accent. */
+  .post-row-lead {
+    display: inline-block;
+    margin-left: 0.4375rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0;
     color: var(--color-accent);
+    opacity: 0;
+    transform: translateX(-5px);
+    transition:
+      opacity 200ms var(--ease-out) 90ms,
+      transform 200ms var(--ease-out-expo) 90ms;
+  }
+
+  .post-row:hover .post-row-title {
+    color: var(--color-accent);
+  }
+
+  .post-row:hover .post-row-lead {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .post-row-lead,
+    .post-row:hover .post-row-lead {
+      transform: none;
+      transition: opacity 200ms var(--ease-out) 90ms;
+    }
+  }
+
+  .post-row-meta {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-ink-3);
+    white-space: nowrap;
+  }
+
+  .post-row-desc {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    color: var(--color-ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Component surfaces. */

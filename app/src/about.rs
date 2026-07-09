@@ -5,9 +5,7 @@
 use leptos::prelude::*;
 use leptos_meta::Title;
 
-fn section_label(text: &'static str) -> impl IntoView {
-    view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
-}
+use crate::components::section_label;
 
 fn contact_link(href: &'static str, label: &'static str) -> impl IntoView {
     view! {

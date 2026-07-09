@@ -41,22 +41,53 @@ fn home_html(index: Vec<IndexEntry>) -> String {
 }
 
 #[test]
-fn posts_page_lists_title_and_date_linking_to_posts() {
+fn posts_page_lists_rows_in_the_post_row_shape() {
     let html = posts_html(vec![
-        entry("newer", "The newer post", "2026-03-01"),
-        entry("older", "The older post", "2026-01-01"),
+        tagged("newer", "the newer post", "2026-03-01", &["rust", "wasm"]),
+        entry("older", "the older post", "2026-01-01"),
     ]);
-    // The markup shape the CSS styles: ul.post-list > li > a > h2 + p.post-date.
+    // The markup shape the CSS styles:
+    // ul.post-list > li[data-tags] > a.post-row > .post-row-top (+ .post-row-desc).
     assert!(html.contains("<ul class=\"post-list\">"), "{html}");
-    assert!(html.contains("<a href=\"/posts/newer\">"), "{html}");
-    assert!(html.contains("<h2>The newer post</h2>"), "{html}");
     assert!(
-        html.contains("<p class=\"post-date\">2026-03-01</p>"),
+        html.contains("<li data-tags=\"rust wasm\">"),
+        "rows must carry their tags for the filter island: {html}"
+    );
+    assert!(
+        html.contains("<a href=\"/posts/newer\" class=\"post-row\">"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<span class=\"post-row-title\">the newer post"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<span class=\"post-row-lead\" aria-hidden=\"true\">→</span>"),
+        "the hover arrow must ship in the row markup: {html}"
+    );
+    assert!(
+        html.contains("<span class=\"post-row-meta\">2026-03-01</span>"),
         "{html}"
     );
     let newer = html.find("/posts/newer").unwrap();
     let older = html.find("/posts/older").unwrap();
     assert!(newer < older, "index order must be preserved: {html}");
+}
+
+#[test]
+fn post_rows_render_the_description_only_when_present() {
+    let mut described = entry("has-desc", "Described", "2026-02-01");
+    described.description = Some("one honest line about the post".into());
+    let html = posts_html(vec![described, entry("bare", "Bare", "2026-01-01")]);
+    assert!(
+        html.contains("<span class=\"post-row-desc\">one honest line about the post</span>"),
+        "{html}"
+    );
+    assert_eq!(
+        html.matches("post-row-desc").count(),
+        1,
+        "descriptionless rows must not render an empty desc line: {html}"
+    );
 }
 
 #[test]
@@ -88,7 +119,43 @@ fn home_page_filters_drafts() {
 }
 
 #[test]
+fn home_page_greets_with_intro_links_and_section_label() {
+    let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
+    assert!(html.contains("hey, i'm chris"), "{html}");
+    assert!(
+        html.contains("<a href=\"/posts\" class=\"plink\">the writing</a>"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<a href=\"/about\" class=\"plink\">about me</a>"),
+        "{html}"
+    );
+    assert!(html.contains("latest writing"), "{html}");
+}
+
+#[test]
+fn home_page_read_all_link_counts_the_listed_archive() {
+    let mut draft = entry("wip", "Not yet", "2026-05-01");
+    draft.draft = true;
+    let index: Vec<_> = std::iter::once(draft)
+        .chain((0..4).map(|i| {
+            entry(
+                &format!("post-{i}"),
+                &format!("Post {i}"),
+                &format!("2026-01-{:02}", 20 - i),
+            )
+        }))
+        .collect();
+    let html = home_html(index);
+    assert!(
+        html.contains("read all 4 posts →"),
+        "the count must be the real listed total, drafts excluded: {html}"
+    );
+}
+
+#[test]
 fn home_page_shows_only_recent_posts_and_links_to_all() {
+    assert_eq!(RECENT_POSTS, 3, "the design shows the latest three");
     let index: Vec<_> = (0..RECENT_POSTS + 2)
         .map(|i| {
             entry(
