@@ -299,7 +299,7 @@ fn manifest_contains_the_v1_vocabulary() {
 // The full read path minus KV transport.
 #[test]
 fn fixture_post_renders_end_to_end() {
-    let source = include_str!("../../content/blog/components-demo/index.mdx");
+    let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("fixture post must validate against the live manifest");
     let html = strip_markers(render_document(&doc).to_html());
@@ -308,7 +308,7 @@ fn fixture_post_renders_end_to_end() {
         "Callout missing: {html}"
     );
     assert!(
-        html.contains("parsed recursively"),
+        html.contains("<code>post:ci-code-path</code>"),
         "Callout markdown children missing: {html}"
     );
     assert!(
