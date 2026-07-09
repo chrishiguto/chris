@@ -41,14 +41,12 @@ fn utility_sources() -> Vec<(String, String)> {
         }
     }
     let mut files = Vec::new();
-    walk(
+    for root in [
         Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/src")),
-        &mut files,
-    );
-    walk(
         Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../content/blog")),
-        &mut files,
-    );
+    ] {
+        walk(root, &mut files);
+    }
     files
 }
 
