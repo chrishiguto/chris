@@ -7,7 +7,7 @@ use leptos_router::{
 
 use crate::about::AboutPage;
 use crate::components::{Footer, Header, NotFound};
-use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
+use crate::listing::{HomePage, PostsPage};
 use crate::post::PostPage;
 
 /// Geist + Geist Mono from Google Fonts; `swap` deliberately reverses the v1
@@ -68,8 +68,6 @@ pub fn App() -> impl IntoView {
                         <Route path=StaticSegment("posts") view=PostsPage />
                         <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
                         <Route path=StaticSegment("about") view=AboutPage />
-                        <Route path=StaticSegment("tags") view=TagsPage />
-                        <Route path=(StaticSegment("tags"), ParamSegment("tag")) view=TagPage />
                     </Routes>
                 </main>
                 <Footer />

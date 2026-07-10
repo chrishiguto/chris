@@ -406,6 +406,25 @@ fn listing_and_tag_surfaces_are_styled() {
     }
 }
 
+// The filter island's two states (ADR-0012): the active pill takes the
+// design Tag's accent treatment; the `$ ls` empty state is mono and muted.
+#[test]
+fn tag_filter_states_are_styled() {
+    let css = stylesheet();
+    let active = rule_body(&css, "a.tag.tag-active {");
+    assert!(
+        active.contains("background-color: var(--color-accent-subtle)"),
+        "the active pill fills accent-subtle: {active}"
+    );
+    assert!(
+        active.contains("border-color: var(--color-accent)"),
+        "{active}"
+    );
+    let empty = rule_body(&css, ".filter-empty {");
+    assert!(empty.contains("var(--font-mono)"), "{empty}");
+    assert!(empty.contains("var(--color-ink-3)"), "{empty}");
+}
+
 // The PostRow hover contract (design PostRow.jsx): title turns accent, the
 // arrow slides in; the slide transform is off under reduced motion, and the
 // description truncates to a single line.
@@ -520,7 +539,13 @@ fn theme_toggle_ssrs_both_glyphs_as_an_island() {
         || {
             leptos::prelude::provide_context(leptos_router::location::RequestUrl::new("/"));
         },
-        || view! { <leptos_router::components::Router><Header /></leptos_router::components::Router> },
+        || {
+            view! {
+                <leptos_router::components::Router>
+                    <Header />
+                </leptos_router::components::Router>
+            }
+        },
     );
     assert!(
         html.contains("<leptos-island"),

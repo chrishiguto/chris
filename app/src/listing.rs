@@ -1,11 +1,12 @@
-//! Listing pages: `/`, `/posts`, and tag browsing, rendered from the index
-//! provided via context. Drafts are in the index but filtered here.
+//! Listing pages: `/` and `/posts`, rendered from the index provided via
+//! context. Drafts are in the index but filtered here.
 
-use content::{post_path, tag_path, IndexEntry};
+use std::collections::BTreeSet;
+
+use content::{post_path, tag_filter_path, IndexEntry};
 use leptos::prelude::*;
-use leptos_router::hooks::use_params_map;
 
-use crate::components::{page, section_label};
+use crate::components::{page, section_label, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -56,72 +57,67 @@ fn empty_state(message: String) -> impl IntoView {
 
 const NOTHING_PUBLISHED: &str = "Nothing published yet — check back soon.";
 
+/// Every tag on a listed post, deduped and sorted — the filter pill set.
+fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
+    entries
+        .iter()
+        .flat_map(|entry| entry.tags.iter())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .cloned()
+        .collect()
+}
+
+/// Same pill shape as the article-bottom tags; the href is both the deep
+/// link and the tag the filter island reads back out of the DOM.
+fn filter_pill(tag: String) -> impl IntoView {
+    let href = tag_filter_path(&tag);
+    view! {
+        <li>
+            <a class="tag" href=href>
+                <span class="tag-hash" aria-hidden="true">
+                    "#"
+                </span>
+                {tag}
+            </a>
+        </li>
+    }
+}
+
+/// The design's `$ ls` empty state; ships hidden — only the filter island
+/// ever shows it, so no-JS readers never see it under the full list.
+const FILTER_EMPTY: &str = "$ ls — nothing here yet";
+
 #[component]
 pub fn PostsPage() -> impl IntoView {
     let entries = listed_entries();
     let listing = if entries.is_empty() {
         empty_state(NOTHING_PUBLISHED.into()).into_any()
     } else {
-        view! { <div class="mt-8">{post_list(entries)}</div> }.into_any()
+        let tags = all_tags(&entries);
+        let pills: Vec<_> = tags.into_iter().map(filter_pill).collect();
+        let filter = (!pills.is_empty()).then(|| {
+            view! {
+                <TagFilter>
+                    <ul class="post-tags mt-4.5">{pills}</ul>
+                </TagFilter>
+            }
+        });
+        let ls_empty = filter.is_some().then(|| {
+            view! {
+                <p class="filter-empty" hidden>
+                    {FILTER_EMPTY}
+                </p>
+            }
+        });
+        view! {
+            {filter}
+            <div class="mt-8">{post_list(entries)}</div>
+            {ls_empty}
+        }
+        .into_any()
     };
     page(Some("posts — chris".into()), "posts", listing)
-}
-
-fn tag_counts(entries: &[IndexEntry]) -> Vec<(String, usize)> {
-    entries
-        .iter()
-        .flat_map(|entry| entry.tags.iter())
-        .fold(std::collections::BTreeMap::new(), |mut counts, tag| {
-            *counts.entry(tag.clone()).or_insert(0) += 1;
-            counts
-        })
-        .into_iter()
-        .collect()
-}
-
-#[component]
-pub fn TagsPage() -> impl IntoView {
-    let tags = tag_counts(&listed_entries());
-    let listing = if tags.is_empty() {
-        empty_state("Nothing is tagged yet.".into()).into_any()
-    } else {
-        let pills: Vec<_> = tags
-            .into_iter()
-            .map(|(tag, count)| {
-                view! {
-                    <li class="tag">
-                        <a href=tag_path(&tag)>{tag.clone()}</a>
-                        " ×"
-                        {count}
-                    </li>
-                }
-            })
-            .collect();
-        view! { <ul class="post-tags mt-10">{pills}</ul> }.into_any()
-    };
-    page(Some("tags — chris".into()), "tags", listing)
-}
-
-/// Tag as a plain prop so tests need no router. An empty match renders a
-/// readable state; the worker owns the 404 status for unknown tags.
-#[component]
-pub fn TagListing(tag: String) -> impl IntoView {
-    let matching: Vec<_> = listed_entries()
-        .into_iter()
-        .filter(|entry| entry.tags.contains(&tag))
-        .collect();
-    let listing = if matching.is_empty() {
-        empty_state(format!("Nothing is tagged \"{tag}\".")).into_any()
-    } else {
-        view! { <div class="mt-8">{post_list(matching)}</div> }.into_any()
-    };
-    page(Some(format!("#{tag} — chris")), format!("#{tag}"), listing)
-}
-
-#[component]
-pub fn TagPage() -> impl IntoView {
-    let tag = use_params_map().read().get("tag").unwrap_or_default();
-    view! { <TagListing tag=tag /> }
 }
 
 #[component]

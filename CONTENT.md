@@ -35,8 +35,9 @@ draft: true                          # optional; keeps the post out of listings
 
 TOML frontmatter (`+++`) and posts without frontmatter are rejected.
 
-Each tag names its `/tags/{tag}` page verbatim, so tags must be lowercase
-slugs — letters, digits, and hyphens only; `just check` enforces this. Posts
+Each tag rides verbatim in the writing page's filter URL (`/posts#{tag}`,
+ADR-0012), so tags must be lowercase slugs — letters, digits, and hyphens
+only; `just check` enforces this. Posts
 without a `description` fall back to their title in the feed.
 
 ## Drafts

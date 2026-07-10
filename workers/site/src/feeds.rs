@@ -2,7 +2,7 @@
 //! natively testable. The feed is Atom served at `/rss.xml` (Atom takes
 //! ISO-8601 dates directly, unlike RSS's RFC-822).
 
-use content::{post_path, tag_path, IndexEntry, LISTING_PAGES, RSS_PATH, STATIC_PAGES};
+use content::{post_path, IndexEntry, LISTING_PAGES, RSS_PATH, STATIC_PAGES};
 
 const SITE_TITLE: &str = "chris";
 const AUTHOR: &str = "chris";
@@ -78,19 +78,13 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
     )
 }
 
-/// Home, listing pages, static pages, tag pages, and every published post
-/// (publication date as `lastmod`).
+/// Home, listing pages, static pages, and every published post (publication
+/// date as `lastmod`). Tags have no URLs: they filter in-page (ADR-0012).
 pub fn sitemap(origin: &str, index: &[IndexEntry]) -> String {
-    let tags: std::collections::BTreeSet<&str> = published(index)
-        .flat_map(|entry| entry.tags.iter())
-        .map(String::as_str)
-        .collect();
-
     let urls = LISTING_PAGES
         .into_iter()
         .chain(STATIC_PAGES)
         .map(String::from)
-        .chain(tags.into_iter().map(tag_path))
         .map(|path| format!("<url><loc>{origin}{path}</loc></url>\n"))
         .chain(published(index).map(|entry| {
             format!(

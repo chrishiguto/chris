@@ -115,15 +115,12 @@ fn empty_index_still_yields_a_valid_feed() {
 }
 
 #[test]
-fn sitemap_lists_home_post_list_static_pages_posts_and_tag_pages() {
+fn sitemap_lists_home_post_list_static_pages_and_posts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     for loc in [
         "<loc>https://example.com/</loc>",
         "<loc>https://example.com/posts</loc>",
-        "<loc>https://example.com/tags</loc>",
         "<loc>https://example.com/about</loc>",
-        "<loc>https://example.com/tags/rust</loc>",
-        "<loc>https://example.com/tags/wasm</loc>",
         "<loc>https://example.com/posts/newer</loc>",
         "<loc>https://example.com/posts/older</loc>",
     ] {
@@ -148,11 +145,17 @@ fn sitemap_lists_static_pages_without_lastmod() {
 }
 
 #[test]
-fn sitemap_excludes_drafts_and_their_tags() {
+fn sitemap_excludes_drafts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     assert!(!xml.contains("/posts/wip"), "{xml}");
+}
+
+// Tag browsing is an in-page filter on /posts (ADR-0012); no tag URL exists.
+#[test]
+fn sitemap_has_no_tag_urls() {
+    let xml = feeds::sitemap(ORIGIN, &fixture_index());
     assert!(
-        !xml.contains("/tags/secret"),
-        "a tag only drafts carry has no page: {xml}"
+        !xml.contains("/tags"),
+        "the tag routes are deleted (ADR-0012): {xml}"
     );
 }

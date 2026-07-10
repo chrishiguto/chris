@@ -84,11 +84,6 @@ pub fn post_path(slug: &str) -> String {
     format!("/posts/{slug}")
 }
 
-/// A tag page's public path (and cache key / purge path).
-pub fn tag_path(tag: &str) -> String {
-    format!("/tags/{tag}")
-}
-
 /// A tag's filter target on the writing page (ADR-0012): the tag rides in the
 /// URL hash, so the server and cache still see exactly one `/posts` page.
 pub fn tag_filter_path(tag: &str) -> String {
@@ -96,7 +91,7 @@ pub fn tag_filter_path(tag: &str) -> String {
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
+pub const LISTING_PAGES: [&str; 2] = ["/", "/posts"];
 
 /// The about page's public path (and cache key / purge path).
 pub const ABOUT_PATH: &str = "/about";
@@ -117,8 +112,8 @@ pub const FEED_PATHS: [&str; 2] = [RSS_PATH, SITEMAP_PATH];
 /// Cache tag carried by every cacheable response; purging it evicts the site.
 pub const SITE_TAG: &str = "site";
 
-/// Cache tag shared by the index-backed views (listings, tag pages, feeds):
-/// they project every post, so any content change purges them together.
+/// Cache tag shared by the index-backed views (listings, feeds): they
+/// project every post, so any content change purges them together.
 pub const VIEWS_TAG: &str = "views";
 
 /// Cache tag of one post's page; scoped purges evict exactly the posts that
@@ -187,6 +182,12 @@ mod tests {
     #[test]
     fn tag_filter_path_rides_the_listing_hash() {
         assert_eq!(tag_filter_path("rust"), "/posts#rust");
+    }
+
+    // ADR-0012: tag browsing is an in-page filter, never a routed page.
+    #[test]
+    fn listing_pages_are_home_and_posts_only() {
+        assert_eq!(LISTING_PAGES, ["/", "/posts"]);
     }
 
     #[test]

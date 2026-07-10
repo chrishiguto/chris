@@ -9,6 +9,7 @@ pub mod footer;
 pub mod header;
 pub mod konami;
 pub mod not_found;
+pub mod tag_filter;
 pub mod theme_toggle;
 
 pub use copy_button::CopyButton;
@@ -16,6 +17,7 @@ pub use footer::Footer;
 pub use header::Header;
 pub use konami::Konami;
 pub use not_found::NotFound;
+pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
 
 /// Mono section label (design SectionLabel); shared by the home and about pages.

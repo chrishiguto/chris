@@ -119,6 +119,15 @@ retry covers transient failures and a hard failure goes red, so there is nothing
 as debt. The `purged` field leaves `PublishOutcome`; `ok` now reflects validation only. (See
 ADR-0009's 2026-07-09 amendment for the coordinator side.)
 
+*Amendment (2026-07-10, ADR-0012):* the tag pages are gone — tag browsing moved into the
+writing page as a client-side filter island, so `/tags` and `/tags/{tag}` are no longer
+routed, sitemapped, or cached (`LISTING_PAGES` dropped `/tags`, `tag_path` is deleted).
+The `views` tag narrows accordingly: it now covers the index-backed listings and feeds only
+(`/`, `/posts`, `/rss.xml`, `/sitemap.xml`). The publish purge scope is structurally
+unchanged — changed posts' tags plus `views` — it simply selects fewer cached entries.
+Filter state rides the URL hash, which never reaches the cache key, so Workers Cache still
+sees exactly one `/posts` page.
+
 Two invariants keep the scoped design honest — both close holes a future implementer could
 easily reopen. First, *purge debt*: a failed purge leaves its tag scope in the coordinator's
 storage; every later reconcile merges that debt into its own scope and clears it only once a

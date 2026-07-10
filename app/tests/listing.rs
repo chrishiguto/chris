@@ -1,10 +1,12 @@
 //! Listing pages render from the worker-provided index context; drafts filter at render time.
 #![cfg(feature = "ssr")]
 
-use app::listing::{HomePage, IndexData, PostsPage, TagListing, TagsPage, RECENT_POSTS};
+use app::app::App;
+use app::listing::{HomePage, IndexData, PostsPage, RECENT_POSTS};
 use common::ssr;
 use content::IndexEntry;
 use leptos::prelude::provide_context;
+use leptos_router::location::RequestUrl;
 
 mod common;
 
@@ -180,83 +182,95 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
     );
 }
 
-fn tags_html(index: Vec<IndexEntry>) -> String {
-    ssr(
-        move || provide_context(IndexData(index)),
-        || leptos::view! { <TagsPage /> },
-    )
+/// The opening tag around the first occurrence of `needle` — attribute
+/// order in leptos output is an implementation detail, so assertions look
+/// inside one tag instead of pinning full-tag strings.
+fn tag_containing<'a>(html: &'a str, needle: &str) -> &'a str {
+    let at = html
+        .find(needle)
+        .unwrap_or_else(|| panic!("no `{needle}` in: {html}"));
+    let start = html[..at].rfind('<').expect("needle outside any tag");
+    let end = at + html[at..].find('>').expect("unclosed tag");
+    &html[start..=end]
 }
 
-fn tag_html(tag: &str, index: Vec<IndexEntry>) -> String {
-    let tag = tag.to_string();
-    ssr(
-        move || provide_context(IndexData(index)),
-        move || leptos::view! { <TagListing tag=tag /> },
-    )
-}
-
+// The filter island wraps the SSR'd pill row (ADR-0012): pills are the
+// post-pill shape, deduped and sorted, linking the hash contract — no index
+// data rides as island props.
 #[test]
-fn tags_page_lists_tags_with_counts_linking_to_tag_pages() {
-    let html = tags_html(vec![
-        tagged("a", "A", "2026-03-01", &["rust", "wasm"]),
-        tagged("b", "B", "2026-01-01", &["rust"]),
+fn posts_page_wraps_sorted_filter_pills_in_the_island() {
+    let html = posts_html(vec![
+        tagged("newer", "the newer post", "2026-03-01", &["wasm", "rust"]),
+        tagged("older", "the older post", "2026-01-01", &["rust"]),
     ]);
-    assert!(html.contains("<ul class=\"post-tags"), "{html}");
-    assert!(html.contains("<a href=\"/tags/rust\">"), "{html}");
-    assert!(html.contains("<a href=\"/tags/wasm\">"), "{html}");
-    let rust = &html[html.find("/tags/rust").unwrap()..];
     assert!(
-        rust.starts_with("/tags/rust\">rust</a> ×2"),
-        "rust must show its post count: {html}"
+        html.contains("<leptos-island"),
+        "the filter must hydrate as an island: {html}"
     );
+    assert!(
+        html.contains("<a href=\"/posts#rust\" class=\"tag\">"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<span class=\"tag-hash\" aria-hidden=\"true\">#</span>wasm"),
+        "pills carry the post-pill hash glyph: {html}"
+    );
+    assert_eq!(
+        html.matches("/posts#rust").count(),
+        1,
+        "pills dedupe across posts: {html}"
+    );
+    let rust = html.find("/posts#rust").unwrap();
+    let wasm = html.find("/posts#wasm").unwrap();
+    assert!(rust < wasm, "pills sort alphabetically: {html}");
 }
 
 #[test]
-fn tags_page_ignores_draft_only_tags() {
+fn filter_pills_skip_draft_only_tags() {
     let mut draft = tagged("wip", "Not yet", "2026-05-01", &["secret", "rust"]);
     draft.draft = true;
-    let html = tags_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
+    let html = posts_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
     assert!(!html.contains("secret"), "{html}");
-    let rust = &html[html.find("/tags/rust").unwrap()..];
+    assert!(html.contains("/posts#rust"), "{html}");
+}
+
+// No-JS readers must never see the `$ ls` line under the full list; the
+// island unhides it only when a filter leaves no rows.
+#[test]
+fn posts_page_ships_the_ls_empty_state_hidden() {
+    let html = posts_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
+    assert!(html.contains("$ ls — nothing here yet"), "{html}");
     assert!(
-        rust.starts_with("/tags/rust\">rust</a> ×1"),
-        "drafts must not count: {html}"
+        tag_containing(&html, "filter-empty").contains("hidden"),
+        "the empty state must ship hidden: {html}"
     );
 }
 
 #[test]
-fn tags_page_with_no_tags_says_so() {
-    let html = tags_html(vec![entry("untagged", "No tags here", "2026-01-01")]);
-    assert!(html.contains("Nothing is tagged yet"), "{html}");
-}
-
-#[test]
-fn tag_listing_shows_only_matching_posts() {
-    let html = tag_html(
-        "rust",
-        vec![
-            tagged("match", "Matches", "2026-03-01", &["rust"]),
-            tagged("other", "Other", "2026-02-01", &["wasm"]),
-        ],
+fn posts_page_without_tags_has_no_filter_row() {
+    let html = posts_html(vec![entry("plain", "Plain", "2026-01-01")]);
+    assert!(!html.contains("post-tags"), "{html}");
+    assert!(
+        !html.contains("<leptos-island"),
+        "no pills means no island to hydrate: {html}"
     );
-    assert!(html.contains("<ul class=\"post-list\">"), "{html}");
-    assert!(html.contains("/posts/match"), "{html}");
-    assert!(!html.contains("/posts/other"), "{html}");
+    assert!(
+        !html.contains("filter-empty"),
+        "no pills means the `$ ls` state can never show: {html}"
+    );
 }
 
+// ADR-0012: the tag routes are deleted end-to-end; the app router falls
+// through to the 404 page.
 #[test]
-fn tag_listing_excludes_drafts() {
-    let mut draft = tagged("wip", "Not yet", "2026-05-01", &["rust"]);
-    draft.draft = true;
-    let html = tag_html("rust", vec![draft]);
-    assert!(!html.contains("/posts/wip"), "{html}");
-}
-
-#[test]
-fn tag_listing_for_unknown_tag_renders_a_readable_state() {
-    // The worker sets the 404 status; the body still needs to read as a page.
-    let html = tag_html("nope", vec![tagged("a", "A", "2026-01-01", &["rust"])]);
-    assert!(html.contains("Nothing is tagged"), "{html}");
+fn tag_routes_fall_through_to_the_404_page() {
+    for path in ["/tags", "/tags/rust"] {
+        let html = ssr(
+            move || provide_context(RequestUrl::new(path)),
+            || leptos::view! { <App /> },
+        );
+        assert!(html.contains("404"), "`{path}` must 404: {html}");
+    }
 }
 
 #[test]

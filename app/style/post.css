@@ -224,8 +224,8 @@
     border-top: 1px solid var(--color-line);
   }
 
-  /* Tag pills, shared by the article bottom and the listing/tag pages;
-     prose rules are scoped to `.post-body`, so nothing bleeds in here. */
+  /* Tag pills, shared by the article bottom and the writing page's filter
+     row; prose rules are scoped to `.post-body`, so nothing bleeds in here. */
 
   .post-tags {
     display: flex;
@@ -257,21 +257,27 @@
     opacity: 0.6;
   }
 
-  /* Only pills that go somewhere signal on hover. */
   a.tag:hover {
     color: var(--color-accent);
     border-color: var(--color-accent);
   }
 
-  /* On /tags the pills wrap links; keep the pill look, signal on hover. */
-  .tag a {
-    color: inherit;
-    text-decoration: none;
-    background-image: none;
+  /* Design Tag active state: the filter island marks the pill whose tag is
+     in the URL hash. Ties the hover rule's specificity and sits after it,
+     so an active pill keeps this look under the cursor. */
+  a.tag.tag-active {
+    color: var(--color-accent);
+    background-color: var(--color-accent-subtle);
+    border-color: var(--color-accent);
   }
 
-  .tag a:hover {
-    color: var(--color-accent);
+  /* The writing page's `$ ls` state: ships hidden; the filter island unhides
+     it when no row matches the active tag. */
+  .filter-empty {
+    margin: 2rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-ink-3);
   }
 
   /* Listing rows (design PostRow), a dividerless stack; the markup shape is

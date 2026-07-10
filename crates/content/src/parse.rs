@@ -211,8 +211,8 @@ impl Converter<'_> {
         }) {
             self.diags.push(Diagnostic {
                 message: format!(
-                    "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it becomes the \
-                     /tags/{{tag}} URL"
+                    "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it rides verbatim \
+                     in the /posts#{{tag}} filter URL"
                 ),
                 file: None,
                 line: yaml_key_line(yaml, "tags"),

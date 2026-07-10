@@ -20,11 +20,15 @@ web-sys = { workspace = true, features = [
     "Clipboard",
     "MediaQueryList",
     "Navigator",
+    "NodeList",
     "Storage",
 ] }
 
 [dev-dependencies]
 content = { workspace = true, features = ["parse"] }
+# The SSR test harness builds the same shared-context root owner leptos_axum
+# does; version tracks leptos's own hydration_context dependency.
+hydration_context = "0.3"
 
 [features]
 hydrate = ["leptos/hydrate"]

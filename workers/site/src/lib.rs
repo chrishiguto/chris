@@ -30,9 +30,8 @@ mod server {
     use worker::{console_error, Env};
 
     const KV_BINDING: &str = "BLOG";
-    /// Axum `{param}` forms of `content::post_path` / `content::tag_path`.
+    /// Axum `{param}` form of `content::post_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
-    const TAG_ROUTE: &str = "/tags/{tag}";
     /// The pipeline's purge hook; Workers Cache is private to this worker.
     const PURGE_ROUTE: &str = "/__purge";
     // TODO: evaluate Cloudflare Secrets Store for this cross-worker shared secret.
@@ -84,7 +83,6 @@ mod server {
             .fold(
                 Router::new()
                     .route(POST_ROUTE, get(post_page))
-                    .route(TAG_ROUTE, get(tag_page))
                     .route(ABOUT_PATH, get(about_page))
                     .route(RSS_PATH, get(feed_xml))
                     .route(SITEMAP_PATH, get(sitemap_xml))
@@ -237,33 +235,6 @@ mod server {
     async fn about_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
         let mut response = render_page(&state, req, || ()).await;
         mark_cacheable(&mut response, None, &cache::static_cache_tags());
-        response
-    }
-
-    /// Unknown tags 404; the body is the app's empty state either way.
-    #[worker::send]
-    async fn tag_page(
-        State(state): State<AppState>,
-        Path(tag): Path<String>,
-        req: Request<Body>,
-    ) -> Response<Body> {
-        let (index, sha) = match load_or_500(load_index(&state.env), "the post index").await {
-            Ok(loaded) => loaded,
-            Err(response) => return response,
-        };
-        let known = index
-            .iter()
-            .any(|entry| entry.is_listed() && entry.tags.contains(&tag));
-
-        let mut response = render_page(&state, req, move || {
-            provide_context(IndexData(index.clone()))
-        })
-        .await;
-        if known {
-            mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
-        } else {
-            *response.status_mut() = StatusCode::NOT_FOUND;
-        }
         response
     }
 

@@ -16,7 +16,13 @@ mod common;
 fn header_at(path: &'static str) -> String {
     common::ssr(
         move || provide_context(RequestUrl::new(path)),
-        || view! { <Router><Header /></Router> },
+        || {
+            view! {
+                <Router>
+                    <Header />
+                </Router>
+            }
+        },
     )
 }
 
