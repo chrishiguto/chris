@@ -3,7 +3,7 @@
 
 use app::app::App;
 use app::listing::{HomePage, IndexData, PostsPage, RECENT_POSTS};
-use common::ssr;
+use common::{ssr, tag_containing};
 use content::IndexEntry;
 use leptos::prelude::provide_context;
 use leptos_router::location::RequestUrl;
@@ -180,18 +180,6 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
         html.contains("href=\"/posts\""),
         "missing all-posts link: {html}"
     );
-}
-
-/// The opening tag around the first occurrence of `needle` — attribute
-/// order in leptos output is an implementation detail, so assertions look
-/// inside one tag instead of pinning full-tag strings.
-fn tag_containing<'a>(html: &'a str, needle: &str) -> &'a str {
-    let at = html
-        .find(needle)
-        .unwrap_or_else(|| panic!("no `{needle}` in: {html}"));
-    let start = html[..at].rfind('<').expect("needle outside any tag");
-    let end = at + html[at..].find('>').expect("unclosed tag");
-    &html[start..=end]
 }
 
 // The filter island wraps the SSR'd pill row (ADR-0012): pills are the

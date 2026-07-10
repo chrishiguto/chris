@@ -11,6 +11,8 @@ use leptos_router::location::RequestUrl;
 
 mod common;
 
+use common::tag_containing;
+
 /// The header as the worker renders it: inside a router primed with the
 /// request URL, exactly like leptos_axum does per request.
 fn header_at(path: &'static str) -> String {
@@ -24,18 +26,6 @@ fn header_at(path: &'static str) -> String {
             }
         },
     )
-}
-
-/// The opening tag around the first occurrence of `needle` — attribute
-/// order in leptos output is an implementation detail, so assertions look
-/// inside one tag instead of pinning full-tag strings.
-fn tag_containing<'a>(html: &'a str, needle: &str) -> &'a str {
-    let at = html
-        .find(needle)
-        .unwrap_or_else(|| panic!("no `{needle}` in: {html}"));
-    let start = html[..at].rfind('<').expect("needle outside any tag");
-    let end = at + html[at..].find('>').expect("unclosed tag");
-    &html[start..=end]
 }
 
 #[test]

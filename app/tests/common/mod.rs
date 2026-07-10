@@ -22,3 +22,15 @@ pub fn ssr<V: RenderHtml>(provide: impl FnOnce(), view: impl FnOnce() -> V) -> S
     provide();
     strip_markers(view().to_html())
 }
+
+/// The opening tag around the first occurrence of `needle` — attribute
+/// order in leptos output is an implementation detail, so assertions look
+/// inside one tag instead of pinning full-tag strings.
+pub fn tag_containing<'a>(html: &'a str, needle: &str) -> &'a str {
+    let at = html
+        .find(needle)
+        .unwrap_or_else(|| panic!("no `{needle}` in: {html}"));
+    let start = html[..at].rfind('<').expect("needle outside any tag");
+    let end = at + html[at..].find('>').expect("unclosed tag");
+    &html[start..=end]
+}
