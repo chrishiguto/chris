@@ -217,7 +217,7 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
     );
 }
 
-// The filter island wraps the SSR'd pill row (ADR-0012): pills are the
+// The filter island wraps the SSR'd pill row: pills are the
 // post-pill shape, deduped and sorted, linking the hash contract — no index
 // data rides as island props.
 #[test]
@@ -282,8 +282,8 @@ fn posts_page_without_tags_has_no_filter_row() {
     );
 }
 
-// ADR-0012: the tag routes are deleted end-to-end; the app router falls
-// through to the 404 page.
+// The tag routes are deleted end-to-end; the app router falls through to
+// the 404 page.
 #[test]
 fn tag_routes_fall_through_to_the_404_page() {
     for path in ["/tags", "/tags/rust"] {

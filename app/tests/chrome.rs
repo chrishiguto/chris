@@ -138,7 +138,7 @@ fn unmatched_post_paths_keep_the_wordmark() {
     }
 }
 
-// The toggle island SSRs both glyphs (ADR-0011): CSS picks the visible one,
+// The toggle island SSRs both glyphs: CSS picks the visible one,
 // so the button can't flash a stale icon before hydration.
 #[test]
 fn theme_toggle_ssrs_both_glyphs_as_an_island() {

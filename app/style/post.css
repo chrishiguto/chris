@@ -23,8 +23,8 @@
     text-wrap: balance;
   }
 
-  /* Mono meta row under the title (design Meta): formatted date · read
-     time as spans; flex gap spaces them, so absent minutes leave no hole. */
+  /* Mono meta row under the title: formatted date · read time as spans;
+     flex gap spaces them, so absent minutes leave no hole. */
   .post-meta {
     display: flex;
     align-items: baseline;
@@ -116,8 +116,8 @@
     padding: 0.125em 0.375em;
   }
 
-  /* Chromed code panel (design CodeBlock): the wrapper owns fill, border and
-     radius; `overflow: hidden` clips the bar into the rounded corners. */
+  /* Chromed code panel: the wrapper owns fill, border and radius;
+     `overflow: hidden` clips the bar into the rounded corners. */
   .code-block {
     margin-block: 1.5em;
     background-color: var(--color-surface-2);
@@ -247,9 +247,9 @@
     border-color: var(--color-accent);
   }
 
-  /* Design Tag active state: the filter island marks the pill whose tag is
-     in the URL hash. Ties the hover rule's specificity and sits after it,
-     so an active pill keeps this look under the cursor. */
+  /* Active pill: the filter island marks the pill whose tag is in the URL
+     hash. Ties the hover rule's specificity and sits after it, so an active
+     pill keeps this look under the cursor. */
   a.tag.tag-active {
     color: var(--color-accent);
     background-color: var(--color-accent-subtle);
@@ -265,7 +265,7 @@
     color: var(--color-ink-3);
   }
 
-  /* Listing rows (design PostRow), a dividerless stack; the markup shape is
+  /* Listing rows, a dividerless stack; the markup shape is
      ul.post-list > li[data-tags] > a.post-row. Context spacing belongs to the
      pages, so the list itself carries no margin. */
 
@@ -358,10 +358,10 @@
 
   /* Component surfaces. */
 
-  /* Code-comment asides (design Callout): a mono `// kind` label row in the
-     family hue, flat 1px border, no left-border stripes, ever. Two hue
-     families — note/tip accent, warning/danger danger — with severity read
-     through fill intensity: subtle tint, no tint, danger tint. */
+  /* Code-comment asides: a mono `// kind` label row in the family hue, flat
+     1px border, no left-border stripes, ever. Two hue families — note/tip
+     accent, warning/danger danger — with severity read through fill
+     intensity: subtle tint, no tint, danger tint. */
   .callout {
     display: flex;
     flex-direction: column;

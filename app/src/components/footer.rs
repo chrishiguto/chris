@@ -2,7 +2,7 @@ use leptos::prelude::*;
 
 use super::Konami;
 
-/// The site footer (design mock): copyright left, konami hint right. It sits
+/// The site footer: copyright left, konami hint right. It sits
 /// outside `Routes` in the app shell, so every page — the 404 fallback
 /// included — renders it.
 #[component]

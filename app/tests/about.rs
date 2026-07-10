@@ -1,5 +1,5 @@
 //! The `/about` static page: prompt motif, prose, currently list, contact
-//! block (PRD user story 19). Copy is the design mock's, links are mocks.
+//! block. The links are well-formed mocks.
 #![cfg(feature = "ssr")]
 
 use app::about::AboutPage;
@@ -61,7 +61,7 @@ fn currently_lists_reading_learning_listening() {
     }
 }
 
-// Real handles don't exist yet (PRD non-goal); the hrefs must still be
+// Real handles don't exist yet; the hrefs must still be
 // well-formed so the styling and layout are honest.
 #[test]
 fn contact_links_are_well_formed_mocks() {

@@ -23,8 +23,8 @@ fn listed_entries() -> Vec<IndexEntry> {
         .collect()
 }
 
-/// Design PostRow: the whole row is the link; the arrow slides in on hover
-/// via CSS. `data-tags` feeds the Slice 9 tag-filter island.
+/// The whole row is the link; the arrow slides in on hover via CSS.
+/// `data-tags` feeds the tag-filter island.
 fn post_row(entry: IndexEntry) -> impl IntoView {
     let meta = meta_row(&entry.date, entry.reading_minutes);
     view! {
@@ -69,7 +69,7 @@ fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
         .collect()
 }
 
-/// The design's `$ ls` empty state; ships hidden — only the filter island
+/// The `$ ls` empty state; ships hidden — only the filter island
 /// ever shows it, so no-JS readers never see it under the full list.
 const FILTER_EMPTY: &str = "$ ls — nothing here yet";
 

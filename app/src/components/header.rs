@@ -4,7 +4,7 @@ use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// The sticky site bar (design NavBar): `~/chris` wordmark everywhere except
+/// The sticky site bar: `~/chris` wordmark everywhere except
 /// post pages, where the `~/chris/posts/{slug}` breadcrumb takes over — both
 /// fully server-rendered from the request URL, with the mono nav and theme
 /// toggle at the right end on every page.

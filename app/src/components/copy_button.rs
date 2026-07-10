@@ -5,8 +5,8 @@ use leptos::prelude::*;
 /// Copy-to-clipboard for code-block chrome. Zero props by design: the button
 /// reads the adjacent `<pre><code>` text out of the DOM at click time, so the
 /// source ships in the page exactly once — never serialized again as island
-/// props. Feedback flips to "copied ✓" and reverts after 1.4s per the design;
-/// without JS the SSR'd button is simply inert.
+/// props. Feedback flips to "copied ✓" and reverts after 1.4s; without JS
+/// the SSR'd button is simply inert.
 #[island]
 pub fn CopyButton() -> impl IntoView {
     let (copied, set_copied) = signal(false);

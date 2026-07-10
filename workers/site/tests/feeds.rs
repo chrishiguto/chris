@@ -153,12 +153,9 @@ fn sitemap_excludes_drafts() {
     assert!(!xml.contains("/posts/wip"), "{xml}");
 }
 
-// Tag browsing is an in-page filter on /posts (ADR-0012); no tag URL exists.
+// Tag browsing is an in-page filter on /posts; no tag URL exists.
 #[test]
 fn sitemap_has_no_tag_urls() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
-    assert!(
-        !xml.contains("/tags"),
-        "the tag routes are deleted (ADR-0012): {xml}"
-    );
+    assert!(!xml.contains("/tags"), "the tag routes are deleted: {xml}");
 }

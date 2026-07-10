@@ -79,7 +79,7 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
 }
 
 /// Home, listing pages, static pages, and every published post (publication
-/// date as `lastmod`). Tags have no URLs: they filter in-page (ADR-0012).
+/// date as `lastmod`). Tags have no URLs: they filter in-page.
 pub fn sitemap(origin: &str, index: &[IndexEntry]) -> String {
     let urls = LISTING_PAGES
         .into_iter()

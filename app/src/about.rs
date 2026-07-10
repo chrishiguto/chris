@@ -1,6 +1,5 @@
-//! The `/about` static page (PRD user story 19): prompt motif, prose,
-//! currently list, contact block. Copy comes from the design mock; the
-//! contact hrefs are well-formed mocks until real handles exist.
+//! The `/about` static page: prompt motif, prose, currently list, contact
+//! block. The contact hrefs are well-formed mocks until real handles exist.
 
 use leptos::prelude::*;
 use leptos_meta::Title;

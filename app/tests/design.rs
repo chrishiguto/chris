@@ -98,7 +98,7 @@ fn stylesheet_styles_every_rendered_element() {
     }
 }
 
-// The token contract from the design-system PRD: every color is oklch,
+// The token contract: every color is oklch,
 // declared exactly once via `light-dark()`, with `data-theme` flipping
 // `color-scheme` so an explicit choice overrides the system preference.
 #[test]
@@ -184,7 +184,7 @@ fn theme_scales_match_the_design() {
     }
     assert!(
         css.contains("--animate-fade-up:") && css.contains("@keyframes fade-up"),
-        "the design's `fade-up` reveal must exist as an animation token"
+        "the `fade-up` reveal must exist as an animation token"
     );
     for shadow in ["--shadow-sm:", "--shadow-md:"] {
         let line = css
@@ -224,8 +224,8 @@ fn stale_v1_tokens_are_gone() {
     }
 }
 
-// The design's reading experience: 17px / 65ch / 1.75, plus the Slice 2
-// article chrome (mono meta row, back link, tag-pill hash glyph).
+// The reading experience: 17px / 65ch / 1.75, plus the article chrome
+// (mono meta row, back link, tag-pill hash glyph).
 #[test]
 fn post_prose_reads_at_the_design_measure() {
     let css = stylesheet();
@@ -244,7 +244,7 @@ fn post_prose_reads_at_the_design_measure() {
     }
 }
 
-// Callouts are code-comment asides (design Callout): a mono `// kind` label
+// Callouts are code-comment asides: a mono `// kind` label
 // in the family hue, two hue families with severity read through fill
 // intensity — note/tip accent-subtle, warning transparent, danger tinted —
 // and no left-border stripes, ever.
@@ -299,7 +299,7 @@ fn callout_and_error_surfaces_are_styled() {
     );
 }
 
-// Code blocks are chromed panels (design CodeBlock): the wrapper owns the
+// Code blocks are chromed panels: the wrapper owns the
 // fill/border/radius and clips its corners, the bar names the language in
 // faint mono over a hairline, the pre scrolls sideways at 13px/1.65, and
 // the copy button warms to accent on hover.
@@ -339,7 +339,7 @@ fn code_block_chrome_is_styled() {
     );
 }
 
-// The site chrome contract (design NavBar + footer): a sticky translucent
+// The site chrome contract: a sticky translucent
 // blurred bar, nav links whose accent underline slides in on hover and stays
 // on the active route, and the mono footer hosting the konami toast.
 #[test]
@@ -488,8 +488,8 @@ fn listing_and_tag_surfaces_are_styled() {
     }
 }
 
-// The filter island's two states (ADR-0012): the active pill takes the
-// design Tag's accent treatment; the `$ ls` empty state is mono and muted.
+// The filter island's two states: the active pill takes the accent
+// treatment; the `$ ls` empty state is mono and muted.
 #[test]
 fn tag_filter_states_are_styled() {
     let css = stylesheet();
@@ -507,7 +507,7 @@ fn tag_filter_states_are_styled() {
     assert!(empty.contains("var(--color-ink-3)"), "{empty}");
 }
 
-// The PostRow hover contract (design PostRow.jsx): title turns accent, the
+// The PostRow hover contract: title turns accent, the
 // arrow slides in; the slide transform is off under reduced motion, and the
 // description truncates to a single line.
 #[test]
@@ -583,9 +583,9 @@ fn fonts_load_from_google_with_swap() {
     );
 }
 
-// ADR-0011: a stored explicit theme is re-applied by a blocking inline
-// script ahead of every stylesheet, so the first paint can't flash the wrong
-// theme — and the script is a constant, so the served HTML never varies.
+// A stored explicit theme is re-applied by a blocking inline script ahead
+// of every stylesheet, so the first paint can't flash the wrong theme — and
+// the script is a constant, so the served HTML never varies.
 #[test]
 fn stored_theme_is_applied_pre_paint() {
     // The script is a hand-written literal; this pins its key to the
@@ -612,7 +612,7 @@ fn stored_theme_is_applied_pre_paint() {
 
 // The glyphs follow the effective scheme in CSS alone: an explicit
 // `data-theme` wins, the system preference decides otherwise; hover rotates
-// the glyph per the design's motion rules unless reduced motion is set.
+// the glyph unless reduced motion is set.
 #[test]
 fn theme_toggle_glyphs_follow_the_effective_scheme() {
     let css = stylesheet();
@@ -630,7 +630,7 @@ fn theme_toggle_glyphs_follow_the_effective_scheme() {
     );
     assert!(
         css.contains("rotate(-20deg)"),
-        "hover must rotate the glyph per the design's motion rules"
+        "hover must rotate the glyph"
     );
 }
 

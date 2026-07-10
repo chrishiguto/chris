@@ -169,7 +169,7 @@ fn code_block_renders_chrome_bar_with_language_label() {
 
 // The copy button hydrates as an island with zero props: it reads the code
 // from the DOM at click time, so the source text ships in the page exactly
-// once (the PRD's never-serialized-twice rule).
+// once.
 #[test]
 fn copy_button_is_a_zero_prop_island() {
     let html = html_of(vec![Node::CodeBlock {
@@ -469,7 +469,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
 }
 
 // Tag pills sit at the article bottom and land on the pre-filtered
-// listing via the URL hash (ADR-0012).
+// listing via the URL hash.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
@@ -503,7 +503,7 @@ fn post_omits_empty_tag_list() {
     );
 }
 
-// "back to all posts" sits above the title (design mock: TextLink arrow=back).
+// "back to all posts" sits above the title.
 #[test]
 fn post_renders_back_link_above_the_title() {
     let doc = doc_with_tags(vec![]);

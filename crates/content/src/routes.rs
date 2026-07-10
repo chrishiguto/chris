@@ -95,8 +95,8 @@ pub fn post_path_slug(path: &str) -> Option<&str> {
     (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
-/// A tag's filter target on the writing page (ADR-0012): the tag rides in the
-/// URL hash, so the server and cache still see exactly one `/posts` page.
+/// A tag's filter target on the writing page: the tag rides in the URL hash,
+/// so the server and cache still see exactly one `/posts` page.
 pub fn tag_filter_path(tag: &str) -> String {
     format!("{POSTS_PATH}#{tag}")
 }
@@ -219,7 +219,7 @@ mod tests {
         }
     }
 
-    // ADR-0012: tag browsing is an in-page filter, never a routed page.
+    // Tag browsing is an in-page filter, never a routed page.
     #[test]
     fn listing_pages_are_home_and_posts_only() {
         assert_eq!(LISTING_PAGES, ["/", "/posts"]);

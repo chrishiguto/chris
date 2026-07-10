@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-/// The two-state theme switcher (ADR-0011): flips `data-theme` on `<html>`
+/// The two-state theme switcher: flips `data-theme` on `<html>`
 /// and persists the choice under [`crate::app::THEME_STORAGE_KEY`]. Unset follows
 /// the system preference; the first explicit toggle opts out forever. Both
 /// glyphs ship in the server HTML and CSS shows the one matching the

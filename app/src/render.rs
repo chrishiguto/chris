@@ -8,7 +8,7 @@ use leptos::prelude::*;
 use crate::components::{meta_row, tag_pill, CopyButton};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
-    // Pills close the article and land on the pre-filtered listing (ADR-0012).
+    // Pills close the article and land on the pre-filtered listing.
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
         let tags: Vec<_> = doc.frontmatter.tags.iter().cloned().map(tag_pill).collect();
         view! { <ul class="post-tags">{tags}</ul> }
@@ -95,7 +95,7 @@ fn render_node(node: &Node) -> AnyView {
                 view! { <ul>{items}</ul> }.into_any()
             }
         }
-        // The chrome bar names the fence language (design CodeBlock); the
+        // The chrome bar names the fence language; the
         // copy button finds this wrapper by class, so they move together.
         // `class=Option::None` still emits `class=""`, so branch instead.
         Node::CodeBlock { lang, text } => {

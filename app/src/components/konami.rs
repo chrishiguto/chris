@@ -36,7 +36,7 @@ pub fn Konami() -> impl IntoView {
             });
             if keys.with_value(|buf| buf.iter().map(String::as_str).eq(KONAMI)) {
                 set_unlocked.set(true);
-                // Re-triggers stack timeouts, exactly like the design mock.
+                // Re-triggers deliberately stack timeouts.
                 set_timeout(move || set_unlocked.set(false), Duration::from_millis(3200));
             }
         });

@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
 
-/// In-page tag filter for the writing page (ADR-0012). The island owns the
+/// In-page tag filter for the writing page. The island owns the
 /// pill row it wraps and serializes nothing: the active tag is the URL hash,
 /// each pill's tag is the fragment of its own SSR'd href, and rows are
 /// matched by their `data-tags` — all read out of the DOM. The server and

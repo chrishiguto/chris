@@ -20,7 +20,7 @@ pub use not_found::NotFound;
 pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
 
-/// Meta-row content (design Meta): formatted date, then `· N min` when the
+/// Meta-row content: formatted date, then `· N min` when the
 /// read time is known — absent minutes render the date alone. The wrapper
 /// (`p.post-meta` / `span.post-row-meta`) belongs to the caller.
 pub(crate) fn meta_row(date: &str, minutes: Option<u32>) -> impl IntoView {
@@ -64,12 +64,12 @@ fn digits(part: &str, len: usize) -> bool {
     part.len() == len && part.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-/// Mono section label (design SectionLabel); shared by the home and about pages.
+/// Mono section label; shared by the home and about pages.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
     view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
 }
 
-/// Tag pill (design Tag): one `<li>` of a `.post-tags` row, shared by the
+/// Tag pill: one `<li>` of a `.post-tags` row, shared by the
 /// article bottom and the listing's filter row. Single-sourced because the
 /// shape is a contract: the filter island reads the tag back out of the
 /// href's fragment, and `a.tag` / `.tag-hash` key the CSS.
