@@ -84,6 +84,14 @@ pub fn post_path(slug: &str) -> String {
     format!("/posts/{slug}")
 }
 
+/// [`post_path`]'s inverse: the slug when `path` is exactly one post page —
+/// `None` for the listing, an empty slug, or anything deeper, which no
+/// route serves.
+pub fn post_path_slug(path: &str) -> Option<&str> {
+    let slug = path.strip_prefix("/posts/")?;
+    (!slug.is_empty() && !slug.contains('/')).then_some(slug)
+}
+
 /// A tag's filter target on the writing page (ADR-0012): the tag rides in the
 /// URL hash, so the server and cache still see exactly one `/posts` page.
 pub fn tag_filter_path(tag: &str) -> String {
@@ -177,6 +185,14 @@ mod tests {
     fn source_path_inverts_post_slug() {
         assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
         assert_eq!(post_slug(&source_path("hello")), Some("hello"));
+    }
+
+    #[test]
+    fn post_path_slug_matches_exactly_one_post_page() {
+        assert_eq!(post_path_slug(&post_path("hello")), Some("hello"));
+        for path in ["/", "/posts", "/posts/", "/posts/a/b", "/about"] {
+            assert_eq!(post_path_slug(path), None);
+        }
     }
 
     #[test]
