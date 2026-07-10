@@ -43,6 +43,24 @@ pub(crate) fn section_label(text: &'static str) -> impl IntoView {
     view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
 }
 
+/// Tag pill (design Tag): one `<li>` of a `.post-tags` row, shared by the
+/// article bottom and the listing's filter row. Single-sourced because the
+/// shape is a contract: the filter island reads the tag back out of the
+/// href's fragment, and `a.tag` / `.tag-hash` key the CSS.
+pub(crate) fn tag_pill(tag: String) -> impl IntoView {
+    let href = content::tag_filter_path(&tag);
+    view! {
+        <li>
+            <a class="tag" href=href>
+                <span class="tag-hash" aria-hidden="true">
+                    "#"
+                </span>
+                {tag}
+            </a>
+        </li>
+    }
+}
+
 /// Shared page scaffold; every page except the post article renders through it.
 pub(crate) fn page(
     title: Option<String>,

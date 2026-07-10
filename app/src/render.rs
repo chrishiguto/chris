@@ -1,32 +1,16 @@
 //! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
 //! every presentational decision lives here.
 
-use content::{reading_minutes, tag_filter_path, Document, Node};
+use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{meta_row, CopyButton};
+use crate::components::{meta_row, tag_pill, CopyButton};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing (ADR-0012).
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
-        let tags: Vec<_> = doc
-            .frontmatter
-            .tags
-            .iter()
-            .map(|tag| {
-                view! {
-                    <li>
-                        <a class="tag" href=tag_filter_path(tag)>
-                            <span class="tag-hash" aria-hidden="true">
-                                "#"
-                            </span>
-                            {tag.clone()}
-                        </a>
-                    </li>
-                }
-            })
-            .collect();
+        let tags: Vec<_> = doc.frontmatter.tags.iter().cloned().map(tag_pill).collect();
         view! { <ul class="post-tags">{tags}</ul> }
     });
     // Prose sits in `.post-body` so its element selectors never hit the chrome.

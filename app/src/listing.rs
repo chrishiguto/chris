@@ -3,10 +3,10 @@
 
 use std::collections::BTreeSet;
 
-use content::{post_path, tag_filter_path, IndexEntry};
+use content::{post_path, IndexEntry};
 use leptos::prelude::*;
 
-use crate::components::{meta_row, page, section_label, TagFilter};
+use crate::components::{meta_row, page, section_label, tag_pill, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -69,22 +69,6 @@ fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
         .collect()
 }
 
-/// Same pill shape as the article-bottom tags; the href is both the deep
-/// link and the tag the filter island reads back out of the DOM.
-fn filter_pill(tag: String) -> impl IntoView {
-    let href = tag_filter_path(&tag);
-    view! {
-        <li>
-            <a class="tag" href=href>
-                <span class="tag-hash" aria-hidden="true">
-                    "#"
-                </span>
-                {tag}
-            </a>
-        </li>
-    }
-}
-
 /// The design's `$ ls` empty state; ships hidden — only the filter island
 /// ever shows it, so no-JS readers never see it under the full list.
 const FILTER_EMPTY: &str = "$ ls — nothing here yet";
@@ -96,7 +80,7 @@ pub fn PostsPage() -> impl IntoView {
         empty_state(NOTHING_PUBLISHED.into()).into_any()
     } else {
         let tags = all_tags(&entries);
-        let pills: Vec<_> = tags.into_iter().map(filter_pill).collect();
+        let pills: Vec<_> = tags.into_iter().map(tag_pill).collect();
         let filter = (!pills.is_empty()).then(|| {
             view! {
                 <TagFilter>
