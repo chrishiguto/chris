@@ -1,11 +1,11 @@
 //! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
 //! every presentational decision lives here.
 
-use content::{tag_filter_path, Document, Node};
+use content::{reading_minutes, tag_filter_path, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::CopyButton;
+use crate::components::{meta_row, CopyButton};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing (ADR-0012).
@@ -40,7 +40,11 @@ pub fn render_document(doc: &Document) -> impl IntoView {
             </a>
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
-                <p class="post-meta">{doc.frontmatter.date.clone()}</p>
+                // The same ~200 wpm number the publish plan stamps into the
+                // index, computed live from the AST this page already holds.
+                <p class="post-meta">
+                    {meta_row(&doc.frontmatter.date, Some(reading_minutes(&doc.ast)))}
+                </p>
             </header>
             <div class="post-body">{render_nodes(&doc.ast)}</div>
             {tags}

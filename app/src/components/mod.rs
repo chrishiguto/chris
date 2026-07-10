@@ -20,6 +20,24 @@ pub use not_found::NotFound;
 pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
 
+/// Meta-row content (design Meta): formatted date, then `· N min` when the
+/// read time is known — absent minutes render the date alone. The wrapper
+/// (`p.post-meta` / `span.post-row-meta`) belongs to the caller.
+pub(crate) fn meta_row(date: &str, minutes: Option<u32>) -> impl IntoView {
+    let time = minutes.map(|minutes| {
+        view! {
+            <span class="meta-sep" aria-hidden="true">
+                "·"
+            </span>
+            <span>{format!("{minutes} min")}</span>
+        }
+    });
+    view! {
+        <span>{content::format_date(date)}</span>
+        {time}
+    }
+}
+
 /// Mono section label (design SectionLabel); shared by the home and about pages.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
     view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }

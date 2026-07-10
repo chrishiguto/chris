@@ -169,6 +169,7 @@ pub fn snapshot(
         let payload = post.document.to_json()?;
         let mut entry = IndexEntry::new(&post.slug, &post.document.frontmatter);
         entry.content_hash = content_hash(&payload);
+        entry.reading_minutes = Some(content::reading_minutes(&post.document.ast));
         index.push(entry);
         post_writes.push(KvWrite {
             key: snapshot_post_key(sha, &post.slug),

@@ -6,6 +6,9 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+mod derived;
+pub use derived::{format_date, reading_minutes};
+
 mod manifest;
 pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
@@ -113,6 +116,11 @@ pub struct IndexEntry {
     /// Skipped when absent (see [`Frontmatter`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Computed from the AST at publish (~200 wpm); skipped when absent so
+    /// pre-existing index payloads round-trip unchanged. Absent means the
+    /// row renders its date alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reading_minutes: Option<u32>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -137,6 +145,7 @@ impl IndexEntry {
             title: frontmatter.title.clone(),
             date: frontmatter.date.clone(),
             description: frontmatter.description.clone(),
+            reading_minutes: None,
             tags: frontmatter.tags.clone(),
             draft: frontmatter.draft,
             content_hash: String::new(),

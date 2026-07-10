@@ -235,7 +235,7 @@ fn post_prose_reads_at_the_design_measure() {
     ] {
         assert!(css.contains(property), "{why} (`{property}`)");
     }
-    for class in [".post-meta", ".back-link", ".tag-hash"] {
+    for class in [".post-meta", ".meta-sep", ".back-link", ".tag-hash"] {
         assert!(
             css.contains(class),
             "no `{class}` styling in the stylesheet"

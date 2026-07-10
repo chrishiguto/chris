@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 use content::{post_path, tag_filter_path, IndexEntry};
 use leptos::prelude::*;
 
-use crate::components::{page, section_label, TagFilter};
+use crate::components::{meta_row, page, section_label, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -26,6 +26,7 @@ fn listed_entries() -> Vec<IndexEntry> {
 /// Design PostRow: the whole row is the link; the arrow slides in on hover
 /// via CSS. `data-tags` feeds the Slice 9 tag-filter island.
 fn post_row(entry: IndexEntry) -> impl IntoView {
+    let meta = meta_row(&entry.date, entry.reading_minutes);
     view! {
         <li data-tags=entry.tags.join(" ")>
             <a href=post_path(&entry.slug) class="post-row">
@@ -35,7 +36,7 @@ fn post_row(entry: IndexEntry) -> impl IntoView {
                             "→"
                         </span>
                     </span>
-                    <span class="post-row-meta">{entry.date}</span>
+                    <span class="post-row-meta">{meta}</span>
                 </span>
                 {entry
                     .description

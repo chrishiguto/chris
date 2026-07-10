@@ -16,6 +16,7 @@ fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
         title: title.into(),
         date: date.into(),
         description: None,
+        reading_minutes: None,
         tags: vec![],
         draft: false,
         content_hash: String::new(),
@@ -68,7 +69,7 @@ fn posts_page_lists_rows_in_the_post_row_shape() {
         "the hover arrow must ship in the row markup: {html}"
     );
     assert!(
-        html.contains("<span class=\"post-row-meta\">2026-03-01</span>"),
+        html.contains("<span class=\"post-row-meta\"><span>mar 01, 2026</span></span>"),
         "{html}"
     );
     let newer = html.find("/posts/newer").unwrap();
@@ -89,6 +90,32 @@ fn post_rows_render_the_description_only_when_present() {
         html.matches("post-row-desc").count(),
         1,
         "descriptionless rows must not render an empty desc line: {html}"
+    );
+}
+
+// Minutes are publish-populated; a pre-slice-10 index has none, and those
+// rows must show the date alone — no dangling separator.
+#[test]
+fn post_rows_show_read_time_only_when_present() {
+    let mut timed = entry("timed", "Timed", "2026-02-01");
+    timed.reading_minutes = Some(4);
+    let html = posts_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
+    assert!(
+        html.contains(
+            "<span class=\"post-row-meta\"><span>feb 01, 2026</span>\
+             <span aria-hidden=\"true\" class=\"meta-sep\">·</span>\
+             <span>4 min</span></span>"
+        ),
+        "{html}"
+    );
+    assert_eq!(
+        html.matches("meta-sep").count(),
+        1,
+        "rows without minutes must not render a separator: {html}"
+    );
+    assert!(
+        html.contains("<span class=\"post-row-meta\"><span>jan 01, 2026</span></span>"),
+        "{html}"
     );
 }
 

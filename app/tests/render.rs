@@ -447,7 +447,10 @@ fn render_document_wraps_body_in_article_with_header() {
         "expected article root: {html}"
     );
     assert!(html.contains("<h1>Hello, KV</h1>"), "title missing: {html}");
-    assert!(html.contains("2026-07-04"), "date missing: {html}");
+    assert!(
+        html.contains("jul 04, 2026"),
+        "formatted date missing: {html}"
+    );
     assert!(html.contains("<p>body text</p>"), "body missing: {html}");
 }
 
@@ -518,14 +521,18 @@ fn post_renders_back_link_above_the_title() {
     assert!(back < title, "back link must precede the title: {html}");
 }
 
-// The header meta row is mono chrome (`.post-meta`); the raw ISO date rides
-// in it until Slice 10 adds formatting and read time.
+// The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
+// separator span, and a read time computed live from the AST the page holds.
 #[test]
-fn post_header_renders_mono_meta_row_with_the_date() {
+fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
-        html.contains("<p class=\"post-meta\">2026-07-04</p>"),
-        "meta row with the raw ISO date missing: {html}"
+        html.contains(
+            "<p class=\"post-meta\"><span>jul 04, 2026</span>\
+             <span aria-hidden=\"true\" class=\"meta-sep\">·</span>\
+             <span>1 min</span></p>"
+        ),
+        "meta row must read `jul 04, 2026 · 1 min`: {html}"
     );
 }

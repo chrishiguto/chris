@@ -11,6 +11,7 @@ fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
         title: title.into(),
         date: date.into(),
         description: None,
+        reading_minutes: None,
         tags: vec![],
         draft: false,
         content_hash: String::new(),
