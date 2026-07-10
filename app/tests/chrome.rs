@@ -1,6 +1,6 @@
-//! Site chrome: the route-aware bar (wordmark vs terminal breadcrumb, nav
-//! links on every page) and the footer with its konami package — all fully
-//! server-rendered.
+//! Site chrome: the bar with its terminal breadcrumb (`~/chris` root on
+//! every page, segments on post pages), nav links, and the footer with its
+//! konami package — all fully server-rendered.
 #![cfg(feature = "ssr")]
 
 use app::components::{Footer, Header};
@@ -43,29 +43,30 @@ fn assert_global_nav_links(html: &str) {
 }
 
 #[test]
-fn bar_variant_carries_the_wordmark_nav_and_toggle() {
+fn bar_carries_the_breadcrumb_root_nav_and_toggle() {
     let html = header_at("/");
     assert!(
         html.contains("<span class=\"nav-tilde\">~/</span>chris"),
-        "the wordmark must render `~/` faint before `chris`: {html}"
+        "the breadcrumb root must render `~/` faint before `chris`: {html}"
     );
     let mark = tag_containing(&html, "class=\"nav-mark\"");
+    assert!(mark.contains("href=\"/\""), "the root links home: {html}");
     assert!(
-        mark.contains("href=\"/\""),
-        "the wordmark links home: {html}"
+        html.contains("nav-path"),
+        "the root is the breadcrumb itself, on every page: {html}"
     );
     assert_global_nav_links(&html);
     assert!(
         html.contains("theme-toggle"),
-        "the bar variant keeps the theme toggle: {html}"
+        "the bar keeps the theme toggle: {html}"
     );
     assert!(
         !html.contains("aria-current"),
         "no nav link is active on the home page: {html}"
     );
     assert!(
-        !html.contains("nav-path"),
-        "no breadcrumb on the home page: {html}"
+        !html.contains("nav-seg") && !html.contains("nav-sep"),
+        "no segments beyond the root on the home page: {html}"
     );
 }
 
@@ -93,14 +94,13 @@ fn active_nav_link_follows_the_route() {
 }
 
 #[test]
-fn post_pages_swap_the_wordmark_for_the_terminal_breadcrumb() {
+fn post_pages_extend_the_breadcrumb_with_their_segments() {
     let html = header_at("/posts/missing-await");
+    let mark = tag_containing(&html, "class=\"nav-mark\"");
     assert!(
-        html.contains("nav-path"),
-        "post pages get the breadcrumb: {html}"
+        mark.contains("href=\"/\""),
+        "the `~/chris` root stays and links home: {html}"
     );
-    let root = tag_containing(&html, ">~/chris<");
-    assert!(root.contains("href=\"/\""), "`~/chris` links home: {html}");
     let posts = tag_containing(&html, ">posts<");
     assert!(
         posts.contains("href=\"/posts\""),
@@ -110,10 +110,6 @@ fn post_pages_swap_the_wordmark_for_the_terminal_breadcrumb() {
         html.contains("<span class=\"nav-seg\">missing-await</span>"),
         "the slug is the active (unlinked) segment: {html}"
     );
-    assert!(
-        !html.contains("nav-mark"),
-        "the wordmark gives way to the breadcrumb on post pages: {html}"
-    );
     assert_global_nav_links(&html);
     assert!(
         !html.contains("aria-current"),
@@ -121,19 +117,19 @@ fn post_pages_swap_the_wordmark_for_the_terminal_breadcrumb() {
     );
     assert!(
         html.contains("theme-toggle"),
-        "the breadcrumb variant keeps the theme toggle: {html}"
+        "post pages keep the theme toggle: {html}"
     );
 }
 
 // Paths under /posts/ that no route matches (deep or empty) are 404s and
-// keep the wordmark — the breadcrumb only describes real post routes.
+// keep the bare root — segments only describe real post routes.
 #[test]
-fn unmatched_post_paths_keep_the_wordmark() {
+fn unmatched_post_paths_keep_the_bare_root() {
     for path in ["/posts/", "/posts/a/b"] {
         let html = header_at(path);
         assert!(
-            html.contains("nav-mark") && !html.contains("nav-path"),
-            "`{path}` must keep the wordmark: {html}"
+            html.contains("nav-mark") && !html.contains("nav-seg"),
+            "`{path}` must keep the bare breadcrumb root: {html}"
         );
     }
 }

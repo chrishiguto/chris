@@ -4,25 +4,20 @@ use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// The sticky site bar: `~/chris` wordmark everywhere except
-/// post pages, where the `~/chris/posts/{slug}` breadcrumb takes over — both
-/// fully server-rendered from the request URL, with the mono nav and theme
-/// toggle at the right end on every page.
+/// The sticky site bar: the terminal breadcrumb on the left — its `~/chris`
+/// root on every page, extended with `/ posts / {slug}` segments on post
+/// pages — and the mono nav with the theme toggle on the right. Fully
+/// server-rendered from the request URL.
 #[component]
 pub fn Header() -> impl IntoView {
     // Read once, non-reactively: outside islands nothing runs client-side,
     // so the header is a pure per-request render (every navigation is a
     // full page load).
     let path = use_location().pathname.get_untracked();
-    let left = match post_path_slug(&path).map(str::to_string) {
-        Some(slug) => breadcrumb(slug).into_any(),
-        None => wordmark().into_any(),
-    };
-
     view! {
         <header class="site-nav">
             <div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-6 px-6">
-                {left}
+                {breadcrumb(post_path_slug(&path).map(str::to_string))}
                 <nav class="flex shrink-0 items-center gap-1">
                     {bar_links(&path)} <ThemeToggle />
                 </nav>
@@ -31,12 +26,26 @@ pub fn Header() -> impl IntoView {
     }
 }
 
-fn wordmark() -> impl IntoView {
+/// One breadcrumb for every page: the `~/chris` root always links home; a
+/// post page appends its segments, every one linked except the slug the
+/// reader is on.
+fn breadcrumb(slug: Option<String>) -> impl IntoView {
+    let segments = slug.map(|slug| {
+        view! {
+            <span class="nav-sep">"/"</span>
+            <a href=POSTS_PATH>"posts"</a>
+            <span class="nav-sep">"/"</span>
+            <span class="nav-seg">{slug}</span>
+        }
+    });
     view! {
-        <a href="/" class="nav-mark">
-            <span class="nav-tilde">"~/"</span>
-            "chris"
-        </a>
+        <div class="nav-path">
+            <a href="/" class="nav-mark">
+                <span class="nav-tilde">"~/"</span>
+                "chris"
+            </a>
+            {segments}
+        </div>
     }
 }
 
@@ -52,18 +61,5 @@ fn nav_link(label: &'static str, href: &'static str, current: bool) -> impl Into
         <a href=href class="nav-link" aria-current=current.then_some("page")>
             {label}
         </a>
-    }
-}
-
-/// Every segment is a link except the slug the reader is on.
-fn breadcrumb(slug: String) -> impl IntoView {
-    view! {
-        <div class="nav-path">
-            <a href="/">"~/chris"</a>
-            <span class="nav-sep">"/"</span>
-            <a href=POSTS_PATH>"posts"</a>
-            <span class="nav-sep">"/"</span>
-            <span class="nav-seg">{slug}</span>
-        </div>
     }
 }

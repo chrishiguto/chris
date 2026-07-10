@@ -239,20 +239,6 @@
     border-bottom: 1px solid var(--color-line);
   }
 
-  /* `~/chris` wordmark: faint tilde, whole mark warms to accent (base rule). */
-  .nav-mark {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
-    background-image: none;
-    font-family: var(--font-mono);
-    font-size: 1rem;
-  }
-
-  .nav-tilde {
-    color: var(--color-ink-3);
-  }
-
   /* Nav links and the breadcrumb slug share one box and one accent line, so
      their underline geometry can't drift apart. The line is an ::after (not
      text-decoration) so the slug's stays inside its truncation clip. */
@@ -301,9 +287,10 @@
     color: var(--color-ink);
   }
 
-  /* Terminal breadcrumb (post pages): every segment links except the slug,
-     which carries the accent you-are-here underline like an active nav-link;
-     segment hovers warm to accent via the base link rule. */
+  /* Terminal breadcrumb, on every page: the `~/chris` root always links
+     home; post pages append segments, every one linked except the slug,
+     which carries the accent you-are-here underline like an active
+     nav-link. Hovers warm to accent via the base link rule. */
   .nav-path {
     display: flex;
     align-items: baseline;
@@ -315,6 +302,17 @@
 
   .nav-path a {
     background-image: none;
+  }
+
+  /* The `~/chris` root: faint tilde, whole mark warms to accent (base rule). */
+  .nav-mark {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+
+  .nav-tilde {
+    color: var(--color-ink-3);
   }
 
   .nav-sep {
