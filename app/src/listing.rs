@@ -1,12 +1,11 @@
 //! Listing pages: `/` and `/posts`, rendered from the index provided via
 //! context. Drafts are in the index but filtered here.
 
-use std::collections::BTreeSet;
-
 use content::{post_path, IndexEntry, ABOUT_PATH, POSTS_PATH};
 use leptos::prelude::*;
+use serde::{Deserialize, Serialize};
 
-use crate::components::{meta_row, page, section_label, tag_pill, TagFilter};
+use crate::components::{meta_row, page, section_label, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -14,41 +13,69 @@ pub struct IndexData(pub Vec<IndexEntry>);
 
 pub const RECENT_POSTS: usize = 3;
 
-fn listed_entries() -> Vec<IndexEntry> {
+/// One listed post, in the shape the pages render: the published subset of
+/// an index entry. Internal fields (content hash, draft) never reach the
+/// client — this is what the filter island serializes as props.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub struct ListedPost {
+    pub slug: String,
+    pub title: String,
+    pub date: String,
+    pub reading_minutes: Option<u32>,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
+impl From<IndexEntry> for ListedPost {
+    fn from(entry: IndexEntry) -> Self {
+        Self {
+            slug: entry.slug,
+            title: entry.title,
+            date: entry.date,
+            reading_minutes: entry.reading_minutes,
+            description: entry.description,
+            tags: entry.tags,
+        }
+    }
+}
+
+fn listed_posts() -> Vec<ListedPost> {
     use_context::<IndexData>()
         .map(|data| data.0)
         .unwrap_or_default()
         .into_iter()
         .filter(|entry| entry.is_listed())
+        .map(Into::into)
         .collect()
 }
 
-/// The whole row is the link; the arrow slides in on hover via CSS.
-/// `data-tags` feeds the tag-filter island.
-fn post_row(entry: IndexEntry) -> impl IntoView {
-    let meta = meta_row(&entry.date, entry.reading_minutes);
+/// The whole row is the link; the arrow slides in on hover via CSS. The
+/// `<li>` belongs to the caller — the filter island binds visibility to it.
+pub(crate) fn post_row(post: ListedPost) -> impl IntoView {
+    let meta = meta_row(&post.date, post.reading_minutes);
     view! {
-        <li data-tags=entry.tags.join(" ")>
-            <a href=post_path(&entry.slug) class="post-row">
-                <span class="post-row-top">
-                    <span class="post-row-title">
-                        {entry.title} <span class="post-row-lead" aria-hidden="true">
-                            "→"
-                        </span>
+        <a href=post_path(&post.slug) class="post-row">
+            <span class="post-row-top">
+                <span class="post-row-title">
+                    {post.title} <span class="post-row-lead" aria-hidden="true">
+                        "→"
                     </span>
-                    <span class="post-row-meta">{meta}</span>
                 </span>
-                {entry
-                    .description
-                    .map(|description| view! { <span class="post-row-desc">{description}</span> })}
-            </a>
-        </li>
+                <span class="post-row-meta">{meta}</span>
+            </span>
+            {post
+                .description
+                .map(|description| view! { <span class="post-row-desc">{description}</span> })}
+        </a>
     }
 }
 
-/// Markup shape `post.css` styles: `ul.post-list > li[data-tags] > a.post-row`.
-fn post_list(entries: Vec<IndexEntry>) -> impl IntoView {
-    let items: Vec<_> = entries.into_iter().map(post_row).collect();
+/// Markup shape `post.css` styles: `ul.post-list > li > a.post-row`.
+fn post_list(posts: Vec<ListedPost>) -> impl IntoView {
+    let items: Vec<_> = posts
+        .into_iter()
+        .map(|post| view! { <li>{post_row(post)}</li> })
+        .collect();
     view! { <ul class="post-list">{items}</ul> }
 }
 
@@ -56,56 +83,26 @@ fn empty_state(message: String) -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">{message}</p> }
 }
 
-/// Every tag on a listed post, deduped and sorted — the filter pill set.
-fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
-    entries
-        .iter()
-        .flat_map(|entry| entry.tags.iter())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .cloned()
-        .collect()
-}
-
 #[component]
 pub fn PostsPage() -> impl IntoView {
-    let entries = listed_entries();
-    let listing = if entries.is_empty() {
-        empty_state("Nothing published yet — check back soon.".into()).into_any()
-    } else {
-        let tags = all_tags(&entries);
-        let pills: Vec<_> = tags.into_iter().map(tag_pill).collect();
-        let filter = (!pills.is_empty()).then(|| {
-            view! {
-                <TagFilter>
-                    <ul class="post-tags mt-4.5">{pills}</ul>
-                </TagFilter>
-            }
-        });
-        // Ships hidden — only the filter island ever shows it, so no-JS
-        // readers never see it under the full list.
-        let ls_empty = filter.is_some().then(|| {
-            view! {
-                <p class="filter-empty" hidden>
-                    "$ ls — nothing here yet"
-                </p>
-            }
-        });
-        view! {
-            {filter}
-            <div class="mt-8">{post_list(entries)}</div>
-            {ls_empty}
-        }
-        .into_any()
+    let posts = listed_posts();
+    let has_posts = !posts.is_empty();
+    let listing = view! {
+        <Show
+            when=move || has_posts
+            fallback=|| empty_state("Nothing published yet — check back soon.".into())
+        >
+            <TagFilter posts=posts.clone() />
+        </Show>
     };
     page(Some("posts — chris".into()), "posts", listing)
 }
 
 #[component]
 pub fn HomePage() -> impl IntoView {
-    let entries = listed_entries();
-    let total = entries.len();
-    let recent: Vec<_> = entries.into_iter().take(RECENT_POSTS).collect();
+    let posts = listed_posts();
+    let total = posts.len();
+    let recent: Vec<_> = posts.into_iter().take(RECENT_POSTS).collect();
     let has_posts = !recent.is_empty();
     // Type-erased: the fully typed Show nested into the page view overflows
     // rustc's query depth.

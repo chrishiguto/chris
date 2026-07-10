@@ -5,12 +5,18 @@ use content::{reading_minutes, Document, Node, POSTS_PATH};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{meta_row, tag_pill, CopyButton};
+use crate::components::{meta_row, CopyButton, TagPill};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing.
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
-        let tags: Vec<_> = doc.frontmatter.tags.iter().cloned().map(tag_pill).collect();
+        let tags: Vec<_> = doc
+            .frontmatter
+            .tags
+            .iter()
+            .cloned()
+            .map(|tag| view! { <TagPill tag=tag /> })
+            .collect();
         view! { <ul class="post-tags">{tags}</ul> }
     });
     // Prose sits in `.post-body` so its element selectors never hit the chrome.

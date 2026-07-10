@@ -25,6 +25,17 @@ references, tests). Tag browsing becomes a small **filter island on the writing 
 - Tag pills on a post page link to `/posts#that-tag`, landing on the pre-filtered listing.
 - An empty filter result shows a mono `$ ls`-style empty state.
 
+> **Amendment (2026-07-10)**: the island now owns the whole filter region — pill row, post
+> list, and empty state — with the listed posts serialized as island props (option 4 below,
+> originally rejected). Filtering over SSR'd rows meant the island talked to server HTML
+> through DOM selectors and attribute contracts (`data-tags`, tags read back out of pill
+> hrefs) instead of signals — the framework's reactivity was unused exactly where state
+> changes. At this site's scale the rejected costs are noise: a listed post serializes to
+> ~200 bytes of props and the row markup adds little to a worker already ~750 KB gzipped
+> against the size gate's 5 MB warning. What stands unchanged: filter state lives in the
+> URL hash, the server and cache still see exactly one `/posts` page, and the island's own
+> server render keeps the complete list visible without JS.
+
 ADR-0008's `views` tag description narrows accordingly: it now covers the listings and
 feeds only (there are no tag pages left to project the index).
 

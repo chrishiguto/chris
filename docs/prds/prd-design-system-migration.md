@@ -277,6 +277,12 @@ already server-renders every post — the filter's data set is the DOM itself.
 **Chosen Option**: Option 2, because the SSR HTML already contains everything the filter
 needs, and deletion shrinks the routed/purged surface instead of growing it.
 
+> **Amendment (2026-07-10)**: re-chosen as option 4 — the island owns the whole filter
+> region (pills, rows, empty state) with the listed posts as serialized props, so
+> filtering is signal state instead of DOM-attribute manipulation, and `data-tags` is
+> gone from the row markup. The hash contract and the no-JS SSR baseline stand. See
+> ADR-0012's amendment for the reasoning and measured costs.
+
 **Trade-offs**:
 
 - Good: instant, shareable, cache-invisible filtering; smaller pipeline surface.

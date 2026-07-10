@@ -266,8 +266,8 @@
   }
 
   /* Listing rows, a dividerless stack; the markup shape is
-     ul.post-list > li[data-tags] > a.post-row. Context spacing belongs to the
-     pages, so the list itself carries no margin. */
+     ul.post-list > li > a.post-row. Context spacing belongs to the pages,
+     so the list itself carries no margin. */
 
   .post-list {
     margin: 0;

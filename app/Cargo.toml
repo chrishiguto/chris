@@ -20,7 +20,6 @@ web-sys = { workspace = true, features = [
     "Clipboard",
     "MediaQueryList",
     "Navigator",
-    "NodeList",
     "Storage",
 ] }
 

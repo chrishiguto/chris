@@ -1,59 +1,73 @@
+use std::collections::BTreeSet;
+
 use leptos::prelude::*;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 
-/// In-page tag filter for the writing page. The island owns the
-/// pill row it wraps and serializes nothing: the active tag is the URL hash,
-/// each pill's tag is the fragment of its own SSR'd href, and rows are
-/// matched by their `data-tags` — all read out of the DOM. The server and
-/// cache still see exactly one `/posts` page; without JS the pills are inert
-/// anchors and the complete SSR list stays visible.
+use crate::components::TagPill;
+use crate::listing::{post_row, ListedPost};
+
+/// In-page tag filter for the writing page: one island owning the pill row,
+/// the post list, and the `$ ls` empty state, so filtering is plain signal
+/// state. The active tag mirrors the URL hash — shareable, restored on
+/// load, and invisible to the server, so the cache still sees exactly one
+/// `/posts` page. The island's server render is the unfiltered list:
+/// without JS the pills are inert links and the complete list stays
+/// visible.
 #[island]
-pub fn TagFilter(children: Children) -> impl IntoView {
+pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
+    let active = RwSignal::new(None::<String>);
     // Deep links land pre-filtered; effects never run during SSR.
-    Effect::new(|_| apply(hash_tag().as_deref()));
-    view! {
-        <div class="tag-filter" on:click=toggle>
-            {children()}
-        </div>
-    }
-}
+    Effect::new(move |_| active.set(hash_tag()));
 
-/// Pill clicks are delegated from the island's wrapper, so the SSR'd pills
-/// need no handlers of their own: toggle the tag, mirror it into the hash,
-/// refilter.
-fn toggle(ev: web_sys::MouseEvent) {
-    let Some(pill) = ev
-        .target()
-        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
-        .and_then(|el| el.closest("a.tag").ok().flatten())
-    else {
-        return;
+    // Toggle the tag and mirror it into the hash.
+    let select = move |tag: String| {
+        let next = (active.get_untracked().as_deref() != Some(tag.as_str())).then_some(tag);
+        replace_hash(next.as_deref());
+        active.set(next);
     };
-    ev.prevent_default();
-    let Some(tag) = pill_tag(&pill) else { return };
-    let next = (hash_tag().as_deref() != Some(&tag)).then_some(tag);
-    replace_hash(next.as_deref());
-    apply(next.as_deref());
-}
 
-/// Shows exactly the rows carrying `tag` (every row when `None`), marks the
-/// matching pill active, and swaps the `$ ls` empty state in when nothing is
-/// left. Filter state is DOM attributes only, so toggling off restores the
-/// SSR baseline.
-fn apply(tag: Option<&str>) {
-    let mut visible = 0;
-    for row in elements("ul.post-list > li[data-tags]") {
-        let tags = row.get_attribute("data-tags").unwrap_or_default();
-        let shown = tag.is_none_or(|tag| tags.split_whitespace().any(|t| t == tag));
-        set_hidden(&row, !shown);
-        visible += usize::from(shown);
-    }
-    for pill in elements(".tag-filter a.tag") {
-        let active = tag.is_some() && pill_tag(&pill).as_deref() == tag;
-        let _ = pill.class_list().toggle_with_force("tag-active", active);
-    }
-    if let Ok(Some(empty)) = document().query_selector(".filter-empty") {
-        set_hidden(&empty, visible != 0);
+    let tags: BTreeSet<String> = posts
+        .iter()
+        .flat_map(|post| post.tags.iter().cloned())
+        .collect();
+    // A deep-linked hash can name a tag no post carries; only then is the
+    // list empty, since pill clicks always come from a post's own tags.
+    let known = tags.clone();
+    let none_visible = move || active.get().is_some_and(|tag| !known.contains(&tag));
+
+    let pills: Vec<_> = tags
+        .into_iter()
+        .map(|tag| {
+            let is_active = Signal::derive({
+                let tag = tag.clone();
+                move || active.get().as_deref() == Some(tag.as_str())
+            });
+            let on_select = Callback::new({
+                let tag = tag.clone();
+                move |()| select(tag.clone())
+            });
+            view! { <TagPill tag=tag active=is_active on_select=on_select /> }
+        })
+        .collect();
+    let pill_row = (!pills.is_empty()).then(|| view! { <ul class="post-tags mt-4.5">{pills}</ul> });
+
+    let rows: Vec<_> = posts
+        .into_iter()
+        .map(|post| {
+            let tags = post.tags.clone();
+            let hidden = move || active.get().is_some_and(|tag| !tags.contains(&tag));
+            view! { <li hidden=hidden>{post_row(post)}</li> }
+        })
+        .collect();
+
+    view! {
+        {pill_row}
+        <div class="mt-8">
+            <ul class="post-list">{rows}</ul>
+        </div>
+        <Show when=none_visible>
+            <p class="filter-empty">"$ ls — nothing here yet"</p>
+        </Show>
     }
 }
 
@@ -61,12 +75,6 @@ fn apply(tag: Option<&str>) {
 fn hash_tag() -> Option<String> {
     let hash = window().location().hash().ok()?;
     content::tag_filter_tag(&hash).map(str::to_string)
-}
-
-/// A pill's tag is the hash fragment of its own href — never a second copy.
-fn pill_tag(pill: &web_sys::Element) -> Option<String> {
-    let href = pill.get_attribute("href")?;
-    content::tag_filter_tag(&href).map(str::to_string)
 }
 
 /// `replaceState`, not `location.hash`: no history entry per click and no
@@ -82,24 +90,4 @@ fn replace_hash(tag: Option<&str>) {
     if let Ok(history) = window().history() {
         let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&url));
     }
-}
-
-fn set_hidden(el: &web_sys::Element, hidden: bool) {
-    if hidden {
-        let _ = el.set_attribute("hidden", "");
-    } else {
-        let _ = el.remove_attribute("hidden");
-    }
-}
-
-/// Every element matching `selector`; empty on any DOM error.
-fn elements(selector: &str) -> Vec<web_sys::Element> {
-    document()
-        .query_selector_all(selector)
-        .map(|list| {
-            (0..list.length())
-                .filter_map(|i| list.get(i).and_then(|node| node.dyn_into().ok()))
-                .collect()
-        })
-        .unwrap_or_default()
 }

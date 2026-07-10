@@ -50,11 +50,11 @@ fn posts_page_lists_rows_in_the_post_row_shape() {
         entry("older", "the older post", "2026-01-01"),
     ]);
     // The markup shape the CSS styles:
-    // ul.post-list > li[data-tags] > a.post-row > .post-row-top (+ .post-row-desc).
+    // ul.post-list > li > a.post-row > .post-row-top (+ .post-row-desc).
     assert!(html.contains("<ul class=\"post-list\">"), "{html}");
     assert!(
-        html.contains("<li data-tags=\"rust wasm\">"),
-        "rows must carry their tags for the filter island: {html}"
+        !html.contains("<li hidden"),
+        "the server render is the unfiltered baseline — every row visible: {html}"
     );
     let row = tag_containing(&html, "class=\"post-row\"");
     assert!(row.contains("href=\"/posts/newer\""), "{html}");
@@ -217,9 +217,9 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
     );
 }
 
-// The filter island wraps the SSR'd pill row: pills are the
-// post-pill shape, deduped and sorted, linking the hash contract — no index
-// data rides as island props.
+// The filter island owns the pill row and the list, with the listed posts
+// as its props: pills are the post-pill shape, deduped and sorted, linking
+// the hash contract.
 #[test]
 fn posts_page_wraps_sorted_filter_pills_in_the_island() {
     let html = posts_html(vec![
@@ -229,6 +229,10 @@ fn posts_page_wraps_sorted_filter_pills_in_the_island() {
     assert!(
         html.contains("<leptos-island"),
         "the filter must hydrate as an island: {html}"
+    );
+    assert!(
+        html.contains("data-props"),
+        "the listed posts ride as island props: {html}"
     );
     let pill = tag_containing(&html, "href=\"/posts#rust\"");
     assert!(pill.contains("class=\"tag\""), "{html}");
@@ -256,15 +260,15 @@ fn filter_pills_skip_draft_only_tags() {
     assert!(html.contains("/posts#rust"), "{html}");
 }
 
-// No-JS readers must never see the `$ ls` line under the full list; the
-// island unhides it only when a filter leaves no rows.
+// The `$ ls` line is island state shown only when a filter leaves no rows;
+// the server render never ships it, so no-JS readers can't see it under
+// the full list.
 #[test]
-fn posts_page_ships_the_ls_empty_state_hidden() {
+fn posts_page_ssr_omits_the_ls_empty_state() {
     let html = posts_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
-    assert!(html.contains("$ ls — nothing here yet"), "{html}");
     assert!(
-        tag_containing(&html, "filter-empty").contains("hidden"),
-        "the empty state must ship hidden: {html}"
+        !html.contains("filter-empty") && !html.contains("$ ls"),
+        "the empty state must not ship in the server render: {html}"
     );
 }
 
@@ -272,10 +276,6 @@ fn posts_page_ships_the_ls_empty_state_hidden() {
 fn posts_page_without_tags_has_no_filter_row() {
     let html = posts_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
-    assert!(
-        !html.contains("<leptos-island"),
-        "no pills means no island to hydrate: {html}"
-    );
     assert!(
         !html.contains("filter-empty"),
         "no pills means the `$ ls` state can never show: {html}"
