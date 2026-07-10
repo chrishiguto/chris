@@ -139,21 +139,56 @@ fn ordered_list_renders_start() {
 }
 
 #[test]
-fn code_block_renders_language_class() {
+fn code_block_renders_chrome_bar_with_language_label() {
     let html = html_of(vec![Node::CodeBlock {
         lang: Some("rust".into()),
         text: "fn main() {}".into(),
     }]);
-    assert_eq!(
-        html,
-        "<pre><code class=\"language-rust\">fn main() {}</code></pre>"
-    );
+    for needle in [
+        "<div class=\"code-block\">",
+        "<div class=\"code-bar\">",
+        "<span class=\"code-lang\">rust</span>",
+        "<pre><code class=\"language-rust\">fn main() {}</code></pre>",
+    ] {
+        assert!(html.contains(needle), "missing `{needle}`: {html}");
+    }
 
     let html = html_of(vec![Node::CodeBlock {
         lang: None,
         text: "plain".into(),
     }]);
-    assert_eq!(html, "<pre><code>plain</code></pre>");
+    assert!(
+        html.contains("<span class=\"code-lang\">code</span>"),
+        "bare fences must fall back to the `code` label: {html}"
+    );
+    assert!(
+        html.contains("<pre><code>plain</code></pre>"),
+        "bare fences must not carry a language class: {html}"
+    );
+}
+
+// The copy button hydrates as an island with zero props: it reads the code
+// from the DOM at click time, so the source text ships in the page exactly
+// once (the PRD's never-serialized-twice rule).
+#[test]
+fn copy_button_is_a_zero_prop_island() {
+    let html = html_of(vec![Node::CodeBlock {
+        lang: Some("rust".into()),
+        text: "fn main() {}".into(),
+    }]);
+    assert!(
+        html.contains("<leptos-island"),
+        "the copy button must hydrate as an island: {html}"
+    );
+    assert!(
+        html.contains("class=\"code-copy\"") && html.contains(">copy<"),
+        "the button must SSR inert with its resting label: {html}"
+    );
+    assert_eq!(
+        html.matches("fn main() {}").count(),
+        1,
+        "code text must ship exactly once: {html}"
+    );
 }
 
 #[test]

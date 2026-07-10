@@ -286,6 +286,46 @@ fn callout_and_error_surfaces_are_styled() {
     );
 }
 
+// Code blocks are chromed panels (design CodeBlock): the wrapper owns the
+// fill/border/radius and clips its corners, the bar names the language in
+// faint mono over a hairline, the pre scrolls sideways at 13px/1.65, and
+// the copy button warms to accent on hover.
+#[test]
+fn code_block_chrome_is_styled() {
+    let css = stylesheet();
+    let block = rule_body(&css, ".code-block {");
+    for needle in [
+        "background-color: var(--color-surface-2)",
+        "border: 1px solid var(--color-line)",
+        "overflow: hidden",
+        "font-family: var(--font-mono)",
+    ] {
+        assert!(block.contains(needle), "missing `{needle}`: {block}");
+    }
+    let bar = rule_body(&css, ".code-bar {");
+    for needle in [
+        "justify-content: space-between",
+        "border-bottom: 1px solid var(--color-line)",
+        "color: var(--color-ink-3)",
+    ] {
+        assert!(bar.contains(needle), "missing `{needle}`: {bar}");
+    }
+    let pre = rule_body(&css, ".post-body pre {");
+    for needle in [
+        "margin: 0",
+        "overflow-x: auto",
+        "font-size: 0.8125rem",
+        "line-height: 1.65",
+    ] {
+        assert!(pre.contains(needle), "missing `{needle}`: {pre}");
+    }
+    let copy_hover = rule_body(&css, ".code-copy:hover {");
+    assert!(
+        copy_hover.contains("color: var(--color-accent)"),
+        "the copy button must warm to accent on hover: {copy_hover}"
+    );
+}
+
 /// The declarations of the first rule opened by `opener` (up to its `}`).
 fn rule_body<'a>(css: &'a str, opener: &str) -> &'a str {
     let start = css
@@ -520,6 +560,9 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "// tip",
         "// warning",
         "// danger",
+        "<span class=\"code-lang\">rust</span>",
+        "<span class=\"code-lang\">code</span>",
+        "class=\"code-copy\"",
         "<leptos-island",
     ] {
         assert!(html.contains(needle), "kitchen sink missing {needle}");

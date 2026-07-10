@@ -16,7 +16,12 @@ leptos_router = { workspace = true }
 registry = { workspace = true, features = ["dispatch"] }
 serde = { workspace = true }
 wasm-bindgen = { workspace = true }
-web-sys = { workspace = true, features = ["MediaQueryList", "Storage"] }
+web-sys = { workspace = true, features = [
+    "Clipboard",
+    "MediaQueryList",
+    "Navigator",
+    "Storage",
+] }
 
 [dev-dependencies]
 content = { workspace = true, features = ["parse"] }

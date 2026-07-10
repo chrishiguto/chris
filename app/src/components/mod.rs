@@ -4,10 +4,12 @@ use leptos::prelude::*;
 use leptos_meta::Title;
 
 pub mod blog;
+pub mod copy_button;
 pub mod header;
 pub mod not_found;
 pub mod theme_toggle;
 
+pub use copy_button::CopyButton;
 pub use header::Header;
 pub use not_found::NotFound;
 pub use theme_toggle::ThemeToggle;
