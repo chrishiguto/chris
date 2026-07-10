@@ -333,34 +333,45 @@
 
   /* Component surfaces. */
 
+  /* Code-comment asides (design Callout): a mono `// kind` label row in the
+     family hue, flat 1px border, no left-border stripes, ever. Two hue
+     families — note/tip accent, warning/danger danger — with severity read
+     through fill intensity: subtle tint, no tint, danger tint. */
   .callout {
     --callout-hue: var(--color-accent);
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
     margin-block: 1.5em;
-    padding: 1rem 1.25rem;
-    border: 1px solid color-mix(in oklab, var(--callout-hue) 35%, var(--color-line));
-    border-inline-start: 3px solid var(--callout-hue);
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--color-line);
     border-radius: 0.5rem;
-    background-color: color-mix(in oklab, var(--callout-hue) 7%, var(--color-surface));
+    background-color: var(--color-accent-subtle);
   }
 
-  /* Two hue families (PRD): note/tip read as accent, warning/danger as danger;
-     severity comes through intensity, not four rainbow hues. */
-  .callout-note,
-  .callout-tip {
-    --callout-hue: var(--color-accent);
+  .callout-warning {
+    --callout-hue: var(--color-danger);
+    background-color: transparent;
   }
 
-  .callout-warning,
   .callout-danger {
     --callout-hue: var(--color-danger);
+    background-color: color-mix(in oklab, var(--color-danger) 8%, var(--color-surface));
   }
 
-  .callout-title {
-    margin: 0 0 0.5em;
-    font-family: var(--font-sans);
+  .callout-label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.06em;
+    text-transform: lowercase;
+    color: var(--callout-hue);
+  }
+
+  /* Doubled selector so the margin reset outranks `.post-body p`. */
+  .callout .callout-title {
+    margin: 0;
     font-weight: 600;
     font-size: 0.9375rem;
-    color: color-mix(in oklab, var(--callout-hue) 75%, var(--color-ink));
   }
 
   .callout-body > :first-child {

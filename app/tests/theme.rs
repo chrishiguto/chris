@@ -243,23 +243,58 @@ fn post_prose_reads_at_the_design_measure() {
     }
 }
 
+// Callouts are code-comment asides (design Callout): a mono `// kind` label
+// in the family hue, two hue families with severity read through fill
+// intensity — note/tip accent-subtle, warning transparent, danger tinted —
+// and no left-border stripes, ever.
 #[test]
 fn callout_and_error_surfaces_are_styled() {
     let css = stylesheet();
-    for class in [
-        ".callout ",
-        ".callout-note",
-        ".callout-tip",
-        ".callout-warning",
-        ".callout-danger",
-        ".callout-title",
-        ".component-error",
-    ] {
+    for class in [".callout-label", ".callout-title"] {
         assert!(
             css.contains(class),
             "no `{class}` styling in the stylesheet"
         );
     }
+    let base = rule_body(&css, ".callout {");
+    assert!(
+        base.contains("background-color: var(--color-accent-subtle)"),
+        "note/tip must fill with accent-subtle: {base}"
+    );
+    assert!(
+        !base.contains("border-inline-start"),
+        "no left-border stripes on callouts: {base}"
+    );
+    let warning = rule_body(&css, ".callout-warning {");
+    assert!(
+        warning.contains("--callout-hue: var(--color-danger)"),
+        "warning label must read danger: {warning}"
+    );
+    assert!(
+        warning.contains("background-color: transparent"),
+        "warning must hold the fill back: {warning}"
+    );
+    let danger = rule_body(&css, ".callout-danger {");
+    assert!(
+        danger.contains("background-color: color-mix(in oklab, var(--color-danger)"),
+        "danger must fill danger-tinted: {danger}"
+    );
+    let error = rule_body(&css, ".component-error {");
+    assert!(
+        error.contains("var(--color-danger)"),
+        "component errors must stay danger-jarring: {error}"
+    );
+}
+
+/// The declarations of the first rule opened by `opener` (up to its `}`).
+fn rule_body<'a>(css: &'a str, opener: &str) -> &'a str {
+    let start = css
+        .find(opener)
+        .unwrap_or_else(|| panic!("no `{opener}` rule in the stylesheet"));
+    let len = css[start..]
+        .find('}')
+        .unwrap_or_else(|| panic!("unterminated `{opener}` rule"));
+    &css[start..start + len]
 }
 
 #[test]
@@ -481,6 +516,10 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "callout callout-tip",
         "callout callout-warning",
         "callout callout-danger",
+        "// note",
+        "// tip",
+        "// warning",
+        "// danger",
         "<leptos-island",
     ] {
         assert!(html.contains(needle), "kitchen sink missing {needle}");

@@ -210,6 +210,10 @@ fn callout_dispatches_through_registry_with_markdown_children() {
         "kind prop must reach the component: {html}"
     );
     assert!(
+        html.contains("<span class=\"callout-label\">// warning</span>"),
+        "mono `// kind` label row missing: {html}"
+    );
+    assert!(
         html.contains("<p>still readable</p>"),
         "markdown children must render inside: {html}"
     );
@@ -232,6 +236,13 @@ fn callout_renders_optional_title_when_given() {
     assert!(
         html.contains("<p class=\"callout-title\">Psst</p>"),
         "title missing: {html}"
+    );
+    let label = html.find("// note").expect("label row missing");
+    let title = html.find("callout-title").expect("title missing");
+    let body = html.find("callout-body").expect("body missing");
+    assert!(
+        label < title && title < body,
+        "title must sit between the label row and the body: {html}"
     );
 }
 
