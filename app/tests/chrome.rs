@@ -128,7 +128,7 @@ fn unmatched_post_paths_keep_the_bare_root() {
     for path in ["/posts/", "/posts/a/b"] {
         let html = header_at(path);
         assert!(
-            html.contains("nav-mark") && !html.contains("nav-seg"),
+            html.contains("nav-mark") && !html.contains("nav-seg") && !html.contains("nav-sep"),
             "`{path}` must keep the bare breadcrumb root: {html}"
         );
     }

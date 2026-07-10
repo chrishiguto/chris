@@ -3,8 +3,7 @@ use std::collections::BTreeSet;
 use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 
-use crate::components::TagPill;
-use crate::listing::{post_row, ListedPost};
+use crate::components::{post_row, ListedPost, TagPill};
 
 /// In-page tag filter for the writing page: one island owning the pill row,
 /// the post list, and the `$ ls` empty state, so filtering is plain signal
@@ -21,7 +20,9 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
 
     // Toggle the tag and mirror it into the hash.
     let select = move |tag: String| {
-        let next = (active.get_untracked().as_deref() != Some(tag.as_str())).then_some(tag);
+        let next = active
+            .with_untracked(|active| active.as_deref() != Some(tag.as_str()))
+            .then_some(tag);
         replace_hash(next.as_deref());
         active.set(next);
     };
@@ -30,41 +31,42 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         .iter()
         .flat_map(|post| post.tags.iter().cloned())
         .collect();
-    // A deep-linked hash can name a tag no post carries; only then is the
-    // list empty, since pill clicks always come from a post's own tags.
-    let known = tags.clone();
-    let none_visible = move || active.get().is_some_and(|tag| !known.contains(&tag));
 
     let pills: Vec<_> = tags
-        .into_iter()
+        .iter()
         .map(|tag| {
             let is_active = Signal::derive({
                 let tag = tag.clone();
-                move || active.get().as_deref() == Some(tag.as_str())
+                move || active.with(|active| active.as_deref() == Some(tag.as_str()))
             });
             let on_select = Callback::new({
                 let tag = tag.clone();
                 move |()| select(tag.clone())
             });
-            view! { <TagPill tag=tag active=is_active on_select=on_select /> }
+            view! { <TagPill tag=tag.clone() active=is_active on_select=on_select /> }
         })
         .collect();
     let pill_row = (!pills.is_empty()).then(|| view! { <ul class="post-tags mt-4.5">{pills}</ul> });
+
+    // A deep-linked hash can name a tag no post carries; only then is the
+    // list empty, since pill clicks always come from a post's own tags.
+    let none_visible =
+        move || active.with(|active| active.as_ref().is_some_and(|tag| !tags.contains(tag)));
 
     let rows: Vec<_> = posts
         .into_iter()
         .map(|post| {
             let tags = post.tags.clone();
-            let hidden = move || active.get().is_some_and(|tag| !tags.contains(&tag));
+            let hidden = move || {
+                active.with(|active| active.as_ref().is_some_and(|tag| !tags.contains(tag)))
+            };
             view! { <li hidden=hidden>{post_row(post)}</li> }
         })
         .collect();
 
     view! {
         {pill_row}
-        <div class="mt-8">
-            <ul class="post-list">{rows}</ul>
-        </div>
+        <ul class="post-list mt-8">{rows}</ul>
         <Show when=none_visible>
             <p class="filter-empty">"$ ls — nothing here yet"</p>
         </Show>

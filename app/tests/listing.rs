@@ -51,7 +51,7 @@ fn posts_page_lists_rows_in_the_post_row_shape() {
     ]);
     // The markup shape the CSS styles:
     // ul.post-list > li > a.post-row > .post-row-top (+ .post-row-desc).
-    assert!(html.contains("<ul class=\"post-list\">"), "{html}");
+    assert!(html.contains("<ul class=\"post-list"), "{html}");
     assert!(
         !html.contains("<li hidden"),
         "the server render is the unfiltered baseline — every row visible: {html}"
@@ -230,8 +230,9 @@ fn posts_page_wraps_sorted_filter_pills_in_the_island() {
         html.contains("<leptos-island"),
         "the filter must hydrate as an island: {html}"
     );
+    let island = tag_containing(&html, "data-props");
     assert!(
-        html.contains("data-props"),
+        island.contains("newer") && island.contains("older"),
         "the listed posts ride as island props: {html}"
     );
     let pill = tag_containing(&html, "href=\"/posts#rust\"");

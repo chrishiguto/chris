@@ -1,7 +1,6 @@
 @import "tailwindcss";
 /* One sheet per concern; this file owns fonts, tokens, the base layer, and
-   the shared link primitives at the bottom, which must cascade after every
-   import. */
+   the shared link primitives. */
 @import "./chrome.css";
 @import "./listing.css";
 @import "./tags.css";
@@ -157,31 +156,33 @@
 
 @layer components {
   /* Emphasis link: medium weight marks it at rest, the accent underline
-     grows in via the base-layer rule. Prose anchors get the same treatment
-     by element in post.css. */
-  .plink {
+     grows in via the base-layer rule. Prose anchors are bare markdown
+     output, so they take the same treatment by element. */
+  .plink,
+  .post-body a {
     font-weight: 500;
     background-image: linear-gradient(var(--color-accent), var(--color-accent));
     background-size: 0% 1.5px;
   }
 
-  .plink:hover {
+  .plink:hover,
+  .post-body a:hover {
     background-size: 100% 1.5px;
   }
 
   /* Slide-arrow glyphs, one motion primitive: each holder keeps only its
-     hover transform in its own sheet; this reset must cascade after them
-     all to win the specificity tie under reduced motion. */
+     hover transform in its own sheet. */
   .link-arrow {
     display: inline-block;
     transition: transform 200ms var(--ease-out-expo);
   }
 
+  /* `!important` outranks every holder's hover transform, wherever its
+     sheet declares it. */
   @media (prefers-reduced-motion: reduce) {
-    .link-arrow,
-    :is(.contact-link, .back-link):hover .link-arrow {
-      transition: none;
-      transform: none;
+    .link-arrow {
+      transition: none !important;
+      transform: none !important;
     }
   }
 }

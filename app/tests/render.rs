@@ -183,10 +183,14 @@ fn copy_button_receives_the_source_as_its_prop() {
         html.contains("class=\"code-copy\"") && html.contains(">copy<"),
         "the button must SSR inert with its resting label: {html}"
     );
-    assert_eq!(
-        html.matches("fn main() {}").count(),
-        2,
-        "the source ships rendered once, plus once as the island's prop: {html}"
+    let island = tag_containing(&html, "data-props");
+    assert!(
+        island.contains("fn main() {}"),
+        "the island's props must carry the source: {html}"
+    );
+    assert!(
+        html.contains("<code class=\"language-rust\">fn main() {}</code>"),
+        "the source must still render inside the pre: {html}"
     );
 }
 

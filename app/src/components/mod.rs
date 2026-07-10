@@ -1,7 +1,9 @@
 //! Site-wide UI components; post-embeddable ones live under [`blog`].
 
+use content::{post_path, IndexEntry};
 use leptos::prelude::*;
 use leptos_meta::Title;
+use serde::{Deserialize, Serialize};
 
 pub mod blog;
 pub mod code_block;
@@ -67,6 +69,53 @@ fn digits(part: &str, len: usize) -> bool {
 /// Mono section label; shared by the home and about pages.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
     view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
+}
+
+/// One listed post, in the shape the pages render: the published subset of
+/// an index entry. Internal fields (content hash, draft) never reach the
+/// client — this is what the filter island serializes as props.
+#[derive(Clone, Serialize, Deserialize)]
+pub struct ListedPost {
+    pub slug: String,
+    pub title: String,
+    pub date: String,
+    pub reading_minutes: Option<u32>,
+    pub description: Option<String>,
+    pub tags: Vec<String>,
+}
+
+impl From<IndexEntry> for ListedPost {
+    fn from(entry: IndexEntry) -> Self {
+        Self {
+            slug: entry.slug,
+            title: entry.title,
+            date: entry.date,
+            reading_minutes: entry.reading_minutes,
+            description: entry.description,
+            tags: entry.tags,
+        }
+    }
+}
+
+/// The whole row is the link; the arrow slides in on hover via CSS. The
+/// `<li>` belongs to the caller — the filter island binds visibility to it.
+pub(crate) fn post_row(post: ListedPost) -> impl IntoView {
+    let meta = meta_row(&post.date, post.reading_minutes);
+    view! {
+        <a href=post_path(&post.slug) class="post-row">
+            <span class="post-row-top">
+                <span class="post-row-title">
+                    {post.title} <span class="post-row-lead" aria-hidden="true">
+                        "→"
+                    </span>
+                </span>
+                <span class="post-row-meta">{meta}</span>
+            </span>
+            {post
+                .description
+                .map(|description| view! { <span class="post-row-desc">{description}</span> })}
+        </a>
+    }
 }
 
 /// Tag pill: one `<li>` of a `.post-tags` row, shared by the article bottom

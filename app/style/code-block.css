@@ -35,7 +35,7 @@
     color: var(--color-accent);
   }
 
-  .post-body pre {
+  .code-block pre {
     margin: 0;
     padding: 0.875rem 1rem;
     overflow-x: auto;
@@ -44,7 +44,7 @@
   }
 
   /* Inside the panel, code drops the inline-code chip treatment. */
-  .post-body pre code {
+  .code-block pre code {
     background-color: transparent;
     border: none;
     border-radius: 0;

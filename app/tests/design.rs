@@ -5,6 +5,7 @@
 //! per-surface suites (chrome, listing, render, about).
 #![cfg(feature = "ssr")]
 
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -14,17 +15,40 @@ use leptos::prelude::{LeptosOptions, RenderHtml};
 
 mod common;
 
-/// main.css plus every local sheet it `@import`s — derived from the import lines
-/// so the guards track what Tailwind bundles instead of silently diverging.
+/// The bundle as Tailwind builds it: main.css with each local `@import`
+/// inlined where it sits, so cascade order matches production. A sheet in
+/// `style/` that main.css never imports (or imports through a line this
+/// parser misses) fails loudly instead of silently dropping out of the
+/// guards.
 fn stylesheet() -> String {
     let style = Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/style"));
-    let main = fs::read_to_string(style.join("main.css")).unwrap();
-    let imported: String = main
-        .lines()
-        .filter_map(|line| line.strip_prefix("@import \"./")?.strip_suffix("\";"))
-        .map(|sheet| fs::read_to_string(style.join(sheet)).unwrap())
+    let mut unimported: BTreeSet<String> = fs::read_dir(style)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.ends_with(".css") && name != "main.css")
         .collect();
-    main + &imported
+    let bundled = fs::read_to_string(style.join("main.css"))
+        .unwrap()
+        .lines()
+        .map(|line| {
+            match line
+                .strip_prefix("@import \"./")
+                .and_then(|rest| rest.strip_suffix("\";"))
+            {
+                Some(sheet) => {
+                    assert!(unimported.remove(sheet), "`{sheet}` imported twice");
+                    fs::read_to_string(style.join(sheet)).unwrap()
+                }
+                None => line.to_string(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        unimported.is_empty(),
+        "sheets main.css never imports: {unimported:?}"
+    );
+    bundled
 }
 
 /// Every `.rs` source Tailwind scans for utility classes (`@source "../src"`
@@ -66,10 +90,11 @@ fn shell_html() -> String {
 
 // A new AST node type without theming must fail here, not on a live page.
 // The boundary characters stop `.post-body p` matching `.post-body pre`.
+// `pre` only ever renders inside the CodeBlock panel, which owns it.
 #[test]
 fn stylesheet_styles_every_rendered_element() {
     let css = stylesheet();
-    for element in [
+    let prose = [
         "h1",
         "h2",
         "h3",
@@ -80,21 +105,19 @@ fn stylesheet_styles_every_rendered_element() {
         "a",
         "strong",
         "code",
-        "pre",
         "blockquote",
         "ul",
         "ol",
         "li",
         "img",
         "hr",
-    ] {
+    ]
+    .map(|element| format!(".post-body {element}"));
+    for selector in prose.iter().map(String::as_str).chain([".code-block pre"]) {
         let styled = [" ", ",", ":", "\n"]
             .iter()
-            .any(|boundary| css.contains(&format!(".post-body {element}{boundary}")));
-        assert!(
-            styled,
-            "no `.post-body {element}` selector in the stylesheet"
-        );
+            .any(|boundary| css.contains(&format!("{selector}{boundary}")));
+        assert!(styled, "no `{selector}` selector in the stylesheet");
     }
 }
 
@@ -323,7 +346,7 @@ fn code_block_chrome_is_styled() {
     ] {
         assert!(bar.contains(needle), "missing `{needle}`: {bar}");
     }
-    let pre = rule_body(&css, &[".post-body pre"]);
+    let pre = rule_body(&css, &[".code-block pre"]);
     for needle in [
         "margin: 0",
         "overflow-x: auto",
