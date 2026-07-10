@@ -3,7 +3,7 @@
 
 use std::collections::BTreeSet;
 
-use content::{post_path, IndexEntry};
+use content::{post_path, IndexEntry, ABOUT_PATH, POSTS_PATH};
 use leptos::prelude::*;
 
 use crate::components::{meta_row, page, section_label, tag_pill, TagFilter};
@@ -116,7 +116,7 @@ pub fn HomePage() -> impl IntoView {
         view! {
             <div class="mt-4">{post_list(recent)}</div>
             <p class="mt-4 text-ink-2">
-                "that's the latest three. " <a href="/posts" class="plink">
+                "that's the latest three. " <a href=POSTS_PATH class="plink">
                     {format!("read all {total} posts →")}
                 </a>
             </p>
@@ -131,9 +131,9 @@ pub fn HomePage() -> impl IntoView {
                 "software engineer. i write about code, systems, and figuring things out — in english e às vezes em português. this site is my notebook, left open on purpose."
             </p>
             <p class="mt-6 max-w-[52ch] leading-relaxed text-ink-2">
-                "new here? start with " <a href="/posts" class="plink">
+                "new here? start with " <a href=POSTS_PATH class="plink">
                     "the writing"
-                </a> ", or read a little more " <a href="/about" class="plink">
+                </a> ", or read a little more " <a href=ABOUT_PATH class="plink">
                     "about me"
                 </a> "."
             </p>

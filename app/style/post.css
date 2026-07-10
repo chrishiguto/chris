@@ -49,21 +49,8 @@
     font-size: 0.8125rem;
   }
 
-  .back-link-arrow {
-    display: inline-block;
-    transition: transform 200ms var(--ease-out-expo);
-  }
-
-  .back-link:hover .back-link-arrow {
+  .back-link:hover .link-arrow {
     transform: translateX(-4px);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .back-link-arrow,
-    .back-link:hover .back-link-arrow {
-      transition: none;
-      transform: none;
-    }
   }
 
   /* The 65ch reading measure; the header and full-bleed surfaces sit outside. */
@@ -114,17 +101,7 @@
     margin-block: 1.25em;
   }
 
-  /* The house link, prose-tuned (the mock's `.plink`): medium weight marks it
-     at rest, the accent underline grows in on hover via the base-layer rule. */
-  .post-body a {
-    font-weight: 500;
-    background-image: linear-gradient(var(--color-accent), var(--color-accent));
-    background-size: 0% 1.5px;
-  }
-
-  .post-body a:hover {
-    background-size: 100% 1.5px;
-  }
+  /* Prose links share the `.plink` treatment — one grouped rule in main.css. */
 
   .post-body strong {
     font-weight: 700;
@@ -386,7 +363,6 @@
      families — note/tip accent, warning/danger danger — with severity read
      through fill intensity: subtle tint, no tint, danger tint. */
   .callout {
-    --callout-hue: var(--color-accent);
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
@@ -398,12 +374,10 @@
   }
 
   .callout-warning {
-    --callout-hue: var(--color-danger);
     background-color: transparent;
   }
 
   .callout-danger {
-    --callout-hue: var(--color-danger);
     background-color: color-mix(in oklab, var(--color-danger) 8%, var(--color-surface));
   }
 
@@ -412,7 +386,14 @@
     font-size: 0.75rem;
     letter-spacing: 0.06em;
     text-transform: lowercase;
-    color: var(--callout-hue);
+    color: var(--color-accent);
+  }
+
+  /* The warning/danger family's labels read danger; severity within the
+     family shows in the fill alone. */
+  .callout-warning .callout-label,
+  .callout-danger .callout-label {
+    color: var(--color-danger);
   }
 
   /* Doubled selector so the margin reset outranks `.post-body p`. */

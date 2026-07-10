@@ -1,4 +1,4 @@
-use content::{post_path_slug, ABOUT_PATH};
+use content::{post_path_slug, ABOUT_PATH, POSTS_PATH};
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
@@ -42,7 +42,7 @@ fn wordmark() -> impl IntoView {
 
 fn bar_links(path: &str) -> impl IntoView {
     view! {
-        {nav_link("writing", "/posts", path == "/posts")}
+        {nav_link("writing", POSTS_PATH, path == POSTS_PATH)}
         {nav_link("about", ABOUT_PATH, path == ABOUT_PATH)}
     }
 }
@@ -61,7 +61,7 @@ fn breadcrumb(slug: String) -> impl IntoView {
         <div class="nav-path">
             <a href="/">"~/chris"</a>
             <span class="nav-sep">"/"</span>
-            <a href="/posts">"posts"</a>
+            <a href=POSTS_PATH>"posts"</a>
             <span class="nav-sep">"/"</span>
             <span class="nav-seg">{slug}</span>
         </div>

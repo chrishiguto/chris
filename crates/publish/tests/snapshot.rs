@@ -1,5 +1,4 @@
-use content::IndexEntry;
-use content::{ComponentSpec, Manifest, PropSpec, PropType};
+use content::{ComponentSpec, Frontmatter, IndexEntry, Manifest, PropSpec, PropType};
 use publish::{check, check_each, content_hash, snapshot, stale_tags, CarriedPost, PostSource};
 
 fn manifest() -> Manifest {
@@ -24,17 +23,19 @@ fn post(slug: &str, title: &str, date: &str, body: &str) -> PostSource {
     }
 }
 
+/// Through the real constructor, so publish-computed fields default here
+/// the same way they do in production.
 fn entry(slug: &str, title: &str, date: &str, tags: &[&str], draft: bool) -> IndexEntry {
-    IndexEntry {
-        slug: slug.into(),
-        title: title.into(),
-        date: date.into(),
-        description: None,
-        reading_minutes: None,
-        tags: tags.iter().map(|t| t.to_string()).collect(),
-        draft,
-        content_hash: String::new(),
-    }
+    IndexEntry::new(
+        slug,
+        &Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: tags.iter().map(|t| t.to_string()).collect(),
+            draft,
+        },
+    )
 }
 
 #[test]

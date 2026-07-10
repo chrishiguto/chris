@@ -3,7 +3,6 @@
 //! server-rendered.
 #![cfg(feature = "ssr")]
 
-use app::app::App;
 use app::components::{Footer, Header};
 use leptos::prelude::provide_context;
 use leptos::view;
@@ -186,10 +185,7 @@ fn footer_ships_copyright_and_the_konami_package() {
 #[test]
 fn chrome_wraps_every_page_including_404() {
     for path in ["/", "/nowhere"] {
-        let html = common::ssr(
-            move || provide_context(RequestUrl::new(path)),
-            || view! { <App /> },
-        );
+        let html = common::app_at(path);
         assert!(
             html.contains("site-nav"),
             "`{path}` must render the nav: {html}"
@@ -198,13 +194,11 @@ fn chrome_wraps_every_page_including_404() {
             html.contains("site-footer"),
             "`{path}` must render the footer: {html}"
         );
+        if path == "/nowhere" {
+            assert!(
+                html.contains("404"),
+                "the fallback still renders inside the chrome: {html}"
+            );
+        }
     }
-    let html = common::ssr(
-        || provide_context(RequestUrl::new("/nowhere")),
-        || view! { <App /> },
-    );
-    assert!(
-        html.contains("404"),
-        "the fallback still renders inside the chrome: {html}"
-    );
 }

@@ -57,18 +57,16 @@ fn apply(tag: Option<&str>) {
     }
 }
 
-/// The active tag: the URL hash minus its `#`, `None` when empty.
+/// The active tag: the URL hash's fragment, `None` when empty.
 fn hash_tag() -> Option<String> {
     let hash = window().location().hash().ok()?;
-    let tag = hash.strip_prefix('#').unwrap_or(&hash);
-    (!tag.is_empty()).then(|| tag.to_string())
+    content::tag_filter_tag(&hash).map(str::to_string)
 }
 
 /// A pill's tag is the hash fragment of its own href — never a second copy.
 fn pill_tag(pill: &web_sys::Element) -> Option<String> {
     let href = pill.get_attribute("href")?;
-    let (_, tag) = href.split_once('#')?;
-    (!tag.is_empty()).then(|| tag.to_string())
+    content::tag_filter_tag(&href).map(str::to_string)
 }
 
 /// `replaceState`, not `location.hash`: no history entry per click and no

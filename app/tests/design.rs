@@ -8,7 +8,7 @@
 use std::fs;
 use std::path::Path;
 
-use app::app::{shell, GOOGLE_FONTS_URL, THEME_SCRIPT};
+use app::app::{shell, GOOGLE_FONTS_URL, THEME_SCRIPT, THEME_STORAGE_KEY};
 use app::render::render_document;
 use leptos::prelude::{LeptosOptions, RenderHtml};
 
@@ -54,14 +54,14 @@ fn utility_sources() -> Vec<(String, String)> {
 }
 
 fn shell_html() -> String {
-    use leptos::prelude::{provide_context, Owner};
+    use leptos::prelude::provide_context;
 
     // The router needs the RequestUrl leptos_axum would provide per-request.
-    let owner = Owner::new();
-    owner.set();
-    provide_context(leptos_router::location::RequestUrl::new("/"));
     let options = LeptosOptions::builder().output_name("chris").build();
-    shell(options).to_html()
+    common::ssr(
+        || provide_context(leptos_router::location::RequestUrl::new("/")),
+        move || shell(options),
+    )
 }
 
 // A new AST node type without theming must fail here, not on a live page.
@@ -266,11 +266,23 @@ fn callout_and_error_surfaces_are_styled() {
         !base.contains("border-inline-start"),
         "no left-border stripes on callouts: {base}"
     );
-    let warning = rule_body(&css, &[".callout-warning"]);
+    let label = rule_body(&css, &[".callout-label"]);
     assert!(
-        warning.contains("--callout-hue: var(--color-danger)"),
-        "warning label must read danger: {warning}"
+        label.contains("color: var(--color-accent)"),
+        "note/tip labels must read accent: {label}"
     );
+    let danger_labels = rule_body(
+        &css,
+        &[
+            ".callout-warning .callout-label",
+            ".callout-danger .callout-label",
+        ],
+    );
+    assert!(
+        danger_labels.contains("color: var(--color-danger)"),
+        "warning/danger labels must read danger: {danger_labels}"
+    );
+    let warning = rule_body(&css, &[".callout-warning"]);
     assert!(
         warning.contains("background-color: transparent"),
         "warning must hold the fill back: {warning}"
@@ -576,12 +588,10 @@ fn fonts_load_from_google_with_swap() {
 // theme — and the script is a constant, so the served HTML never varies.
 #[test]
 fn stored_theme_is_applied_pre_paint() {
-    for part in [
-        "localStorage.getItem(\"chris-theme\")",
-        "\"light\"",
-        "\"dark\"",
-        "dataset.theme",
-    ] {
+    // The script is a hand-written literal; this pins its key to the
+    // constant the toggle island persists under.
+    let getter = format!("localStorage.getItem(\"{THEME_STORAGE_KEY}\")");
+    for part in [getter.as_str(), "\"light\"", "\"dark\"", "dataset.theme"] {
         assert!(
             THEME_SCRIPT.contains(part),
             "theme script missing `{part}`: {THEME_SCRIPT}"

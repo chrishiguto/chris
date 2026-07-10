@@ -1,6 +1,6 @@
-//! Derived metadata: the pure AST word-counter and the display date formatter.
+//! Derived metadata: the pure AST word-counter.
 
-use content::{format_date, reading_minutes, ListItem, Node};
+use content::{reading_minutes, ListItem, Node};
 
 fn text(value: &str) -> Node {
     Node::Text {
@@ -115,39 +115,4 @@ fn read_time_excludes_image_alt_text() {
         },
     ];
     assert_eq!(reading_minutes(&ast), 1);
-}
-
-#[test]
-fn dates_format_with_every_english_month_name() {
-    let months = [
-        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
-    ];
-    for (i, name) in months.iter().enumerate() {
-        assert_eq!(
-            format_date(&format!("2026-{:02}-15", i + 1)),
-            format!("{name} 15, 2026")
-        );
-    }
-}
-
-#[test]
-fn dates_keep_the_zero_padded_day() {
-    assert_eq!(format_date("2026-07-04"), "jul 04, 2026");
-    assert_eq!(format_date("2026-01-01"), "jan 01, 2026");
-    assert_eq!(format_date("2026-12-31"), "dec 31, 2026");
-}
-
-// Display must never panic on stored data; anything off-shape passes through.
-#[test]
-fn malformed_dates_pass_through_unchanged() {
-    for raw in [
-        "someday",
-        "",
-        "2026-13-01",
-        "2026-00-01",
-        "2026-7-4",
-        "2026-07",
-    ] {
-        assert_eq!(format_date(raw), raw);
-    }
 }

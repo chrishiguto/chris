@@ -16,9 +16,20 @@ command = "just build"
 # ./src, which doesn't exist in this workspace — without this list it watches
 # nothing and every change needs a manual restart. Build inputs only: app/tests
 # is native-only, content ships via `just publish` not the build (so a post's
-# rare components.rs island needs a manual restart), and workers/site is
-# narrowed to src because build/ is generated output and would loop.
-watch_dir = ["app/src", "app/style", "app/assets", "crates", "workers/site/src"]
+# rare components.rs island needs a manual restart), crates are narrowed to
+# the site build's dependency graph at src granularity (publish/xtask and the
+# crates' test trees never reach the worker), and workers/site is narrowed to
+# src because build/ is generated output and would loop.
+watch_dir = [
+    "app/src",
+    "app/style",
+    "app/assets",
+    "crates/content/src",
+    "crates/registry/src",
+    "crates/registry-macro/src",
+    "crates/authn/src",
+    "workers/site/src",
+]
 
 # Anything under target/site (including /pkg/*) is served without invoking the worker.
 [assets]

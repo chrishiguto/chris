@@ -79,27 +79,37 @@ pub fn valid_slug(slug: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
+/// The writing page's public path; post pages and the tag filter hang off it.
+pub const POSTS_PATH: &str = "/posts";
+
 /// A post's public path (and cache key / purge path).
 pub fn post_path(slug: &str) -> String {
-    format!("/posts/{slug}")
+    format!("{POSTS_PATH}/{slug}")
 }
 
 /// [`post_path`]'s inverse: the slug when `path` is exactly one post page —
 /// `None` for the listing, an empty slug, or anything deeper, which no
 /// route serves.
 pub fn post_path_slug(path: &str) -> Option<&str> {
-    let slug = path.strip_prefix("/posts/")?;
+    let slug = path.strip_prefix(POSTS_PATH)?.strip_prefix('/')?;
     (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
 /// A tag's filter target on the writing page (ADR-0012): the tag rides in the
 /// URL hash, so the server and cache still see exactly one `/posts` page.
 pub fn tag_filter_path(tag: &str) -> String {
-    format!("/posts#{tag}")
+    format!("{POSTS_PATH}#{tag}")
+}
+
+/// [`tag_filter_path`]'s inverse, taking a full href or a bare URL hash:
+/// the fragment's tag, `None` when there is no fragment or it is empty.
+pub fn tag_filter_tag(url: &str) -> Option<&str> {
+    let (_, tag) = url.split_once('#')?;
+    (!tag.is_empty()).then_some(tag)
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-pub const LISTING_PAGES: [&str; 2] = ["/", "/posts"];
+pub const LISTING_PAGES: [&str; 2] = ["/", POSTS_PATH];
 
 /// The about page's public path (and cache key / purge path).
 pub const ABOUT_PATH: &str = "/about";
@@ -198,6 +208,15 @@ mod tests {
     #[test]
     fn tag_filter_path_rides_the_listing_hash() {
         assert_eq!(tag_filter_path("rust"), "/posts#rust");
+    }
+
+    #[test]
+    fn tag_filter_tag_inverts_the_path_and_reads_bare_hashes() {
+        assert_eq!(tag_filter_tag(&tag_filter_path("rust")), Some("rust"));
+        assert_eq!(tag_filter_tag("#rust"), Some("rust"));
+        for url in ["/posts", "/posts#", "#", ""] {
+            assert_eq!(tag_filter_tag(url), None);
+        }
     }
 
     // ADR-0012: tag browsing is an in-page filter, never a routed page.

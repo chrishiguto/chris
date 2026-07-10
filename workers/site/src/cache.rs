@@ -12,15 +12,9 @@ pub fn post_cache_tags(slug: &str) -> String {
     format!("{SITE_TAG},{}", post_tag(slug))
 }
 
-/// `Cache-Tag` for the index-backed views (listings, tag pages, feeds).
+/// `Cache-Tag` for the index-backed views (listings, feeds).
 pub fn view_cache_tags() -> String {
     format!("{SITE_TAG},{VIEWS_TAG}")
-}
-
-/// `Cache-Tag` for static pages (`/about`): the site scope alone — they
-/// change on deploy (which purges `site`), never on publish.
-pub fn static_cache_tags() -> String {
-    SITE_TAG.to_string()
 }
 
 /// Tags out of a `/__purge` body. No body means `[SITE_TAG]` — the

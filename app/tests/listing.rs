@@ -1,26 +1,26 @@
 //! Listing pages render from the worker-provided index context; drafts filter at render time.
 #![cfg(feature = "ssr")]
 
-use app::app::App;
 use app::listing::{HomePage, IndexData, PostsPage, RECENT_POSTS};
 use common::{ssr, tag_containing};
-use content::IndexEntry;
+use content::{Frontmatter, IndexEntry};
 use leptos::prelude::provide_context;
-use leptos_router::location::RequestUrl;
 
 mod common;
 
+/// Through the real constructor, so publish-computed fields (read time,
+/// content hash) default here the same way they do in production.
 fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
-    IndexEntry {
-        slug: slug.into(),
-        title: title.into(),
-        date: date.into(),
-        description: None,
-        reading_minutes: None,
-        tags: vec![],
-        draft: false,
-        content_hash: String::new(),
-    }
+    IndexEntry::new(
+        slug,
+        &Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: vec![],
+            draft: false,
+        },
+    )
 }
 
 fn tagged(slug: &str, title: &str, date: &str, tags: &[&str]) -> IndexEntry {
@@ -56,16 +56,15 @@ fn posts_page_lists_rows_in_the_post_row_shape() {
         html.contains("<li data-tags=\"rust wasm\">"),
         "rows must carry their tags for the filter island: {html}"
     );
-    assert!(
-        html.contains("<a href=\"/posts/newer\" class=\"post-row\">"),
-        "{html}"
-    );
+    let row = tag_containing(&html, "class=\"post-row\"");
+    assert!(row.contains("href=\"/posts/newer\""), "{html}");
     assert!(
         html.contains("<span class=\"post-row-title\">the newer post"),
         "{html}"
     );
+    let lead = tag_containing(&html, "class=\"post-row-lead\"");
     assert!(
-        html.contains("<span class=\"post-row-lead\" aria-hidden=\"true\">→</span>"),
+        lead.contains("aria-hidden=\"true\"") && html.contains(">→</span>"),
         "the hover arrow must ship in the row markup: {html}"
     );
     assert!(
@@ -101,12 +100,19 @@ fn post_rows_show_read_time_only_when_present() {
     timed.reading_minutes = Some(4);
     let html = posts_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
     assert!(
-        html.contains(
-            "<span class=\"post-row-meta\"><span>feb 01, 2026</span>\
-             <span aria-hidden=\"true\" class=\"meta-sep\">·</span>\
-             <span>4 min</span></span>"
-        ),
+        html.contains("<span class=\"post-row-meta\"><span>feb 01, 2026</span>")
+            && html.contains("<span>4 min</span>"),
         "{html}"
+    );
+    let sep = tag_containing(&html, "meta-sep");
+    assert!(
+        sep.contains("aria-hidden=\"true\""),
+        "the separator hides from readers: {html}"
+    );
+    let sep_at = html.find("meta-sep").unwrap();
+    assert!(
+        html.find("feb 01, 2026").unwrap() < sep_at && sep_at < html.find("4 min").unwrap(),
+        "the meta row must read `date · minutes`: {html}"
     );
     assert_eq!(
         html.matches("meta-sep").count(),
@@ -151,12 +157,14 @@ fn home_page_filters_drafts() {
 fn home_page_greets_with_intro_links_and_section_label() {
     let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
     assert!(html.contains("hey, i'm chris"), "{html}");
+    let writing = tag_containing(&html, ">the writing<");
     assert!(
-        html.contains("<a href=\"/posts\" class=\"plink\">the writing</a>"),
+        writing.contains("href=\"/posts\"") && writing.contains("plink"),
         "{html}"
     );
+    let about = tag_containing(&html, ">about me<");
     assert!(
-        html.contains("<a href=\"/about\" class=\"plink\">about me</a>"),
+        about.contains("href=\"/about\"") && about.contains("plink"),
         "{html}"
     );
     assert!(html.contains("latest writing"), "{html}");
@@ -222,12 +230,11 @@ fn posts_page_wraps_sorted_filter_pills_in_the_island() {
         html.contains("<leptos-island"),
         "the filter must hydrate as an island: {html}"
     );
+    let pill = tag_containing(&html, "href=\"/posts#rust\"");
+    assert!(pill.contains("class=\"tag\""), "{html}");
+    let hash = tag_containing(&html, "class=\"tag-hash\"");
     assert!(
-        html.contains("<a href=\"/posts#rust\" class=\"tag\">"),
-        "{html}"
-    );
-    assert!(
-        html.contains("<span class=\"tag-hash\" aria-hidden=\"true\">#</span>wasm"),
+        hash.contains("aria-hidden=\"true\"") && html.contains(">#</span>wasm"),
         "pills carry the post-pill hash glyph: {html}"
     );
     assert_eq!(
@@ -280,10 +287,7 @@ fn posts_page_without_tags_has_no_filter_row() {
 #[test]
 fn tag_routes_fall_through_to_the_404_page() {
     for path in ["/tags", "/tags/rust"] {
-        let html = ssr(
-            move || provide_context(RequestUrl::new(path)),
-            || leptos::view! { <App /> },
-        );
+        let html = common::app_at(path);
         assert!(html.contains("404"), "`{path}` must 404: {html}");
     }
 }

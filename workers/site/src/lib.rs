@@ -22,8 +22,8 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, ABOUT_PATH, CURRENT_KEY,
-        LISTING_PAGES, RSS_PATH, SITEMAP_PATH,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
+        LISTING_PAGES, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
     };
     use leptos::prelude::*;
     use tower_service::Service;
@@ -76,19 +76,20 @@ mod server {
             .and_then(|value| value.to_str().ok())
             .map(String::from);
 
-        // One listing handler serves all listing pages; the leptos
+        // One handler serves all listing pages and another all static
+        // pages, so a page list and the routes can't diverge; the leptos
         // router picks the page from the URL.
-        let mut router = LISTING_PAGES
+        let router = Router::new()
+            .route(POST_ROUTE, get(post_page))
+            .route(RSS_PATH, get(feed_xml))
+            .route(SITEMAP_PATH, get(sitemap_xml))
+            .route(PURGE_ROUTE, post(purge_route));
+        let router = LISTING_PAGES
             .iter()
-            .fold(
-                Router::new()
-                    .route(POST_ROUTE, get(post_page))
-                    .route(ABOUT_PATH, get(about_page))
-                    .route(RSS_PATH, get(feed_xml))
-                    .route(SITEMAP_PATH, get(sitemap_xml))
-                    .route(PURGE_ROUTE, post(purge_route)),
-                |r, path| r.route(path, get(listing_page)),
-            )
+            .fold(router, |r, path| r.route(path, get(listing_page)));
+        let mut router = STATIC_PAGES
+            .iter()
+            .fold(router, |r, path| r.route(path, get(static_page)))
             .fallback(not_found_page)
             .with_state(state);
 
@@ -229,12 +230,13 @@ mod server {
         response
     }
 
-    /// Hardcoded page, no KV read: nothing to inject and no snapshot sha to
-    /// serve as an ETag; cached under the site tag alone (deploy-purged).
+    /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha to
+    /// serve as an ETag; cached under the site tag alone — they change on
+    /// deploy (which purges `site`), never on publish.
     #[worker::send]
-    async fn about_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+    async fn static_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
         let mut response = render_page(&state, req, || ()).await;
-        mark_cacheable(&mut response, None, &cache::static_cache_tags());
+        mark_cacheable(&mut response, None, SITE_TAG);
         response
     }
 

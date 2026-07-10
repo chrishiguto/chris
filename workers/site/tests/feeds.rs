@@ -1,21 +1,23 @@
 //! Native tests for feed/sitemap rendering over a fixture index.
 
-use content::IndexEntry;
+use content::{Frontmatter, IndexEntry};
 use site::feeds;
 
 const ORIGIN: &str = "https://example.com";
 
+/// Through the real constructor, so publish-computed fields default here
+/// the same way they do in production.
 fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
-    IndexEntry {
-        slug: slug.into(),
-        title: title.into(),
-        date: date.into(),
-        description: None,
-        reading_minutes: None,
-        tags: vec![],
-        draft: false,
-        content_hash: String::new(),
-    }
+    IndexEntry::new(
+        slug,
+        &Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: vec![],
+            draft: false,
+        },
+    )
 }
 
 fn fixture_index() -> Vec<IndexEntry> {

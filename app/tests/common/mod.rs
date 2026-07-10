@@ -23,6 +23,17 @@ pub fn ssr<V: RenderHtml>(provide: impl FnOnce(), view: impl FnOnce() -> V) -> S
     strip_markers(view().to_html())
 }
 
+/// `<App />` SSR'd at a request path, the way the worker serves a page.
+pub fn app_at(path: &'static str) -> String {
+    use leptos::prelude::provide_context;
+    use leptos_router::location::RequestUrl;
+
+    ssr(
+        move || provide_context(RequestUrl::new(path)),
+        || leptos::view! { <app::app::App /> },
+    )
+}
+
 /// The opening tag around the first occurrence of `needle` — attribute
 /// order in leptos output is an implementation detail, so assertions look
 /// inside one tag instead of pinning full-tag strings.

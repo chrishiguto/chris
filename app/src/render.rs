@@ -1,7 +1,7 @@
 //! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
 //! every presentational decision lives here.
 
-use content::{reading_minutes, Document, Node};
+use content::{reading_minutes, Document, Node, POSTS_PATH};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
@@ -16,8 +16,8 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post mx-auto max-w-2xl px-6">
-            <a class="back-link" href="/posts">
-                <span class="back-link-arrow" aria-hidden="true">
+            <a class="back-link" href=POSTS_PATH>
+                <span class="link-arrow" aria-hidden="true">
                     "←"
                 </span>
                 "back to all posts"

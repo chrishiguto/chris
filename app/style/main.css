@@ -152,16 +152,18 @@
    stale icon before hydration. Moon invites the switch to dark, sun back. */
 
 @layer components {
-  /* In-prose emphasis link (design `plink`): medium weight marks it at rest,
-     the accent underline grows in via the base-layer rule. `.post-body a` in
-     post.css is the same treatment, applied to prose by element. */
-  .plink {
+  /* In-prose emphasis link (design `plink`), and the same treatment on
+     `.post-body` prose links by element: medium weight marks it at rest,
+     the accent underline grows in via the base-layer rule. */
+  .plink,
+  .post-body a {
     font-weight: 500;
     background-image: linear-gradient(var(--color-accent), var(--color-accent));
     background-size: 0% 1.5px;
   }
 
-  .plink:hover {
+  .plink:hover,
+  .post-body a:hover {
     background-size: 100% 1.5px;
   }
 
@@ -383,18 +385,21 @@
     color: var(--color-ink-2);
   }
 
-  .contact-link-arrow {
+  .contact-link:hover .link-arrow {
+    transform: translate(2px, -2px);
+  }
+
+  /* Slide-arrow glyphs, one motion primitive: each holder keeps only its
+     hover transform above; this reset must stay after them all to win the
+     specificity tie under reduced motion. */
+  .link-arrow {
     display: inline-block;
     transition: transform 200ms var(--ease-out-expo);
   }
 
-  .contact-link:hover .contact-link-arrow {
-    transform: translate(2px, -2px);
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .contact-link-arrow,
-    .contact-link:hover .contact-link-arrow {
+    .link-arrow,
+    :is(.contact-link, .back-link):hover .link-arrow {
       transition: none;
       transform: none;
     }

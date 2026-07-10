@@ -2,7 +2,7 @@
 
 use site::cache::{
     etag, is_entity_header, not_modified, parse_purge_body, post_cache_tags, revalidates,
-    static_cache_tags, view_cache_tags,
+    view_cache_tags,
 };
 
 #[test]
@@ -52,13 +52,6 @@ fn entity_headers_are_the_content_family() {
 fn cache_tags_pair_the_site_scope_with_the_specific_one() {
     assert_eq!(post_cache_tags("hello"), "site,post:hello");
     assert_eq!(view_cache_tags(), "site,views");
-}
-
-/// Static pages change on deploy, never on publish: the site tag alone, so
-/// no content purge scope can touch them.
-#[test]
-fn static_pages_cache_under_the_site_tag_only() {
-    assert_eq!(static_cache_tags(), "site");
 }
 
 /// The break-glass contract: a bodyless purge means "everything".

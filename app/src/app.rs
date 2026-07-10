@@ -14,6 +14,11 @@ use crate::post::PostPage;
 /// self-hosted/`optional` strategy (PRD: design-system migration).
 pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap";
 
+/// The localStorage key an explicit theme choice persists under; the toggle
+/// island writes it and [`THEME_SCRIPT`] reads it (a design test pins the
+/// script's copy to this constant).
+pub const THEME_STORAGE_KEY: &str = "chris-theme";
+
 /// Re-applies a stored explicit theme before any stylesheet loads, so the
 /// first paint can't flash the wrong theme (ADR-0011). A constant: the served
 /// HTML is byte-identical for every visitor, keeping the edge cache one

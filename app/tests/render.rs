@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use app::post::{PostData, PostPage};
 use app::render::{render_document, render_nodes};
-use common::{ssr, strip_markers};
+use common::{ssr, strip_markers, tag_containing};
 use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
 use leptos::prelude::RenderHtml;
 
@@ -508,8 +508,9 @@ fn post_omits_empty_tag_list() {
 fn post_renders_back_link_above_the_title() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
+    let back = tag_containing(&html, "class=\"back-link\"");
     assert!(
-        html.contains("class=\"back-link\" href=\"/posts\""),
+        back.contains("href=\"/posts\""),
         "back link missing: {html}"
     );
     assert!(
@@ -528,11 +529,18 @@ fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
-        html.contains(
-            "<p class=\"post-meta\"><span>jul 04, 2026</span>\
-             <span aria-hidden=\"true\" class=\"meta-sep\">·</span>\
-             <span>1 min</span></p>"
-        ),
+        html.contains("<p class=\"post-meta\"><span>jul 04, 2026</span>")
+            && html.contains("<span>1 min</span>"),
         "meta row must read `jul 04, 2026 · 1 min`: {html}"
+    );
+    let sep = tag_containing(&html, "meta-sep");
+    assert!(
+        sep.contains("aria-hidden=\"true\""),
+        "the separator hides from readers: {html}"
+    );
+    let sep_at = html.find("meta-sep").unwrap();
+    assert!(
+        html.find("jul 04, 2026").unwrap() < sep_at && sep_at < html.find("1 min").unwrap(),
+        "the meta row must read `date · minutes`: {html}"
     );
 }

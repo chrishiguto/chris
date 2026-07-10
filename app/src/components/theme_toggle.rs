@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 /// The two-state theme switcher (ADR-0011): flips `data-theme` on `<html>`
-/// and persists the choice to `localStorage["chris-theme"]`. Unset follows
+/// and persists the choice under [`crate::app::THEME_STORAGE_KEY`]. Unset follows
 /// the system preference; the first explicit toggle opts out forever. Both
 /// glyphs ship in the server HTML and CSS shows the one matching the
 /// effective scheme, so the button can't flash a stale icon before
@@ -23,7 +23,7 @@ pub fn ThemeToggle() -> impl IntoView {
         root.set_attribute("data-theme", next).ok();
         // Storage can be denied (privacy modes); the flip still applies.
         if let Ok(Some(storage)) = window().local_storage() {
-            storage.set_item("chris-theme", next).ok();
+            storage.set_item(crate::app::THEME_STORAGE_KEY, next).ok();
         }
     };
 
