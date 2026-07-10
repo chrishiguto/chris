@@ -326,6 +326,55 @@ fn code_block_chrome_is_styled() {
     );
 }
 
+// The site chrome contract (design NavBar + footer): a sticky translucent
+// blurred bar, nav links whose accent underline slides in on hover and stays
+// on the active route, and the mono footer hosting the konami toast.
+#[test]
+fn site_chrome_is_styled() {
+    let css = stylesheet();
+    let nav = rule_body(&css, ".site-nav {");
+    assert!(
+        nav.contains("position: sticky") && nav.contains("top: 0"),
+        "the bar must stick to the top: {nav}"
+    );
+    assert!(
+        nav.contains("backdrop-filter: blur(12px)"),
+        "the bar blurs what scrolls under it: {nav}"
+    );
+    assert!(
+        nav.contains("color-mix(in srgb, var(--color-surface) 78%, transparent)"),
+        "the bar fill is the translucent surface: {nav}"
+    );
+    let link_slide = rule_body(&css, ".nav-link::after {");
+    assert!(
+        link_slide.contains("right: 100%") && link_slide.contains("var(--color-accent)"),
+        "the accent underline starts collapsed and slides in: {link_slide}"
+    );
+    assert!(
+        css.contains(".nav-link[aria-current=\"page\"]"),
+        "the active route keeps a persistent underline"
+    );
+    let link = rule_body(&css, ".nav-link {");
+    assert!(
+        !link.contains("text-transform"),
+        "nav labels are authored lowercase, never CSS-transformed: {link}"
+    );
+    let footer = rule_body(&css, ".site-footer {");
+    assert!(
+        footer.contains("var(--font-mono)") && footer.contains("var(--color-ink-3)"),
+        "the footer signs in faint mono: {footer}"
+    );
+    let toast = rule_body(&css, ".konami-toast {");
+    assert!(
+        toast.contains("position: fixed") && toast.contains("var(--color-accent)"),
+        "the toast floats over the page with an accent border: {toast}"
+    );
+    assert!(
+        css.contains("@keyframes blink"),
+        "the toast cursor needs its blink keyframes"
+    );
+}
+
 /// The declarations of the first rule opened by `opener` (up to its `}`).
 fn rule_body<'a>(css: &'a str, opener: &str) -> &'a str {
     let start = css
@@ -466,7 +515,13 @@ fn stored_theme_is_applied_pre_paint() {
 // so the button can't flash a stale icon before hydration.
 #[test]
 fn theme_toggle_ssrs_both_glyphs_as_an_island() {
-    let html = common::ssr(|| {}, || view! { <Header /> });
+    // The route-aware header only renders inside a router with a request URL.
+    let html = common::ssr(
+        || {
+            leptos::prelude::provide_context(leptos_router::location::RequestUrl::new("/"));
+        },
+        || view! { <leptos_router::components::Router><Header /></leptos_router::components::Router> },
+    );
     assert!(
         html.contains("<leptos-island"),
         "the toggle must hydrate as an island: {html}"

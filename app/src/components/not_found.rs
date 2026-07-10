@@ -11,7 +11,9 @@ pub fn NotFound(
         "404",
         view! {
             <p class="mt-6 text-ink-2">{message}</p>
-            <a href="/" class="mt-4 inline-block text-accent underline">
+            // No `underline` utility: the base link rule already grows one,
+            // and stacking both double-underlined this link (slice-1 debt).
+            <a href="/" class="mt-4 inline-block text-accent">
                 "back home"
             </a>
         },

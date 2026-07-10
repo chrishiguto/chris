@@ -6,7 +6,7 @@ use leptos_router::{
 };
 
 use crate::about::AboutPage;
-use crate::components::{Header, NotFound};
+use crate::components::{Footer, Header, NotFound};
 use crate::listing::{HomePage, PostsPage, TagPage, TagsPage};
 use crate::post::PostPage;
 
@@ -57,20 +57,23 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Title text="chris" />
+        <Title text="~/chris" />
 
         <Router>
-            <Header />
-            <main>
-                <Routes fallback=|| view! { <NotFound /> }>
-                    <Route path=StaticSegment("") view=HomePage />
-                    <Route path=StaticSegment("posts") view=PostsPage />
-                    <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
-                    <Route path=StaticSegment("about") view=AboutPage />
-                    <Route path=StaticSegment("tags") view=TagsPage />
-                    <Route path=(StaticSegment("tags"), ParamSegment("tag")) view=TagPage />
-                </Routes>
-            </main>
+            <div class="flex min-h-screen flex-col">
+                <Header />
+                <main class="flex-1">
+                    <Routes fallback=|| view! { <NotFound /> }>
+                        <Route path=StaticSegment("") view=HomePage />
+                        <Route path=StaticSegment("posts") view=PostsPage />
+                        <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
+                        <Route path=StaticSegment("about") view=AboutPage />
+                        <Route path=StaticSegment("tags") view=TagsPage />
+                        <Route path=(StaticSegment("tags"), ParamSegment("tag")) view=TagPage />
+                    </Routes>
+                </main>
+                <Footer />
+            </div>
         </Router>
     }
 }

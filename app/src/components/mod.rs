@@ -5,12 +5,16 @@ use leptos_meta::Title;
 
 pub mod blog;
 pub mod copy_button;
+pub mod footer;
 pub mod header;
+pub mod konami;
 pub mod not_found;
 pub mod theme_toggle;
 
 pub use copy_button::CopyButton;
+pub use footer::Footer;
 pub use header::Header;
+pub use konami::Konami;
 pub use not_found::NotFound;
 pub use theme_toggle::ThemeToggle;
 
