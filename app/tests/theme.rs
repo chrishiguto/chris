@@ -347,12 +347,21 @@ fn site_chrome_is_styled() {
     );
     let link_slide = rule_body(&css, ".nav-link::after {");
     assert!(
-        link_slide.contains("right: 100%") && link_slide.contains("var(--color-accent)"),
+        link_slide.contains("right: 100%"),
         "the accent underline starts collapsed and slides in: {link_slide}"
     );
     assert!(
         css.contains(".nav-link[aria-current=\"page\"]"),
         "the active route keeps a persistent underline"
+    );
+    assert!(
+        css.contains(".nav-link,\n  .nav-seg {"),
+        "the slug shares the nav-link box so its underline sits inside the truncation clip"
+    );
+    let shared_line = rule_body(&css, ".nav-link::after,\n  .nav-seg::after {");
+    assert!(
+        shared_line.contains("var(--color-accent)"),
+        "one grouped rule paints the accent you-are-here line for links and slug alike: {shared_line}"
     );
     let link = rule_body(&css, ".nav-link {");
     assert!(

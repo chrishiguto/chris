@@ -1,3 +1,6 @@
+// Deeply nested tachys view types in the islands overflow rustc's default query depth.
+#![recursion_limit = "256"]
+
 pub mod about;
 pub mod app;
 pub mod components;

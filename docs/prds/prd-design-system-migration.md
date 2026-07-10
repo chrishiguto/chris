@@ -179,6 +179,11 @@ the stylesheet (ADR-0011). The base document title becomes `~/chris`.
 "blog". A footer renders on every page (copyright line + konami hint) and hosts the konami
 island. The toast easter egg ships with the hint as a package.
 
+> **Amendment (2026-07-10)**: "switches to the breadcrumb variant" shipped as the whole bar
+> switching — the mono nav disappeared on post pages, leaving `/about` unreachable and
+> nothing that reads as navigation. Only the wordmark gives way to the breadcrumb now; the
+> nav links and toggle render on every page.
+
 **Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
 + three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter
 island, ADR-0012) over the server-rendered post list, each row in the design's PostRow

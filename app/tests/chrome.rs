@@ -1,5 +1,6 @@
-//! Site chrome: the route-aware nav (bar vs terminal breadcrumb) and the
-//! footer with its konami package — all fully server-rendered.
+//! Site chrome: the route-aware bar (wordmark vs terminal breadcrumb, nav
+//! links on every page) and the footer with its konami package — all fully
+//! server-rendered.
 #![cfg(feature = "ssr")]
 
 use app::app::App;
@@ -28,6 +29,20 @@ fn header_at(path: &'static str) -> String {
     )
 }
 
+/// The mono nav links render on every page, whatever the left slot shows.
+fn assert_global_nav_links(html: &str) {
+    let writing = tag_containing(html, ">writing<");
+    assert!(
+        writing.contains("href=\"/posts\"") && writing.contains("nav-link"),
+        "`writing` must be a nav-link to /posts: {html}"
+    );
+    let about = tag_containing(html, ">about<");
+    assert!(
+        about.contains("href=\"/about\"") && about.contains("nav-link"),
+        "`about` must be a nav-link to /about: {html}"
+    );
+}
+
 #[test]
 fn bar_variant_carries_the_wordmark_nav_and_toggle() {
     let html = header_at("/");
@@ -40,16 +55,7 @@ fn bar_variant_carries_the_wordmark_nav_and_toggle() {
         mark.contains("href=\"/\""),
         "the wordmark links home: {html}"
     );
-    let writing = tag_containing(&html, ">writing<");
-    assert!(
-        writing.contains("href=\"/posts\"") && writing.contains("nav-link"),
-        "`writing` must be a nav-link to /posts: {html}"
-    );
-    let about = tag_containing(&html, ">about<");
-    assert!(
-        about.contains("href=\"/about\"") && about.contains("nav-link"),
-        "`about` must be a nav-link to /about: {html}"
-    );
+    assert_global_nav_links(&html);
     assert!(
         html.contains("theme-toggle"),
         "the bar variant keeps the theme toggle: {html}"
@@ -88,7 +94,7 @@ fn active_nav_link_follows_the_route() {
 }
 
 #[test]
-fn post_pages_switch_to_the_terminal_breadcrumb() {
+fn post_pages_swap_the_wordmark_for_the_terminal_breadcrumb() {
     let html = header_at("/posts/missing-await");
     assert!(
         html.contains("nav-path"),
@@ -106,8 +112,13 @@ fn post_pages_switch_to_the_terminal_breadcrumb() {
         "the slug is the active (unlinked) segment: {html}"
     );
     assert!(
-        !html.contains("nav-mark") && !html.contains("nav-link"),
-        "the bar variant is gone on post pages: {html}"
+        !html.contains("nav-mark"),
+        "the wordmark gives way to the breadcrumb on post pages: {html}"
+    );
+    assert_global_nav_links(&html);
+    assert!(
+        !html.contains("aria-current"),
+        "no nav link claims the post page — the underlined slug marks the spot: {html}"
     );
     assert!(
         html.contains("theme-toggle"),
@@ -116,14 +127,14 @@ fn post_pages_switch_to_the_terminal_breadcrumb() {
 }
 
 // Paths under /posts/ that no route matches (deep or empty) are 404s and
-// keep the bar variant — the breadcrumb only describes real post routes.
+// keep the wordmark — the breadcrumb only describes real post routes.
 #[test]
-fn unmatched_post_paths_keep_the_bar() {
+fn unmatched_post_paths_keep_the_wordmark() {
     for path in ["/posts/", "/posts/a/b"] {
         let html = header_at(path);
         assert!(
             html.contains("nav-mark") && !html.contains("nav-path"),
-            "`{path}` must keep the bar variant: {html}"
+            "`{path}` must keep the wordmark: {html}"
         );
     }
 }

@@ -4,27 +4,25 @@ use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// `/posts/{slug}` → the slug: the one route family whose chrome switches to
-/// the terminal breadcrumb. Anything deeper (or empty) matches no route, so
-/// it 404s under the ordinary bar.
+/// `/posts/{slug}` → the slug: the one route family where the wordmark gives
+/// way to the terminal breadcrumb. Anything deeper (or empty) matches no
+/// route, so it 404s under the wordmark.
 fn breadcrumb_slug(path: &str) -> Option<&str> {
     let slug = path.strip_prefix("/posts/")?;
     (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
-/// The sticky site bar (design NavBar): `~/chris` wordmark plus mono nav on
-/// listing pages, the `~/chris/posts/{slug}` breadcrumb on post pages — both
-/// fully server-rendered from the request URL, with the theme toggle at the
-/// right end either way.
+/// The sticky site bar (design NavBar): `~/chris` wordmark on listing pages,
+/// the `~/chris/posts/{slug}` breadcrumb on post pages — both fully
+/// server-rendered from the request URL, with the mono nav and theme toggle
+/// at the right end on every page.
 #[component]
 pub fn Header() -> impl IntoView {
     // Read once, non-reactively: outside islands nothing runs client-side,
     // so the header is a pure per-request render (every navigation is a
     // full page load).
     let path = use_location().pathname.get_untracked();
-    let slug = breadcrumb_slug(&path).map(str::to_string);
-    let links = slug.is_none().then(|| bar_links(&path));
-    let left = match slug {
+    let left = match breadcrumb_slug(&path).map(str::to_string) {
         Some(slug) => breadcrumb(slug).into_any(),
         None => wordmark().into_any(),
     };
@@ -32,7 +30,10 @@ pub fn Header() -> impl IntoView {
     view! {
         <header class="site-nav">
             <div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-6 px-6">
-                {left} <nav class="flex items-center gap-1">{links} <ThemeToggle /></nav>
+                {left}
+                <nav class="flex shrink-0 items-center gap-1">
+                    {bar_links(&path)} <ThemeToggle />
+                </nav>
             </div>
         </header>
     }
