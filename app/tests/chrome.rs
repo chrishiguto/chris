@@ -139,6 +139,27 @@ fn unmatched_post_paths_keep_the_wordmark() {
     }
 }
 
+// The toggle island SSRs both glyphs (ADR-0011): CSS picks the visible one,
+// so the button can't flash a stale icon before hydration.
+#[test]
+fn theme_toggle_ssrs_both_glyphs_as_an_island() {
+    let html = header_at("/");
+    assert!(
+        html.contains("<leptos-island"),
+        "the toggle must hydrate as an island: {html}"
+    );
+    for needle in [
+        "class=\"theme-toggle\"",
+        "aria-label=\"toggle theme\"",
+        "glyph-moon",
+        "glyph-sun",
+        "☾",
+        "☀",
+    ] {
+        assert!(html.contains(needle), "toggle missing `{needle}`: {html}");
+    }
+}
+
 #[test]
 fn footer_ships_copyright_and_the_konami_package() {
     let html = common::ssr(|| {}, || view! { <Footer /> });

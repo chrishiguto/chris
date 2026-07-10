@@ -1,15 +1,16 @@
-//! Theme guards: every rendered element gets a `.post` selector, tokens are
-//! oklch declared once via `light-dark()`, and fonts load from Google Fonts.
+//! Design-system guards, stylesheet side: tokens are oklch `light-dark()`
+//! declared once, every rendered element has a `.post-body` selector (the
+//! kitchen-sink fixture proves the converse — every selector has markup),
+//! and each surface keeps its design treatment. HTML shapes live in the
+//! per-surface suites (chrome, listing, render, about).
 #![cfg(feature = "ssr")]
 
 use std::fs;
 use std::path::Path;
 
 use app::app::{shell, GOOGLE_FONTS_URL, THEME_SCRIPT};
-use app::components::Header;
 use app::render::render_document;
 use leptos::prelude::{LeptosOptions, RenderHtml};
-use leptos::view;
 
 mod common;
 
@@ -256,7 +257,7 @@ fn callout_and_error_surfaces_are_styled() {
             "no `{class}` styling in the stylesheet"
         );
     }
-    let base = rule_body(&css, ".callout {");
+    let base = rule_body(&css, &[".callout"]);
     assert!(
         base.contains("background-color: var(--color-accent-subtle)"),
         "note/tip must fill with accent-subtle: {base}"
@@ -265,7 +266,7 @@ fn callout_and_error_surfaces_are_styled() {
         !base.contains("border-inline-start"),
         "no left-border stripes on callouts: {base}"
     );
-    let warning = rule_body(&css, ".callout-warning {");
+    let warning = rule_body(&css, &[".callout-warning"]);
     assert!(
         warning.contains("--callout-hue: var(--color-danger)"),
         "warning label must read danger: {warning}"
@@ -274,12 +275,12 @@ fn callout_and_error_surfaces_are_styled() {
         warning.contains("background-color: transparent"),
         "warning must hold the fill back: {warning}"
     );
-    let danger = rule_body(&css, ".callout-danger {");
+    let danger = rule_body(&css, &[".callout-danger"]);
     assert!(
         danger.contains("background-color: color-mix(in oklab, var(--color-danger)"),
         "danger must fill danger-tinted: {danger}"
     );
-    let error = rule_body(&css, ".component-error {");
+    let error = rule_body(&css, &[".component-error"]);
     assert!(
         error.contains("var(--color-danger)"),
         "component errors must stay danger-jarring: {error}"
@@ -293,7 +294,7 @@ fn callout_and_error_surfaces_are_styled() {
 #[test]
 fn code_block_chrome_is_styled() {
     let css = stylesheet();
-    let block = rule_body(&css, ".code-block {");
+    let block = rule_body(&css, &[".code-block"]);
     for needle in [
         "background-color: var(--color-surface-2)",
         "border: 1px solid var(--color-line)",
@@ -302,7 +303,7 @@ fn code_block_chrome_is_styled() {
     ] {
         assert!(block.contains(needle), "missing `{needle}`: {block}");
     }
-    let bar = rule_body(&css, ".code-bar {");
+    let bar = rule_body(&css, &[".code-bar"]);
     for needle in [
         "justify-content: space-between",
         "border-bottom: 1px solid var(--color-line)",
@@ -310,7 +311,7 @@ fn code_block_chrome_is_styled() {
     ] {
         assert!(bar.contains(needle), "missing `{needle}`: {bar}");
     }
-    let pre = rule_body(&css, ".post-body pre {");
+    let pre = rule_body(&css, &[".post-body pre"]);
     for needle in [
         "margin: 0",
         "overflow-x: auto",
@@ -319,7 +320,7 @@ fn code_block_chrome_is_styled() {
     ] {
         assert!(pre.contains(needle), "missing `{needle}`: {pre}");
     }
-    let copy_hover = rule_body(&css, ".code-copy:hover {");
+    let copy_hover = rule_body(&css, &[".code-copy:hover"]);
     assert!(
         copy_hover.contains("color: var(--color-accent)"),
         "the copy button must warm to accent on hover: {copy_hover}"
@@ -332,7 +333,7 @@ fn code_block_chrome_is_styled() {
 #[test]
 fn site_chrome_is_styled() {
     let css = stylesheet();
-    let nav = rule_body(&css, ".site-nav {");
+    let nav = rule_body(&css, &[".site-nav"]);
     assert!(
         nav.contains("position: sticky") && nav.contains("top: 0"),
         "the bar must stick to the top: {nav}"
@@ -345,7 +346,7 @@ fn site_chrome_is_styled() {
         nav.contains("color-mix(in srgb, var(--color-surface) 78%, transparent)"),
         "the bar fill is the translucent surface: {nav}"
     );
-    let link_slide = rule_body(&css, ".nav-link::after {");
+    let link_slide = rule_body(&css, &[".nav-link::after"]);
     assert!(
         link_slide.contains("right: 100%"),
         "the accent underline starts collapsed and slides in: {link_slide}"
@@ -354,26 +355,27 @@ fn site_chrome_is_styled() {
         css.contains(".nav-link[aria-current=\"page\"]"),
         "the active route keeps a persistent underline"
     );
+    let shared_box = rule_body(&css, &[".nav-link", ".nav-seg"]);
     assert!(
-        css.contains(".nav-link,\n  .nav-seg {"),
-        "the slug shares the nav-link box so its underline sits inside the truncation clip"
+        shared_box.contains("position: relative"),
+        "the slug shares the nav-link box so its underline sits inside the truncation clip: {shared_box}"
     );
-    let shared_line = rule_body(&css, ".nav-link::after,\n  .nav-seg::after {");
+    let shared_line = rule_body(&css, &[".nav-link::after", ".nav-seg::after"]);
     assert!(
         shared_line.contains("var(--color-accent)"),
         "one grouped rule paints the accent you-are-here line for links and slug alike: {shared_line}"
     );
-    let link = rule_body(&css, ".nav-link {");
+    let link = rule_body(&css, &[".nav-link"]);
     assert!(
         !link.contains("text-transform"),
         "nav labels are authored lowercase, never CSS-transformed: {link}"
     );
-    let footer = rule_body(&css, ".site-footer {");
+    let footer = rule_body(&css, &[".site-footer"]);
     assert!(
         footer.contains("var(--font-mono)") && footer.contains("var(--color-ink-3)"),
         "the footer signs in faint mono: {footer}"
     );
-    let toast = rule_body(&css, ".konami-toast {");
+    let toast = rule_body(&css, &[".konami-toast"]);
     assert!(
         toast.contains("position: fixed") && toast.contains("var(--color-accent)"),
         "the toast floats over the page with an accent border: {toast}"
@@ -384,15 +386,74 @@ fn site_chrome_is_styled() {
     );
 }
 
-/// The declarations of the first rule opened by `opener` (up to its `}`).
-fn rule_body<'a>(css: &'a str, opener: &str) -> &'a str {
-    let start = css
-        .find(opener)
-        .unwrap_or_else(|| panic!("no `{opener}` rule in the stylesheet"));
-    let len = css[start..]
-        .find('}')
-        .unwrap_or_else(|| panic!("unterminated `{opener}` rule"));
-    &css[start..start + len]
+/// The declarations of the one rule whose selector list is exactly
+/// `selectors` — any order, any formatting, so a stylesheet reflow can't
+/// break a guard. Matching the whole set keeps a grouped rule distinct from
+/// its selectors' standalone rules; more than one match panics instead of
+/// silently guarding the first.
+fn rule_body<'a>(css: &'a str, selectors: &[&str]) -> &'a str {
+    let mut want: Vec<String> = selectors.iter().map(|s| normalize(s)).collect();
+    want.sort();
+    let mut matches = Vec::new();
+    let mut stack = Vec::new();
+    let mut prelude_start = 0;
+    let bytes = css.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            // Comments may hold braces; skip them whole.
+            b'/' if bytes.get(i + 1) == Some(&b'*') => {
+                i += css[i..].find("*/").map_or(css.len() - i, |end| end + 2);
+                continue;
+            }
+            b'{' => {
+                stack.push((strip_comments(&css[prelude_start..i]), i + 1));
+                prelude_start = i + 1;
+            }
+            b'}' => {
+                if let Some((prelude, body_start)) = stack.pop() {
+                    let mut have: Vec<String> = prelude.split(',').map(normalize).collect();
+                    have.sort();
+                    if have == want {
+                        matches.push(&css[body_start..i]);
+                    }
+                }
+                prelude_start = i + 1;
+            }
+            b';' => prelude_start = i + 1,
+            _ => {}
+        }
+        i += 1;
+    }
+    match matches[..] {
+        [body] => body,
+        [] => panic!("no `{}` rule in the stylesheet", selectors.join(", ")),
+        _ => panic!(
+            "`{}` opens {} rules — a guard must name exactly one",
+            selectors.join(", "),
+            matches.len()
+        ),
+    }
+}
+
+/// Selector text with whitespace runs collapsed, so formatting can't matter.
+fn normalize(selector: &str) -> String {
+    selector.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// A rule's prelude spans from the previous rule, so the comment above a
+/// rule lands in it; selectors are what's left once comments go.
+fn strip_comments(prelude: &str) -> String {
+    let mut out = String::new();
+    let mut rest = prelude;
+    while let Some(start) = rest.find("/*") {
+        out.push_str(&rest[..start]);
+        rest = rest[start..]
+            .find("*/")
+            .map_or("", |end| &rest[start + end + 2..]);
+    }
+    out.push_str(rest);
+    out
 }
 
 #[test]
@@ -420,7 +481,7 @@ fn listing_and_tag_surfaces_are_styled() {
 #[test]
 fn tag_filter_states_are_styled() {
     let css = stylesheet();
-    let active = rule_body(&css, "a.tag.tag-active {");
+    let active = rule_body(&css, &["a.tag.tag-active"]);
     assert!(
         active.contains("background-color: var(--color-accent-subtle)"),
         "the active pill fills accent-subtle: {active}"
@@ -429,7 +490,7 @@ fn tag_filter_states_are_styled() {
         active.contains("border-color: var(--color-accent)"),
         "{active}"
     );
-    let empty = rule_body(&css, ".filter-empty {");
+    let empty = rule_body(&css, &[".filter-empty"]);
     assert!(empty.contains("var(--font-mono)"), "{empty}");
     assert!(empty.contains("var(--color-ink-3)"), "{empty}");
 }
@@ -537,39 +598,6 @@ fn stored_theme_is_applied_pre_paint() {
         script < stylesheet,
         "the theme script must run before any stylesheet loads"
     );
-}
-
-// The toggle island SSRs both glyphs (ADR-0011): CSS picks the visible one,
-// so the button can't flash a stale icon before hydration.
-#[test]
-fn theme_toggle_ssrs_both_glyphs_as_an_island() {
-    // The route-aware header only renders inside a router with a request URL.
-    let html = common::ssr(
-        || {
-            leptos::prelude::provide_context(leptos_router::location::RequestUrl::new("/"));
-        },
-        || {
-            view! {
-                <leptos_router::components::Router>
-                    <Header />
-                </leptos_router::components::Router>
-            }
-        },
-    );
-    assert!(
-        html.contains("<leptos-island"),
-        "the toggle must hydrate as an island: {html}"
-    );
-    for needle in [
-        "class=\"theme-toggle\"",
-        "aria-label=\"toggle theme\"",
-        "glyph-moon",
-        "glyph-sun",
-        "☾",
-        "☀",
-    ] {
-        assert!(html.contains(needle), "toggle missing `{needle}`: {html}");
-    }
 }
 
 // The glyphs follow the effective scheme in CSS alone: an explicit
