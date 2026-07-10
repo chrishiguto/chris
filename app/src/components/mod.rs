@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use leptos_meta::Title;
 
 pub mod blog;
-pub mod copy_button;
+pub mod code_block;
 pub mod footer;
 pub mod header;
 pub mod konami;
@@ -12,7 +12,7 @@ pub mod not_found;
 pub mod tag_filter;
 pub mod theme_toggle;
 
-pub use copy_button::CopyButton;
+pub use code_block::CodeBlock;
 pub use footer::Footer;
 pub use header::Header;
 pub use konami::Konami;

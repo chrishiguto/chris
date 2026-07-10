@@ -5,7 +5,7 @@ use content::{reading_minutes, Document, Node, POSTS_PATH};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{meta_row, CopyButton, TagPill};
+use crate::components::{meta_row, CodeBlock, TagPill};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing.
@@ -101,28 +101,8 @@ fn render_node(node: &Node) -> AnyView {
                 view! { <ul>{items}</ul> }.into_any()
             }
         }
-        // The chrome bar names the fence language; the
-        // copy button finds this wrapper by class, so they move together.
-        // `class=Option::None` still emits `class=""`, so branch instead.
         Node::CodeBlock { lang, text } => {
-            let label = lang.clone().unwrap_or_else(|| "code".into());
-            let code = match lang {
-                Some(lang) => {
-                    view! { <code class=format!("language-{lang}")>{text.clone()}</code> }
-                        .into_any()
-                }
-                None => view! { <code>{text.clone()}</code> }.into_any(),
-            };
-            view! {
-                <div class="code-block">
-                    <div class="code-bar">
-                        <span class="code-lang">{label}</span>
-                        <CopyButton />
-                    </div>
-                    <pre>{code}</pre>
-                </div>
-            }
-            .into_any()
+            view! { <CodeBlock lang=lang.clone() text=text.clone() /> }.into_any()
         }
         Node::Blockquote { children } => {
             view! { <blockquote>{render_nodes(children)}</blockquote> }.into_any()

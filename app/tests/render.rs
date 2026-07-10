@@ -167,11 +167,10 @@ fn code_block_renders_chrome_bar_with_language_label() {
     );
 }
 
-// The copy button hydrates as an island with zero props: it reads the code
-// from the DOM at click time, so the source text ships in the page exactly
-// once.
+// The copy button hydrates as an island with the source as its prop: the
+// component owns its data instead of reading it back out of the DOM.
 #[test]
-fn copy_button_is_a_zero_prop_island() {
+fn copy_button_receives_the_source_as_its_prop() {
     let html = html_of(vec![Node::CodeBlock {
         lang: Some("rust".into()),
         text: "fn main() {}".into(),
@@ -186,8 +185,8 @@ fn copy_button_is_a_zero_prop_island() {
     );
     assert_eq!(
         html.matches("fn main() {}").count(),
-        1,
-        "code text must ship exactly once: {html}"
+        2,
+        "the source ships rendered once, plus once as the island's prop: {html}"
     );
 }
 

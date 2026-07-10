@@ -197,6 +197,11 @@ tag routes and their components are deleted.
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island
 that reads the adjacent code text from the DOM — the code is never serialized twice.
+
+> **Amendment (2026-07-10)**: the copy button is now part of a `CodeBlock` component and
+> takes the source as a prop instead of reading the adjacent DOM — component cohesion wins
+> over the never-serialized-twice rule, whose cost gzip absorbs (the prop sits right next
+> to the rendered copy).
 Callouts keep all four kinds and the optional title but collapse to two hue families
 (note/tip → accent; warning/danger → danger) with a mono `// kind` label row; the
 component-error style re-points at `danger`.
