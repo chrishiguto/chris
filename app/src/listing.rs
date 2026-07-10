@@ -56,8 +56,6 @@ fn empty_state(message: String) -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">{message}</p> }
 }
 
-const NOTHING_PUBLISHED: &str = "Nothing published yet — check back soon.";
-
 /// Every tag on a listed post, deduped and sorted — the filter pill set.
 fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
     entries
@@ -69,15 +67,11 @@ fn all_tags(entries: &[IndexEntry]) -> Vec<String> {
         .collect()
 }
 
-/// The `$ ls` empty state; ships hidden — only the filter island
-/// ever shows it, so no-JS readers never see it under the full list.
-const FILTER_EMPTY: &str = "$ ls — nothing here yet";
-
 #[component]
 pub fn PostsPage() -> impl IntoView {
     let entries = listed_entries();
     let listing = if entries.is_empty() {
-        empty_state(NOTHING_PUBLISHED.into()).into_any()
+        empty_state("Nothing published yet — check back soon.".into()).into_any()
     } else {
         let tags = all_tags(&entries);
         let pills: Vec<_> = tags.into_iter().map(tag_pill).collect();
@@ -88,10 +82,12 @@ pub fn PostsPage() -> impl IntoView {
                 </TagFilter>
             }
         });
+        // Ships hidden — only the filter island ever shows it, so no-JS
+        // readers never see it under the full list.
         let ls_empty = filter.is_some().then(|| {
             view! {
                 <p class="filter-empty" hidden>
-                    {FILTER_EMPTY}
+                    "$ ls — nothing here yet"
                 </p>
             }
         });
@@ -110,19 +106,23 @@ pub fn HomePage() -> impl IntoView {
     let entries = listed_entries();
     let total = entries.len();
     let recent: Vec<_> = entries.into_iter().take(RECENT_POSTS).collect();
-    let latest = if recent.is_empty() {
-        empty_state(NOTHING_PUBLISHED.into()).into_any()
-    } else {
-        view! {
-            <div class="mt-4">{post_list(recent)}</div>
+    let has_posts = !recent.is_empty();
+    // Type-erased: the fully typed Show nested into the page view overflows
+    // rustc's query depth.
+    let latest = view! {
+        <Show
+            when=move || has_posts
+            fallback=|| empty_state("Nothing published yet — check back soon.".into())
+        >
+            <div class="mt-4">{post_list(recent.clone())}</div>
             <p class="mt-4 text-ink-2">
                 "that's the latest three. " <a href=POSTS_PATH class="plink">
                     {format!("read all {total} posts →")}
                 </a>
             </p>
-        }
-        .into_any()
-    };
+        </Show>
+    }
+    .into_any();
     page(
         None,
         "hey, i'm chris",
