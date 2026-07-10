@@ -1,0 +1,48 @@
+/* Tag pills: the `.post-tags` row shared by the article bottom and the
+   writing page's filter. */
+
+@layer components {
+  .post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 2.25rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-ink-2);
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid var(--color-line);
+    border-radius: 9999px;
+    padding: 0.1875rem 0.6875rem;
+    transition:
+      color 120ms var(--ease-out),
+      border-color 120ms var(--ease-out);
+  }
+
+  .tag-hash {
+    opacity: 0.6;
+  }
+
+  a.tag:hover {
+    color: var(--color-accent);
+    border-color: var(--color-accent);
+  }
+
+  /* Active pill: the filter island marks the pill whose tag is in the URL
+     hash. Ties the hover rule's specificity and sits after it, so an active
+     pill keeps this look under the cursor. */
+  a.tag.tag-active {
+    color: var(--color-accent);
+    background-color: var(--color-accent-subtle);
+    border-color: var(--color-accent);
+  }
+}

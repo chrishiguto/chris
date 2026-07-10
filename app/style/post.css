@@ -1,6 +1,7 @@
 /* Prose for the AST renderer: bare semantic elements inside `.post-body`,
    styled via flat `.post-body <element>` selectors so nothing reaches the
-   post header chrome. */
+   post header chrome — plus that chrome (meta row, back link) and the
+   renderer's error surface. */
 
 @layer components {
   /* Width/centering come from utilities on the article; only rhythm lives here. */
@@ -101,7 +102,17 @@
     margin-block: 1.25em;
   }
 
-  /* Prose links share the `.plink` treatment — one grouped rule in main.css. */
+  /* Prose links wear the `.plink` emphasis treatment (main.css), applied by
+     element because the renderer emits bare markdown anchors. */
+  .post-body a {
+    font-weight: 500;
+    background-image: linear-gradient(var(--color-accent), var(--color-accent));
+    background-size: 0% 1.5px;
+  }
+
+  .post-body a:hover {
+    background-size: 100% 1.5px;
+  }
 
   .post-body strong {
     font-weight: 700;
@@ -114,56 +125,6 @@
     border: 1px solid var(--color-line);
     border-radius: 0.25rem;
     padding: 0.125em 0.375em;
-  }
-
-  /* Chromed code panel: the wrapper owns fill, border and radius;
-     `overflow: hidden` clips the bar into the rounded corners. */
-  .code-block {
-    margin-block: 1.5em;
-    background-color: var(--color-surface-2);
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    overflow: hidden;
-    font-family: var(--font-mono);
-  }
-
-  .code-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 0.875rem;
-    border-bottom: 1px solid var(--color-line);
-    font-size: 0.75rem;
-    color: var(--color-ink-3);
-  }
-
-  .code-copy {
-    padding: 0.125rem 0.375rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    color: var(--color-ink-3);
-    cursor: pointer;
-    transition: color 120ms var(--ease-out);
-  }
-
-  .code-copy:hover {
-    color: var(--color-accent);
-  }
-
-  .post-body pre {
-    margin: 0;
-    padding: 0.875rem 1rem;
-    overflow-x: auto;
-    font-size: 0.8125rem;
-    line-height: 1.65;
-  }
-
-  .post-body pre code {
-    background-color: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 0;
-    font-size: 1em;
   }
 
   .post-body ul,
@@ -207,208 +168,6 @@
     margin-block: 3em;
     border: none;
     border-top: 1px solid var(--color-line);
-  }
-
-  /* Tag pills, shared by the article bottom and the writing page's filter
-     row; prose rules are scoped to `.post-body`, so nothing bleeds in here. */
-
-  .post-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 2.25rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--color-ink-2);
-    background-color: transparent;
-    background-image: none;
-    border: 1px solid var(--color-line);
-    border-radius: 9999px;
-    padding: 0.1875rem 0.6875rem;
-    transition:
-      color 120ms var(--ease-out),
-      border-color 120ms var(--ease-out);
-  }
-
-  .tag-hash {
-    opacity: 0.6;
-  }
-
-  a.tag:hover {
-    color: var(--color-accent);
-    border-color: var(--color-accent);
-  }
-
-  /* Active pill: the filter island marks the pill whose tag is in the URL
-     hash. Ties the hover rule's specificity and sits after it, so an active
-     pill keeps this look under the cursor. */
-  a.tag.tag-active {
-    color: var(--color-accent);
-    background-color: var(--color-accent-subtle);
-    border-color: var(--color-accent);
-  }
-
-  /* The writing page's `$ ls` state: ships hidden; the filter island unhides
-     it when no row matches the active tag. */
-  .filter-empty {
-    margin: 2rem 0 0;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-ink-3);
-  }
-
-  /* Listing rows, a dividerless stack; the markup shape is
-     ul.post-list > li > a.post-row. Context spacing belongs to the pages,
-     so the list itself carries no margin. */
-
-  .post-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  /* The whole row is the link; a block link keeps the base-layer underline off.
-     Negative inline margin lets the row padding overhang the text column. */
-  .post-row {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 0.625rem 0.75rem;
-    margin-inline: -0.75rem;
-    border-radius: 0.375rem;
-    background-image: none;
-    color: inherit;
-  }
-
-  .post-row-top {
-    display: flex;
-    align-items: baseline;
-    gap: 0.75rem;
-  }
-
-  .post-row-title {
-    flex: 1;
-    min-width: 0;
-    font-size: 1.0625rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-    line-height: 1.4;
-    transition: color 200ms var(--ease-out);
-  }
-
-  /* The slide-in arrow: invisible at rest, fades and slides in on row hover,
-     slightly delayed so it reads as a response to the title turning accent. */
-  .post-row-lead {
-    display: inline-block;
-    margin-left: 0.4375rem;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    letter-spacing: 0;
-    color: var(--color-accent);
-    opacity: 0;
-    transform: translateX(-5px);
-    transition:
-      opacity 200ms var(--ease-out) 90ms,
-      transform 200ms var(--ease-out-expo) 90ms;
-  }
-
-  .post-row:hover .post-row-title {
-    color: var(--color-accent);
-  }
-
-  .post-row:hover .post-row-lead {
-    opacity: 1;
-    transform: translateX(0);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .post-row-lead,
-    .post-row:hover .post-row-lead {
-      transform: none;
-      transition: opacity 200ms var(--ease-out) 90ms;
-    }
-  }
-
-  .post-row-meta {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.375rem;
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--color-ink-3);
-    white-space: nowrap;
-  }
-
-  .post-row-desc {
-    font-size: 0.8125rem;
-    line-height: 1.45;
-    color: var(--color-ink-2);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  /* Component surfaces. */
-
-  /* Code-comment asides: a mono `// kind` label row in the family hue, flat
-     1px border, no left-border stripes, ever. Two hue families — note/tip
-     accent, warning/danger danger — with severity read through fill
-     intensity: subtle tint, no tint, danger tint. */
-  .callout {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    margin-block: 1.5em;
-    padding: 0.875rem 1rem;
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    background-color: var(--color-accent-subtle);
-  }
-
-  .callout-warning {
-    background-color: transparent;
-  }
-
-  .callout-danger {
-    background-color: color-mix(in oklab, var(--color-danger) 8%, var(--color-surface));
-  }
-
-  .callout-label {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    letter-spacing: 0.06em;
-    text-transform: lowercase;
-    color: var(--color-accent);
-  }
-
-  /* The warning/danger family's labels read danger; severity within the
-     family shows in the fill alone. */
-  .callout-warning .callout-label,
-  .callout-danger .callout-label {
-    color: var(--color-danger);
-  }
-
-  /* Doubled selector so the margin reset outranks `.post-body p`. */
-  .callout .callout-title {
-    margin: 0;
-    font-weight: 600;
-    font-size: 0.9375rem;
-  }
-
-  .callout-body > :first-child {
-    margin-top: 0;
-  }
-
-  .callout-body > :last-child {
-    margin-bottom: 0;
   }
 
   /* Bad KV data must fail loudly; deliberately jarring in both modes. */
