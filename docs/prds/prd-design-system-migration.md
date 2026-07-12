@@ -103,6 +103,10 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
     that tag, so that I can find related posts.
 18. As a reader on a post page, I want a terminal breadcrumb (`~/chris/posts/{slug}`) and a
     "back to all posts" link, so that I always know where I am and how to get back.
+
+    > **Amendment (2026-07-12)**: the breadcrumb ships in the article body (see Chrome
+    > below) and replaces the "back to all posts" link — two stacked up-navigation rows
+    > read as clutter, and the breadcrumb's linked `posts` segment is the way back.
 19. As a reader, I want an about page with a short bio, what the author is currently into,
     and contact links, so that I can learn who writes this.
 20. As a reader, I want a footer on every page, so that the site feels finished and signed.
@@ -183,6 +187,12 @@ island. The toast easter egg ships with the hint as a package.
 > switching — the mono nav disappeared on post pages, leaving `/about` unreachable and
 > nothing that reads as navigation. Only the wordmark gives way to the breadcrumb now; the
 > nav links and toggle render on every page.
+
+> **Amendment (2026-07-12)**: the breadcrumb left the bar entirely. Mixing it into the
+> header coupled it to the wordmark — which stays the site's mark (eventually an image),
+> not a path root. The bar now carries the wordmark on every page, and the post article
+> opens with the breadcrumb (`~/chris / posts / {slug}`) in the body, replacing the
+> "back to all posts" link.
 
 **Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
 + three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter

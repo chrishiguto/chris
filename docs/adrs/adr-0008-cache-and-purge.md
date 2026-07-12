@@ -128,6 +128,19 @@ unchanged — changed posts' tags plus `views` — it simply selects fewer cache
 Filter state rides the URL hash, which never reaches the cache key, so Workers Cache still
 sees exactly one `/posts` page.
 
+*Amendment (2026-07-12, deploy-aware ETags):* the snapshot-sha ETag survived code deploys —
+browsers revalidating at `max-age=0` got a 304 against the unchanged validator and kept HTML
+rendered by the *previous* worker until the next content publish (a presentation-only deploy
+was invisible to returning readers). The validator now pairs the sha with the deployed
+version: `ETag: "{sha}-{version id}"`, the id from the Version Metadata binding
+(`[version_metadata]`, available in the pinned worker 0.8.3). Static pages — previously
+validator-less because they read nothing from KV — carry the version alone and gain cheap
+304s between deploys. Same trade as ever: over-fetching (a redeploy of identical code
+re-sends bodies once), never staleness. Dev builds (`BUILD_PROFILE=dev`, compiled with
+`debug_assertions`) skip cache decoration entirely, falling through to the `no-store`
+default — wrangler dev's version id is a static placeholder that can never bust anything,
+and watch rebuilds must not be masked by the local cache simulation or a browser validator.
+
 Two invariants keep the scoped design honest — both close holes a future implementer could
 easily reopen. First, *purge debt*: a failed purge leaves its tag scope in the coordinator's
 storage; every later reconcile merges that debt into its own scope and clears it only once a

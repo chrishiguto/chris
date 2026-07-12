@@ -248,7 +248,7 @@ fn stale_v1_tokens_are_gone() {
 }
 
 // The reading experience: 17px / 65ch / 1.75, plus the article chrome
-// (mono meta row, back link, tag-pill hash glyph).
+// (breadcrumb, mono meta row, tag-pill hash glyph).
 #[test]
 fn post_prose_reads_at_the_design_measure() {
     let css = stylesheet();
@@ -259,7 +259,13 @@ fn post_prose_reads_at_the_design_measure() {
     ] {
         assert!(css.contains(property), "{why} (`{property}`)");
     }
-    for class in [".post-meta", ".meta-sep", ".back-link", ".tag-hash"] {
+    for class in [
+        ".post-meta",
+        ".meta-sep",
+        ".post-path",
+        ".path-here",
+        ".tag-hash",
+    ] {
         assert!(
             css.contains(class),
             "no `{class}` styling in the stylesheet"
@@ -390,20 +396,25 @@ fn site_chrome_is_styled() {
         css.contains(".nav-link[aria-current=\"page\"]"),
         "the active route keeps a persistent underline"
     );
-    let shared_box = rule_body(&css, &[".nav-link", ".nav-seg"]);
     assert!(
-        shared_box.contains("position: relative"),
-        "the slug shares the nav-link box so its underline sits inside the truncation clip: {shared_box}"
-    );
-    let shared_line = rule_body(&css, &[".nav-link::after", ".nav-seg::after"]);
-    assert!(
-        shared_line.contains("var(--color-accent)"),
-        "one grouped rule paints the accent you-are-here line for links and slug alike: {shared_line}"
+        link_slide.contains("var(--color-accent)"),
+        "the sliding line is the accent: {link_slide}"
     );
     let link = rule_body(&css, &[".nav-link"]);
     assert!(
         !link.contains("text-transform"),
         "nav labels are authored lowercase, never CSS-transformed: {link}"
+    );
+    let mark = rule_body(&css, &[".nav-mark"]);
+    assert!(
+        mark.contains("var(--font-mono)") && mark.contains("background-image: none"),
+        "the wordmark reads in mono and opts out of the base underline: {mark}"
+    );
+    let mark_hover = rule_body(&css, &[".nav-mark:hover"]);
+    assert!(
+        mark_hover.contains("var(--color-accent)"),
+        "the wordmark's own color needs its own hover accent — the base \
+         `a:hover` loses to a later layer: {mark_hover}"
     );
     let footer = rule_body(&css, &[".site-footer"]);
     assert!(
@@ -682,7 +693,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
-    let html = common::strip_markers(render_document(&doc).to_html());
+    let html = common::strip_markers(render_document(&doc, "kitchen-sink").to_html());
     for needle in [
         "<h2",
         "<h3",

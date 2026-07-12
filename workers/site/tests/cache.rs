@@ -5,22 +5,26 @@ use site::cache::{
     view_cache_tags,
 };
 
+// Either side changing — a publish (sha) or a deploy (version) — must
+// re-send the body; sha-less static pages validate on the version alone.
 #[test]
-fn etag_is_the_quoted_snapshot_sha() {
-    assert_eq!(etag("abc123def456"), "\"abc123def456\"");
+fn etag_pairs_the_snapshot_sha_with_the_deployed_version() {
+    assert_eq!(etag(Some("abc123def456"), "v42"), "\"abc123def456-v42\"");
+    assert_eq!(etag(None, "v42"), "\"v42\"");
 }
 
 #[test]
 fn not_modified_matches_the_exact_validator() {
-    let tag = etag("abc123");
+    let tag = etag(Some("abc123"), "v1");
     assert!(not_modified(&tag, &tag));
     assert!(!not_modified("\"other\"", &tag));
-    assert!(!not_modified("abc123", &tag)); // unquoted is not a match
+    assert!(!not_modified("abc123-v1", &tag)); // unquoted is not a match
+    assert!(!not_modified(&etag(Some("abc123"), "v2"), &tag)); // same content, older code
 }
 
 #[test]
 fn not_modified_handles_lists_weak_prefixes_and_star() {
-    let tag = etag("abc123");
+    let tag = etag(Some("abc123"), "v1");
     assert!(not_modified(&format!("\"stale\", {tag}"), &tag));
     assert!(not_modified(&format!("W/{tag}"), &tag));
     assert!(not_modified("*", &tag));
@@ -30,7 +34,7 @@ fn not_modified_handles_lists_weak_prefixes_and_star() {
 /// A 404 or 500 with a stray ETag must never lose its body.
 #[test]
 fn revalidates_only_a_matching_200() {
-    let tag = etag("abc123");
+    let tag = etag(Some("abc123"), "v1");
     assert!(revalidates(200, Some(&tag), Some(&tag)));
     assert!(!revalidates(404, Some(&tag), Some(&tag)));
     assert!(!revalidates(500, Some(&tag), Some(&tag)));

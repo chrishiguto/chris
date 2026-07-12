@@ -351,7 +351,7 @@ fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("fixture post must validate against the live manifest");
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = strip_markers(render_document(&doc, "ci-code-path").to_html());
     assert!(
         html.contains("class=\"callout callout-warning\""),
         "Callout missing: {html}"
@@ -373,17 +373,27 @@ fn fixture_post_renders_end_to_end() {
 fn page_html(post: Option<Document>) -> String {
     use leptos::prelude::provide_context;
     ssr(
-        move || provide_context(PostData(post)),
+        move || {
+            provide_context(PostData {
+                slug: "hello-kv".into(),
+                post,
+            })
+        },
         || leptos::view! { <PostPage /> },
     )
 }
 
-// `PostData(None)` is what the worker provides on a KV miss.
+// A slug with no document is what the worker provides on a KV miss. The
+// URL-derived slug must never reflect into the page, breadcrumb included.
 #[test]
 fn post_page_without_post_renders_404_content() {
     let html = page_html(None);
     assert!(html.contains("404"), "missing 404 heading: {html}");
     assert!(html.contains("href=\"/\""), "missing link home: {html}");
+    assert!(
+        !html.contains("post-path") && !html.contains("hello-kv"),
+        "no breadcrumb or reflected slug on a 404: {html}"
+    );
 }
 
 #[test]
@@ -444,7 +454,7 @@ fn render_document_wraps_body_in_article_with_header() {
             children: vec![text("body text")],
         }],
     };
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = strip_markers(render_document(&doc, "hello-kv").to_html());
     assert!(
         html.starts_with("<article"),
         "expected article root: {html}"
@@ -476,7 +486,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = strip_markers(render_document(&doc, "hello-kv").to_html());
     assert!(
         html.contains("<ul class=\"post-tags\">"),
         "tag list missing: {html}"
@@ -499,30 +509,46 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
 #[test]
 fn post_omits_empty_tag_list() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = strip_markers(render_document(&doc, "hello-kv").to_html());
     assert!(
         !html.contains("post-tags"),
         "untagged post must not render an empty list: {html}"
     );
 }
 
-// "back to all posts" sits above the title.
+// The terminal breadcrumb opens the article, above the title: root and
+// `posts` link up the tree, the slug is the unlinked you-are-here mark —
+// no separate back link; the `posts` segment is the way back.
 #[test]
-fn post_renders_back_link_above_the_title() {
+fn post_renders_breadcrumb_above_the_title() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
-    let back = tag_containing(&html, "class=\"back-link\"");
+    let html = strip_markers(render_document(&doc, "hello-kv").to_html());
+    let root = tag_containing(&html, "class=\"path-root\"");
+    assert!(root.contains("href=\"/\""), "the root links home: {html}");
     assert!(
-        back.contains("href=\"/posts\""),
-        "back link missing: {html}"
+        html.contains("<span class=\"path-tilde\" aria-hidden=\"true\">~/</span>chris"),
+        "the root must render `~/` faint, decorative, before `chris`: {html}"
+    );
+    let posts = tag_containing(&html, ">posts<");
+    assert!(
+        posts.contains("href=\"/posts\""),
+        "the `posts` segment links to the listing: {html}"
     );
     assert!(
-        html.contains("back to all posts"),
-        "back link label missing: {html}"
+        html.contains("<span class=\"path-sep\" aria-hidden=\"true\">/</span>"),
+        "separators are decoration, hidden from readers: {html}"
     );
-    let back = html.find("back-link").expect("back link missing");
+    assert!(
+        html.contains("<span aria-current=\"page\" class=\"path-here\">hello-kv</span>"),
+        "the slug is the unlinked you-are-here segment, marked current: {html}"
+    );
+    assert!(
+        !html.contains("back-link"),
+        "the breadcrumb subsumes the back link: {html}"
+    );
+    let crumb = html.find("post-path").expect("breadcrumb missing");
     let title = html.find("<h1>").expect("title missing");
-    assert!(back < title, "back link must precede the title: {html}");
+    assert!(crumb < title, "breadcrumb must precede the title: {html}");
 }
 
 // The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
@@ -530,7 +556,7 @@ fn post_renders_back_link_above_the_title() {
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = strip_markers(render_document(&doc, "hello-kv").to_html());
     assert!(
         html.contains("<p class=\"post-meta\"><span>jul 04, 2026</span>")
             && html.contains("<span>1 min</span>"),

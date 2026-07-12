@@ -27,9 +27,11 @@ mod server {
     };
     use leptos::prelude::*;
     use tower_service::Service;
-    use worker::{console_error, Env};
+    use worker::{console_error, Env, WorkerVersionMetadata};
 
     const KV_BINDING: &str = "BLOG";
+    /// The deployed version's identity, folded into every ETag.
+    const VERSION_BINDING: &str = "CF_VERSION_METADATA";
     /// Axum `{param}` form of `content::post_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
     /// The pipeline's purge hook; Workers Cache is private to this worker.
@@ -44,6 +46,7 @@ mod server {
     struct AppState {
         options: LeptosOptions,
         env: Env,
+        version: String,
     }
 
     impl FromRef<AppState> for LeptosOptions {
@@ -67,7 +70,30 @@ mod server {
             static OPTIONS: LeptosOptions = get_configuration(None).unwrap().leptos_options;
         }
         let options = OPTIONS.with(Clone::clone);
-        let state = AppState { options, env };
+        // The version is as isolate-constant as the config. A missing
+        // binding degrades the validator to publish-only rather than
+        // failing every page — logged once, not swallowed per request.
+        thread_local! {
+            static VERSION: std::cell::OnceCell<String> = const { std::cell::OnceCell::new() };
+        }
+        let version = VERSION.with(|cell| {
+            cell.get_or_init(|| {
+                env.get_binding::<WorkerVersionMetadata>(VERSION_BINDING)
+                    .map(|meta| meta.id())
+                    .unwrap_or_else(|_| {
+                        console_error!(
+                            "no {VERSION_BINDING} binding — deploys no longer bust browser caches"
+                        );
+                        "unversioned".to_string()
+                    })
+            })
+            .clone()
+        });
+        let state = AppState {
+            options,
+            env,
+            version,
+        };
 
         // Captured before the router consumes the request.
         let if_none_match = req
@@ -140,11 +166,17 @@ mod server {
     }
 
     /// Opts a response into Workers Cache — `s-maxage` stores at the edge,
-    /// `max-age=0` keeps browsers revalidating — plus the snapshot-sha ETag
+    /// `max-age=0` keeps browsers revalidating — plus the sha+version ETag
     /// and the `Cache-Tag` scopes purges select on. Fail-closed: tags are a
     /// purge's only handle on a cached entry, so a tag set that can't be a
     /// header leaves the response uncached rather than cached unpurgeable.
-    fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>, tags: &str) {
+    fn mark_cacheable(response: &mut Response<Body>, sha: Option<&str>, version: &str, tags: &str) {
+        // Dev builds serve everything uncached: watch rebuilds must never be
+        // masked by the local Workers Cache or a browser validator (the
+        // fetch fallback stamps `no-store`).
+        if cfg!(debug_assertions) {
+            return;
+        }
         let Ok(tag_header) = HeaderValue::from_str(tags) else {
             console_error!("cache tags {tags:?} form no valid header — response left uncached");
             return;
@@ -155,7 +187,7 @@ mod server {
             CACHE_CONTROL,
             HeaderValue::from_static(cache::CACHE_CONTROL),
         );
-        if let Some(value) = sha.and_then(|sha| HeaderValue::from_str(&cache::etag(sha)).ok()) {
+        if let Ok(value) = HeaderValue::from_str(&cache::etag(sha, version)) {
             headers.insert(ETAG, value);
         }
     }
@@ -201,14 +233,18 @@ mod server {
             .as_ref()
             .is_some_and(|document| !document.frontmatter.draft);
 
-        let mut response =
-            render_page(&state, req, move || provide_context(PostData(post.clone()))).await;
+        let data = PostData {
+            slug: slug.clone(),
+            post,
+        };
+        let mut response = render_page(&state, req, move || provide_context(data.clone())).await;
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
         } else if cacheable {
             mark_cacheable(
                 &mut response,
                 sha.as_deref(),
+                &state.version,
                 &cache::post_cache_tags(&slug),
             );
         }
@@ -226,17 +262,22 @@ mod server {
             provide_context(IndexData(index.clone()))
         })
         .await;
-        mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
+        mark_cacheable(
+            &mut response,
+            sha.as_deref(),
+            &state.version,
+            &cache::view_cache_tags(),
+        );
         response
     }
 
-    /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha to
-    /// serve as an ETag; cached under the site tag alone — they change on
-    /// deploy (which purges `site`), never on publish.
+    /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha —
+    /// the version alone is the validator; cached under the site tag alone —
+    /// they change on deploy (which purges `site`), never on publish.
     #[worker::send]
     async fn static_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
         let mut response = render_page(&state, req, || ()).await;
-        mark_cacheable(&mut response, None, SITE_TAG);
+        mark_cacheable(&mut response, None, &state.version, SITE_TAG);
         response
     }
 
@@ -283,7 +324,12 @@ mod server {
         };
         let mut response =
             ([(CONTENT_TYPE, content_type)], build(&origin(req), &index)).into_response();
-        mark_cacheable(&mut response, sha.as_deref(), &cache::view_cache_tags());
+        mark_cacheable(
+            &mut response,
+            sha.as_deref(),
+            &state.version,
+            &cache::view_cache_tags(),
+        );
         response
     }
 

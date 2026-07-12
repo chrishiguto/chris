@@ -5,25 +5,34 @@ wasm_rustflags := '--cfg getrandom_backend="wasm_js"'
 # must match output-name in [[workspace.metadata.leptos]] (Cargo.toml)
 output_name := 'chris'
 
+# Dev builds skip optimization and wasm-opt (minutes → seconds) and the
+# worker (debug_assertions) serves uncached. Deploys and CI stay release.
+build_profile := env_var_or_default('BUILD_PROFILE', 'release')
+leptos_flags := if build_profile == 'dev' { '' } else { '--release' }
+worker_flags := if build_profile == 'dev' { '--dev --no-opt' } else { '--release' }
+
 default:
     @just --list
 
-# serve the site locally (ssr + hydration) at http://localhost:8787
+# serve the site locally (ssr + hydration) at http://localhost:8787.
+# The env var is the relay to the `just build` wrangler re-runs on each watch
+# rebuild — a separate process only the environment reaches.
 dev:
-    npx wrangler dev
+    BUILD_PROFILE=dev npx wrangler dev
 
 # frontend wasm + tailwind (cargo-leptos), then the ssr worker (worker-build)
 build:
-    CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' cargo leptos build --release
-    cd workers/site && LEPTOS_OUTPUT_NAME={{output_name}} CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features ssr
+    CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' cargo leptos build {{leptos_flags}}
+    cd workers/site && LEPTOS_OUTPUT_NAME={{output_name}} CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build {{worker_flags}} --features ssr
 
 # the write-path worker (the /publish reconcile op)
 build-pipeline:
     cd workers/pipeline && CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS='{{wasm_rustflags}}' worker-build --release --features worker
 
-# deploy to cloudflare workers
+# deploy to cloudflare workers; the pin keeps a stray exported
+# BUILD_PROFILE=dev from shipping a debug worker through the [build] hook
 deploy:
-    npx wrangler deploy
+    BUILD_PROFILE=release npx wrangler deploy
 
 deploy-pipeline:
     npx wrangler deploy --config workers/pipeline/wrangler.toml
@@ -62,9 +71,11 @@ check:
     cargo clippy --workspace -- -D warnings
     cargo run -q -p xtask -- check
 
-# native test suite; feature unification keeps the gated suites in this run
+# native suite, then the app crate's ssr-gated suites — nothing in the native
+# workspace graph enables app/ssr, so they only run with the explicit feature
 test:
     cargo test --workspace
+    cargo test -p app --features ssr
 
 # break-glass publish straight to KV, bypassing the coordinator — for when the
 # pipeline itself is broken; the next reconcile supersedes it.

@@ -7,7 +7,7 @@ use leptos::prelude::*;
 
 use crate::components::{meta_row, CodeBlock, TagPill};
 
-pub fn render_document(doc: &Document) -> impl IntoView {
+pub fn render_document(doc: &Document, slug: &str) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing.
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
         let tags: Vec<_> = doc
@@ -22,23 +22,42 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post mx-auto max-w-2xl px-6">
-            <a class="back-link" href=POSTS_PATH>
-                <span class="link-arrow" aria-hidden="true">
-                    "←"
-                </span>
-                "back to all posts"
-            </a>
-            <header>
+            {breadcrumb(slug)} <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
                 // The same ~200 wpm number the publish plan stamps into the
                 // index, computed live from the AST this page already holds.
                 <p class="post-meta">
                     {meta_row(&doc.frontmatter.date, Some(reading_minutes(&doc.ast)))}
                 </p>
-            </header>
-            <div class="post-body">{render_nodes(&doc.ast)}</div>
-            {tags}
+            </header> <div class="post-body">{render_nodes(&doc.ast)}</div> {tags}
         </article>
+    }
+}
+
+/// The terminal breadcrumb opening the article: the `~/chris` root and
+/// `posts` segment link up the tree; the slug is the unlinked you-are-here
+/// mark. The tilde and separators are decoration, hidden from readers;
+/// `aria-current` marks the slug as the page.
+fn breadcrumb(slug: &str) -> impl IntoView {
+    view! {
+        <nav class="post-path" aria-label="breadcrumb">
+            <a href="/" class="path-root">
+                <span class="path-tilde" aria-hidden="true">
+                    "~/"
+                </span>
+                "chris"
+            </a>
+            <span class="path-sep" aria-hidden="true">
+                "/"
+            </span>
+            <a href=POSTS_PATH>"posts"</a>
+            <span class="path-sep" aria-hidden="true">
+                "/"
+            </span>
+            <span class="path-here" aria-current="page">
+                {slug.to_string()}
+            </span>
+        </nav>
     }
 }
 

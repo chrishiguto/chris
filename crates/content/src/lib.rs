@@ -14,11 +14,11 @@ pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
 mod routes;
 pub use routes::{
-    index_key_at, post_key, post_key_at, post_path, post_path_slug, post_slug, post_tag,
-    snapshot_index_key, snapshot_key_sha, snapshot_post_key, source_path, tag_filter_path,
-    tag_filter_tag, valid_slug, CurrentPointer, ABOUT_PATH, CONTENT_ROOT, CURRENT_KEY, FEED_PATHS,
-    INDEX_KEY, LISTING_PAGES, POSTS_PATH, POST_FILE, RSS_PATH, SITEMAP_PATH, SITE_TAG,
-    SNAPSHOT_KEY_SPACE, STATIC_PAGES, VIEWS_TAG,
+    index_key_at, post_key, post_key_at, post_path, post_slug, post_tag, snapshot_index_key,
+    snapshot_key_sha, snapshot_post_key, source_path, tag_filter_path, tag_filter_tag, valid_slug,
+    CurrentPointer, ABOUT_PATH, CONTENT_ROOT, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES,
+    POSTS_PATH, POST_FILE, RSS_PATH, SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, STATIC_PAGES,
+    VIEWS_TAG,
 };
 
 #[cfg(feature = "parse")]

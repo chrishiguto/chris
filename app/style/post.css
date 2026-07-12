@@ -1,6 +1,6 @@
 /* Prose for the AST renderer: bare semantic elements inside `.post-body`,
    styled via flat `.post-body <element>` selectors so nothing reaches the
-   post header chrome — plus that chrome (meta row, back link) and the
+   post header chrome — plus that chrome (breadcrumb, meta row) and the
    renderer's error surface. */
 
 @layer components {
@@ -40,18 +40,43 @@
     color: var(--color-ink-3);
   }
 
-  /* "back to all posts": mono arrow link, no underline; the arrow slides. */
-  .back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.375rem;
-    background-image: none;
+  /* Terminal breadcrumb opening the article: `~/chris / posts / {slug}` —
+     the root and `posts` link up the tree (warming to accent via the base
+     rule, no underline); the slug is the unlinked you-are-here mark,
+     truncating rather than wrapping. */
+  .post-path {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
     font-family: var(--font-mono);
     font-size: 0.8125rem;
+    color: var(--color-ink-2);
   }
 
-  .back-link:hover .link-arrow {
-    transform: translateX(-4px);
+  .post-path a {
+    background-image: none;
+  }
+
+  .path-root {
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+
+  .path-tilde {
+    color: var(--color-ink-3);
+  }
+
+  .path-sep {
+    color: var(--color-ink-3);
+    padding: 0 2px;
+  }
+
+  .path-here {
+    color: var(--color-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* The 65ch reading measure; the header and full-bleed surfaces sit outside. */

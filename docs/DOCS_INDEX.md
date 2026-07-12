@@ -60,8 +60,11 @@ summary, key topics.
   returns the stale-tag scope and CI evicts it via the site's public `/__purge`, retiring the
   in-worker purge, the `SITE` binding, the pipeline's purge secret, and the purge-debt ledger;
   amended 2026-07-10 per ADR-0012: the tag pages are deleted, so `views` narrows to the
-  listings and feeds — the purge scope's shape is unchanged).
-  Topics: caching, purge, cache tags, workers cache, deploys, islands.
+  listings and feeds — the purge scope's shape is unchanged; amended 2026-07-12: ETags pair
+  the snapshot sha with the deployed version id from the `[version_metadata]` binding so
+  code deploys re-send bodies, sha-less static pages validate on the version alone, and dev
+  builds skip cache decoration entirely).
+  Topics: caching, purge, cache tags, workers cache, deploys, etags, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
