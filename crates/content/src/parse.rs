@@ -9,7 +9,10 @@ use markdown::message::Place;
 use markdown::unist::Position;
 use markdown::{Constructs, MdxSignal, ParseOptions};
 
-use crate::{Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue, SCHEMA_VERSION};
+use crate::{
+    valid_tag, Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue, POSTS_PATH,
+    SCHEMA_VERSION, TAG_FILTER_PARAM,
+};
 
 /// A parse or validation error, with a source location when known.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,16 +206,11 @@ impl Converter<'_> {
                 column: None,
             });
         }
-        for tag in frontmatter.tags.iter().filter(|tag| {
-            tag.is_empty()
-                || !tag
-                    .bytes()
-                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-        }) {
+        for tag in frontmatter.tags.iter().filter(|tag| !valid_tag(tag)) {
             self.diags.push(Diagnostic {
                 message: format!(
                     "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it rides verbatim \
-                     in the /posts#{{tag}} filter URL"
+                     in the {POSTS_PATH}?{TAG_FILTER_PARAM}= filter URL's comma-separated tag list"
                 ),
                 file: None,
                 line: yaml_key_line(yaml, "tags"),

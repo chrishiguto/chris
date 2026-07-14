@@ -128,6 +128,13 @@ unchanged — changed posts' tags plus `views` — it simply selects fewer cache
 Filter state rides the URL hash, which never reaches the cache key, so Workers Cache still
 sees exactly one `/posts` page.
 
+*Amendment (2026-07-14, ADR-0012 as amended):* filter state moved from the URL hash to the
+`?q=` query parameter (multi-tag, comma-separated). Query strings do reach the cache key, so
+deep-linked selections can each cache their own copy of the identical unfiltered `/posts`
+render. Every copy carries the `views` tag, so the purge scope is structurally unchanged —
+one select still evicts them all. In-page filtering moves the URL by `replaceState` without
+navigating, so only shared or reloaded links mint extra entries.
+
 *Amendment (2026-07-12, deploy-aware ETags):* the snapshot-sha ETag survived code deploys —
 browsers revalidating at `max-age=0` got a 304 against the unchanged validator and kept HTML
 rendered by the *previous* worker until the next content publish (a presentation-only deploy

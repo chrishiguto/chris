@@ -89,12 +89,13 @@ summary, key topics.
   toggle island flips it; server HTML is identical for everyone so Workers Cache sees zero
   variance. Topics: theming, dark mode, light-dark, islands, caching, css tokens.
 - `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
-  SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page,
-  state in the URL hash (`/posts#tag`) so the cache key space never grows (amended
-  2026-07-10: the island owns the whole filter region — pills, rows, empty state — with the
-  listed posts as serialized props, filtering by signal instead of DOM attributes); `views`
-  tag narrows to listings + feeds; revisit when pagination arrives. Topics: tags, islands,
-  url hash, sitemap, purge scope, routes.
+  SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
+  (amended 2026-07-10: the island owns the whole filter region — pills, rows, empty state —
+  with the listed posts as serialized props, filtering by signal instead of DOM attributes;
+  amended 2026-07-14: filter state moves from the URL hash to a multi-tag `?q=rust,wasm`
+  query — deep links now fragment the cache key per selection, all entries still under
+  `views`); `views` tag narrows to listings + feeds; revisit when pagination arrives.
+  Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides
 

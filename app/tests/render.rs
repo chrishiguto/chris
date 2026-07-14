@@ -482,7 +482,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
 }
 
 // Tag pills sit at the article bottom and land on the pre-filtered
-// listing via the URL hash.
+// listing via the `?q=` filter query.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
@@ -493,7 +493,7 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     );
     for tag in ["rust", "wasm"] {
         assert!(
-            html.contains(&format!("<a href=\"/posts#{tag}\" class=\"tag\">")),
+            html.contains(&format!("<a href=\"/posts?q={tag}\" class=\"tag\">")),
             "`{tag}` pill must link to the filtered listing: {html}"
         );
     }

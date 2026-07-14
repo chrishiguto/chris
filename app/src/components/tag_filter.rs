@@ -2,29 +2,30 @@ use std::collections::BTreeSet;
 
 use leptos::prelude::*;
 use wasm_bindgen::JsValue;
+use web_sys::UrlSearchParams;
 
 use crate::components::{post_row, ListedPost, TagPill};
 
 /// In-page tag filter for the writing page: one island owning the pill row,
 /// the post list, and the `$ ls` empty state, so filtering is plain signal
-/// state. The active tag mirrors the URL hash — shareable, restored on
-/// load, and invisible to the server, so the cache still sees exactly one
-/// `/posts` page. The island's server render is the unfiltered list:
-/// without JS the pills are inert links and the complete list stays
-/// visible.
+/// state. The selection mirrors the `?q=` query — shareable, restored on
+/// load, and never navigated to (clicks move the URL by `replaceState`), so
+/// the server keeps rendering the one unfiltered listing whatever the query
+/// says. The island's server render is that unfiltered list: without JS the
+/// pills are inert links and the complete list stays visible.
 #[island]
 pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
-    let active = RwSignal::new(None::<String>);
+    let active = RwSignal::new(BTreeSet::<String>::new());
     // Deep links land pre-filtered; effects never run during SSR.
-    Effect::new(move |_| active.set(hash_tag()));
+    Effect::new(move |_| active.set(query_tags()));
 
-    // Toggle the tag and mirror it into the hash.
     let select = move |tag: String| {
-        let next = active
-            .with_untracked(|active| active.as_deref() != Some(tag.as_str()))
-            .then_some(tag);
-        replace_hash(next.as_deref());
-        active.set(next);
+        active.update(|active| {
+            if !active.remove(&tag) {
+                active.insert(tag);
+            }
+            replace_query(active);
+        });
     };
 
     let tags: BTreeSet<String> = posts
@@ -37,7 +38,7 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         .map(|tag| {
             let is_active = Signal::derive({
                 let tag = tag.clone();
-                move || active.with(|active| active.as_deref() == Some(tag.as_str()))
+                move || active.with(|active| active.contains(&tag))
             });
             let on_select = Callback::new({
                 let tag = tag.clone();
@@ -48,18 +49,22 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         .collect();
     let pill_row = (!pills.is_empty()).then(|| view! { <ul class="post-tags mt-4.5">{pills}</ul> });
 
-    // A deep-linked hash can name a tag no post carries; only then is the
-    // list empty, since pill clicks always come from a post's own tags.
-    let none_visible =
-        move || active.with(|active| active.as_ref().is_some_and(|tag| !tags.contains(tag)));
+    // The union semantics live here alone: a row hides when it carries
+    // none of the selection.
+    let hides = move |tags: &[String]| {
+        active.with(|active| !active.is_empty() && !tags.iter().any(|tag| active.contains(tag)))
+    };
+
+    // Hiding the union of every tag hides every row, so pill clicks can
+    // never empty the list; only a deep link naming unknown tags can.
+    let all_tags: Vec<String> = tags.into_iter().collect();
+    let none_visible = move || hides(&all_tags);
 
     let rows: Vec<_> = posts
         .into_iter()
         .map(|post| {
             let tags = post.tags.clone();
-            let hidden = move || {
-                active.with(|active| active.as_ref().is_some_and(|tag| !tags.contains(tag)))
-            };
+            let hidden = move || hides(&tags);
             view! { <li hidden=hidden>{post_row(post)}</li> }
         })
         .collect();
@@ -73,22 +78,28 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
     }
 }
 
-/// The active tag: the URL hash's fragment, `None` when empty.
-fn hash_tag() -> Option<String> {
-    let hash = window().location().hash().ok()?;
-    content::tag_filter_tag(&hash).map(str::to_string)
+/// The active selection: every tag the URL's filter query names; the
+/// browser's own query parser does the decoding.
+fn query_tags() -> BTreeSet<String> {
+    let Ok(params) = window()
+        .location()
+        .search()
+        .and_then(|search| UrlSearchParams::new_with_str(&search))
+    else {
+        return BTreeSet::new();
+    };
+    content::tag_filter_selection(
+        params
+            .get_all(content::TAG_FILTER_PARAM)
+            .iter()
+            .filter_map(|value| value.as_string()),
+    )
 }
 
-/// `replaceState`, not `location.hash`: no history entry per click and no
-/// fragment scroll — the URL just mirrors the current filter.
-fn replace_hash(tag: Option<&str>) {
-    let url = match tag {
-        Some(tag) => content::tag_filter_path(tag),
-        None => match window().location().pathname() {
-            Ok(path) => path,
-            Err(_) => return,
-        },
-    };
+/// `replaceState`, not navigation: no history entry per click and no
+/// scroll — the URL just mirrors the current selection.
+fn replace_query(tags: &BTreeSet<String>) {
+    let url = content::tag_filter_path_selected(tags);
     if let Ok(history) = window().history() {
         let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&url));
     }

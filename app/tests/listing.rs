@@ -219,7 +219,7 @@ fn home_page_shows_only_recent_posts_and_links_to_all() {
 
 // The filter island owns the pill row and the list, with the listed posts
 // as its props: pills are the post-pill shape, deduped and sorted, linking
-// the hash contract.
+// the `?q=` filter contract.
 #[test]
 fn posts_page_wraps_sorted_filter_pills_in_the_island() {
     let html = posts_html(vec![
@@ -235,7 +235,7 @@ fn posts_page_wraps_sorted_filter_pills_in_the_island() {
         island.contains("newer") && island.contains("older"),
         "the listed posts ride as island props: {html}"
     );
-    let pill = tag_containing(&html, "href=\"/posts#rust\"");
+    let pill = tag_containing(&html, "href=\"/posts?q=rust\"");
     assert!(pill.contains("class=\"tag\""), "{html}");
     let hash = tag_containing(&html, "class=\"tag-hash\"");
     assert!(
@@ -243,12 +243,12 @@ fn posts_page_wraps_sorted_filter_pills_in_the_island() {
         "pills carry the post-pill hash glyph: {html}"
     );
     assert_eq!(
-        html.matches("/posts#rust").count(),
+        html.matches("/posts?q=rust").count(),
         1,
         "pills dedupe across posts: {html}"
     );
-    let rust = html.find("/posts#rust").unwrap();
-    let wasm = html.find("/posts#wasm").unwrap();
+    let rust = html.find("/posts?q=rust").unwrap();
+    let wasm = html.find("/posts?q=wasm").unwrap();
     assert!(rust < wasm, "pills sort alphabetically: {html}");
 }
 
@@ -258,7 +258,7 @@ fn filter_pills_skip_draft_only_tags() {
     draft.draft = true;
     let html = posts_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
     assert!(!html.contains("secret"), "{html}");
-    assert!(html.contains("/posts#rust"), "{html}");
+    assert!(html.contains("/posts?q=rust"), "{html}");
 }
 
 // The `$ ls` line is island state shown only when a filter leaves no rows;
