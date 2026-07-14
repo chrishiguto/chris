@@ -41,22 +41,23 @@ fn assert_global_nav_links(html: &str) {
     );
 }
 
-// Both theme variants of the logo ship in the HTML; CSS shows the one
-// matching the effective scheme, so the mark can't flash on theme change.
+// Both theme variants of the logo ship in the HTML; the `when-*` pair shows
+// the one matching the effective scheme, so the mark can't flash on theme
+// change. Pinning src against class keeps the variants from swapping.
 #[test]
 fn bar_carries_the_logo_nav_and_toggle() {
     let html = header_at("/");
     let mark = tag_containing(&html, "class=\"nav-logo\"");
     assert!(mark.contains("href=\"/\""), "the logo links home: {html}");
-    for img in ["logo-dark", "logo-light"] {
-        let img = tag_containing(&html, &format!("class=\"{img}\""));
+    for theme in ["dark", "light"] {
+        let img = tag_containing(&html, &format!("src=\"/images/logo-{theme}.svg\""));
         assert!(
-            img.contains("src=\"/images/logo") && img.contains("alt=\"chris\""),
-            "both logo variants ship as sized, labeled images: {html}"
+            img.contains(&format!("class=\"when-{theme}\"")),
+            "the {theme} logo must show under the {theme} scheme: {html}"
         );
         assert!(
-            img.contains("width=") && img.contains("height="),
-            "logo images carry dimensions so the bar never shifts: {html}"
+            img.contains("alt=\"chris\"") && img.contains("width=") && img.contains("height="),
+            "logo variants ship as sized, labeled images: {html}"
         );
     }
     assert_global_nav_links(&html);
@@ -148,8 +149,8 @@ fn theme_toggle_ssrs_both_glyphs_as_an_island() {
     for needle in [
         "class=\"theme-toggle\"",
         "aria-label=\"toggle theme\"",
-        "glyph-moon",
-        "glyph-sun",
+        "class=\"glyph when-light\"",
+        "class=\"glyph when-dark\"",
         "☾",
         "☀",
     ] {

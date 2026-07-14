@@ -29,10 +29,11 @@ pub fn ThemeToggle() -> impl IntoView {
 
     view! {
         <button type="button" class="theme-toggle" aria-label="toggle theme" on:click=toggle>
-            <span class="glyph glyph-moon" aria-hidden="true">
+            // Moon invites the switch to dark, sun back.
+            <span class="glyph when-light" aria-hidden="true">
                 "☾"
             </span>
-            <span class="glyph glyph-sun" aria-hidden="true">
+            <span class="glyph when-dark" aria-hidden="true">
                 "☀"
             </span>
         </button>

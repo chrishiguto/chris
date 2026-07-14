@@ -2,10 +2,40 @@
    toggle, the footer, and the konami toast. */
 
 @layer components {
-  /* Both toggle glyphs ship in the server HTML; these rules show the one
-     matching the effective scheme — an explicit `data-theme` wins, the
-     system preference decides otherwise — so nothing can flash a stale icon
-     before hydration. Moon invites the switch to dark, sun back. */
+  /* Theme-conditional display, declared once for any variant pair (toggle
+     glyphs, logo): `.when-light` shows under the light scheme, `.when-dark`
+     under dark — an explicit `data-theme` wins, the system preference
+     decides otherwise. Both variants ship in the server HTML, so nothing
+     flashes before hydration and the response stays one per URL. These
+     rules own `display` outright; higher-specificity rules on the elements
+     must not set it, or the hidden variant leaks back. */
+  .when-light,
+  .when-dark {
+    display: inline-block;
+  }
+
+  .when-dark {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .when-light {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .when-dark {
+    display: inline-block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .when-light {
+      display: none;
+    }
+
+    :root:not([data-theme]) .when-dark {
+      display: inline-block;
+    }
+  }
+
   .theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -23,8 +53,9 @@
     background-color: var(--color-surface-2);
   }
 
+  /* No `display` here: the `when-*` pair owns it (a shown glyph is
+     inline-block, which the hover transform needs). */
   .theme-toggle .glyph {
-    display: inline-block;
     font-size: 1.125rem;
     line-height: 1;
     transition: transform 400ms var(--ease-out-expo);
@@ -32,28 +63,6 @@
 
   .theme-toggle:hover .glyph {
     transform: rotate(-20deg);
-  }
-
-  .theme-toggle .glyph-sun {
-    display: none;
-  }
-
-  :root[data-theme="dark"] .theme-toggle .glyph-moon {
-    display: none;
-  }
-
-  :root[data-theme="dark"] .theme-toggle .glyph-sun {
-    display: inline-block;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) .theme-toggle .glyph-moon {
-      display: none;
-    }
-
-    :root:not([data-theme]) .theme-toggle .glyph-sun {
-      display: inline-block;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -118,9 +127,8 @@
     color: var(--color-ink);
   }
 
-  /* The logo linking home, on every page. Both theme variants ship in the
-     server HTML; these rules show the one matching the effective scheme,
-     exactly like the toggle glyphs above — no flash, no server variance. */
+  /* The logo linking home, on every page; the `when-*` pair picks the
+     theme's variant. */
   .nav-logo {
     display: inline-flex;
     align-items: center;
@@ -130,28 +138,6 @@
 
   .nav-logo:hover {
     opacity: 0.8;
-  }
-
-  .nav-logo .logo-dark {
-    display: none;
-  }
-
-  :root[data-theme="dark"] .nav-logo .logo-light {
-    display: none;
-  }
-
-  :root[data-theme="dark"] .nav-logo .logo-dark {
-    display: inline-block;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme]) .nav-logo .logo-light {
-      display: none;
-    }
-
-    :root:not([data-theme]) .nav-logo .logo-dark {
-      display: inline-block;
-    }
   }
 
   /* Footer: full-width mono signature line. */

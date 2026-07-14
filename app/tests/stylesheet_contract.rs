@@ -145,12 +145,10 @@ fn every_component_class_is_styled() {
         // chrome
         ".site-nav",
         ".nav-logo",
-        ".logo-light",
-        ".logo-dark",
         ".nav-link",
         ".theme-toggle",
-        ".glyph-sun",
-        ".glyph-moon",
+        ".when-light",
+        ".when-dark",
         ".site-footer",
         ".konami-toast",
         ".konami-cursor",
@@ -167,19 +165,19 @@ fn every_component_class_is_styled() {
 }
 
 // Selectors keyed to state the server never renders: the active filter
-// pill, the route-aware nav underline, and the glyph swap following the
-// effective scheme (explicit `data-theme` wins, system preference decides
-// otherwise). No SSR assertion can see these, so their CSS side pins here.
+// pill, the route-aware nav underline, and the `when-*` variant swap
+// following the effective scheme (explicit `data-theme` wins, system
+// preference decides otherwise). No SSR assertion can see these, so their
+// CSS side pins here.
 #[test]
 fn state_flipped_selectors_are_styled() {
     let css = stylesheet();
     for selector in [
         "a.tag.tag-active",
         ".nav-link[aria-current]",
-        ":root[data-theme=\"dark\"] .theme-toggle .glyph-moon",
-        ":root:not([data-theme]) .theme-toggle .glyph-moon",
-        ":root[data-theme=\"dark\"] .nav-logo .logo-dark",
-        ":root:not([data-theme]) .nav-logo .logo-dark",
+        ":root[data-theme=\"dark\"] .when-light",
+        ":root[data-theme=\"dark\"] .when-dark",
+        ":root:not([data-theme]) .when-dark",
     ] {
         assert!(css.contains(selector), "no `{selector}` in the stylesheet");
     }

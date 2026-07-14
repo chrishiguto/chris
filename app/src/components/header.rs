@@ -16,23 +16,23 @@ pub fn Header() -> impl IntoView {
     view! {
         <header class="site-nav">
             <div class="mx-auto flex w-full max-w-2xl items-center justify-between gap-6 px-6">
-                // Both theme variants ship in the HTML; CSS shows the one
-                // matching the effective scheme, like the toggle glyphs, so
-                // the served page stays one response per URL.
+                // Both theme variants ship in the HTML; the `when-*` pair
+                // shows the one matching the effective scheme, so the served
+                // page stays one response per URL.
                 <a href="/" class="nav-logo">
                     <img
-                        src="/images/logo.svg"
+                        src="/images/logo-dark.svg"
                         alt="chris"
                         width="28"
                         height="28"
-                        class="logo-dark"
+                        class="when-dark"
                     />
                     <img
-                        src="/images/logo-black.svg"
+                        src="/images/logo-light.svg"
                         alt="chris"
                         width="28"
                         height="28"
-                        class="logo-light"
+                        class="when-light"
                     />
                 </a>
                 <nav class="flex shrink-0 items-center gap-1">
