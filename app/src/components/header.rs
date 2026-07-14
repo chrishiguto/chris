@@ -45,14 +45,30 @@ pub fn Header() -> impl IntoView {
 
 fn bar_links(path: &str) -> impl IntoView {
     view! {
-        {nav_link("writing", POSTS_PATH, path == POSTS_PATH)}
-        {nav_link("about", ABOUT_PATH, path == ABOUT_PATH)}
+        {nav_link("writing", POSTS_PATH, path)}
+        {nav_link("about", ABOUT_PATH, path)}
     }
 }
 
-fn nav_link(label: &'static str, href: &'static str, current: bool) -> impl IntoView {
+/// `page` on the link's exact route, `true` on a subpath — a post page keeps
+/// `writing` current as its section, not as the page. The segment boundary
+/// keeps lookalike 404 paths (`/posts-x`) from claiming the section.
+fn aria_current(path: &str, href: &str) -> Option<&'static str> {
+    if path == href {
+        Some("page")
+    } else if path
+        .strip_prefix(href)
+        .is_some_and(|rest| rest.starts_with('/'))
+    {
+        Some("true")
+    } else {
+        None
+    }
+}
+
+fn nav_link(label: &'static str, href: &'static str, path: &str) -> impl IntoView {
     view! {
-        <a href=href class="nav-link" aria-current=current.then_some("page")>
+        <a href=href class="nav-link" aria-current=aria_current(path, href)>
             {label}
         </a>
     }

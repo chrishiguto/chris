@@ -81,8 +81,9 @@
   }
 
   /* Nav links: the accent underline slides in left→right on hover and stays
-     put on the active route. The line is an ::after, not text-decoration.
-     Labels are authored lowercase — never a CSS transform. */
+     put on the current route or section (`aria-current` of any value). The
+     line is an ::after, not text-decoration. Labels are authored lowercase —
+     never a CSS transform. */
   .nav-link {
     position: relative;
     padding-block: 0.375rem;
@@ -109,11 +110,11 @@
   }
 
   .nav-link:hover::after,
-  .nav-link[aria-current="page"]::after {
+  .nav-link[aria-current]::after {
     right: 0.625rem;
   }
 
-  .nav-link[aria-current="page"] {
+  .nav-link[aria-current] {
     color: var(--color-ink);
   }
 

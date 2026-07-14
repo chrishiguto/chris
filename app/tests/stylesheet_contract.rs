@@ -175,7 +175,7 @@ fn state_flipped_selectors_are_styled() {
     let css = stylesheet();
     for selector in [
         "a.tag.tag-active",
-        ".nav-link[aria-current=\"page\"]",
+        ".nav-link[aria-current]",
         ":root[data-theme=\"dark\"] .theme-toggle .glyph-moon",
         ":root:not([data-theme]) .theme-toggle .glyph-moon",
         ":root[data-theme=\"dark\"] .nav-logo .logo-dark",

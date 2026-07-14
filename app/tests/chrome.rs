@@ -93,6 +93,28 @@ fn active_nav_link_follows_the_route() {
     );
 }
 
+// Post pages live under the writing section: `writing` is current as the
+// section (`true`), never as the page (`page` is the exact route's). The
+// boundary check keeps lookalike 404 paths from claiming the section.
+#[test]
+fn writing_is_the_current_section_on_post_pages() {
+    let html = header_at("/posts/missing-await");
+    assert!(
+        tag_containing(&html, ">writing<").contains("aria-current=\"true\""),
+        "`writing` must be section-current on a post page: {html}"
+    );
+    assert!(
+        !tag_containing(&html, ">about<").contains("aria-current"),
+        "`about` must not be active on a post page: {html}"
+    );
+
+    let lookalike = header_at("/posts-lookalike");
+    assert!(
+        !lookalike.contains("aria-current"),
+        "a lookalike 404 path must not claim the section: {lookalike}"
+    );
+}
+
 // The bar never grows breadcrumb segments: on post pages the logo and
 // nav render exactly as everywhere else.
 #[test]
