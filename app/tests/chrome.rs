@@ -94,8 +94,7 @@ fn active_nav_link_follows_the_route() {
 }
 
 // The bar never grows breadcrumb segments: on post pages the logo and
-// nav render exactly as everywhere else — the article body carries the
-// breadcrumb instead.
+// nav render exactly as everywhere else.
 #[test]
 fn post_pages_keep_the_bare_logo() {
     let html = header_at("/posts/missing-await");
@@ -105,14 +104,10 @@ fn post_pages_keep_the_bare_logo() {
         "the logo stays and links home: {html}"
     );
     assert!(
-        !html.contains("missing-await") && !html.contains("post-path"),
-        "the bar must not carry the slug or breadcrumb: {html}"
+        !html.contains("missing-await"),
+        "the bar must not carry the slug: {html}"
     );
     assert_global_nav_links(&html);
-    assert!(
-        !html.contains("aria-current"),
-        "no nav link claims the post page — the body breadcrumb marks the spot: {html}"
-    );
     assert!(
         html.contains("theme-toggle"),
         "post pages keep the theme toggle: {html}"

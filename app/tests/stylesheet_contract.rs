@@ -127,11 +127,6 @@ fn every_component_class_is_styled() {
         ".post-body",
         ".post-meta",
         ".meta-sep",
-        ".post-path",
-        ".path-root",
-        ".path-tilde",
-        ".path-sep",
-        ".path-here",
         ".post-tags",
         ".tag",
         ".tag-hash",
@@ -311,7 +306,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
-    let html = common::strip_markers(render_document(&doc, "kitchen-sink").to_html());
+    let html = common::strip_markers(render_document(&doc).to_html());
     for needle in [
         "<h2",
         "<h3",

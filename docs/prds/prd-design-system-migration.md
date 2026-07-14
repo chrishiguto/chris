@@ -107,6 +107,13 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
     > **Amendment (2026-07-12)**: the breadcrumb ships in the article body (see Chrome
     > below) and replaces the "back to all posts" link — two stacked up-navigation rows
     > read as clutter, and the breadcrumb's linked `posts` segment is the way back.
+
+    > **Amendment (2026-07-14)**: the breadcrumb is deleted. The site is one level deep,
+    > so every segment duplicated something already on screen: the root echoed the bar's
+    > home link, `posts` echoed the `writing` nav link, and the slug sat above the real
+    > title. Wayfinding is the bar's job — the nav marks the writing section as current
+    > on post pages (see Chrome). Removing it also decoupled the AST renderer from URL
+    > knowledge: it renders content, never navigation.
 19. As a reader, I want an about page with a short bio, what the author is currently into,
     and contact links, so that I can learn who writes this.
 20. As a reader, I want a footer on every page, so that the site feels finished and signed.
@@ -199,7 +206,10 @@ island. The toast easter egg ships with the hint as a package.
 > tone-match each theme's surface, so the mark can't be re-filled from tokens), both
 > shipped in the HTML with CSS showing the one matching the effective scheme — the same
 > mechanism as the toggle glyphs, keeping one response per URL. The `~/chris` text left
-> the bar; it lives on in the tab title and the about prompt.
+> the bar; it lives on in the tab title and the about prompt. The post breadcrumb is
+> deleted the same day (see user story 18), making the bar the only navigation chrome:
+> exact routes mark their nav link `aria-current="page"`, post pages mark `writing`
+> `aria-current="true"` — the current section, not the current page.
 
 **Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
 + three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter

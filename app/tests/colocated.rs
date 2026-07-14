@@ -22,7 +22,7 @@ fn the_ci_code_path_post_renders_its_colocated_island() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("post must validate against the live manifest");
-    let html = common::strip_markers(render_document(&doc, "ci-code-path").to_html());
+    let html = common::strip_markers(render_document(&doc).to_html());
     assert!(
         html.contains("<leptos-island"),
         "DeployStages island missing: {html}"

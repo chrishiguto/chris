@@ -233,10 +233,7 @@ mod server {
             .as_ref()
             .is_some_and(|document| !document.frontmatter.draft);
 
-        let data = PostData {
-            slug: slug.clone(),
-            post,
-        };
+        let data = PostData { post };
         let mut response = render_page(&state, req, move || provide_context(data.clone())).await;
         if not_found {
             *response.status_mut() = StatusCode::NOT_FOUND;
