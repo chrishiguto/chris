@@ -177,6 +177,7 @@ fn state_flipped_selectors_are_styled() {
         ".nav-link[aria-current]",
         ":root[data-theme=\"dark\"] .when-light",
         ":root[data-theme=\"dark\"] .when-dark",
+        ":root:not([data-theme]) .when-light",
         ":root:not([data-theme]) .when-dark",
     ] {
         assert!(css.contains(selector), "no `{selector}` in the stylesheet");

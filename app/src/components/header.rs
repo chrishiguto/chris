@@ -54,15 +54,10 @@ fn bar_links(path: &str) -> impl IntoView {
 /// `writing` current as its section, not as the page. The segment boundary
 /// keeps lookalike 404 paths (`/posts-x`) from claiming the section.
 fn aria_current(path: &str, href: &str) -> Option<&'static str> {
-    if path == href {
-        Some("page")
-    } else if path
-        .strip_prefix(href)
-        .is_some_and(|rest| rest.starts_with('/'))
-    {
-        Some("true")
-    } else {
-        None
+    match path.strip_prefix(href) {
+        Some("") => Some("page"),
+        Some(rest) if rest.starts_with('/') => Some("true"),
+        _ => None,
     }
 }
 

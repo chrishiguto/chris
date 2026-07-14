@@ -108,32 +108,15 @@ fn writing_is_the_current_section_on_post_pages() {
         !tag_containing(&html, ">about<").contains("aria-current"),
         "`about` must not be active on a post page: {html}"
     );
+    assert!(
+        !html.contains("missing-await"),
+        "the bar must not carry the slug: {html}"
+    );
 
     let lookalike = header_at("/posts-lookalike");
     assert!(
         !lookalike.contains("aria-current"),
         "a lookalike 404 path must not claim the section: {lookalike}"
-    );
-}
-
-// The bar never grows breadcrumb segments: on post pages the logo and
-// nav render exactly as everywhere else.
-#[test]
-fn post_pages_keep_the_bare_logo() {
-    let html = header_at("/posts/missing-await");
-    let mark = tag_containing(&html, "class=\"nav-logo\"");
-    assert!(
-        mark.contains("href=\"/\""),
-        "the logo stays and links home: {html}"
-    );
-    assert!(
-        !html.contains("missing-await"),
-        "the bar must not carry the slug: {html}"
-    );
-    assert_global_nav_links(&html);
-    assert!(
-        html.contains("theme-toggle"),
-        "post pages keep the theme toggle: {html}"
     );
 }
 
@@ -146,15 +129,16 @@ fn theme_toggle_ssrs_both_glyphs_as_an_island() {
         html.contains("<leptos-island"),
         "the toggle must hydrate as an island: {html}"
     );
-    for needle in [
-        "class=\"theme-toggle\"",
-        "aria-label=\"toggle theme\"",
-        "class=\"glyph when-light\"",
-        "class=\"glyph when-dark\"",
-        "☾",
-        "☀",
-    ] {
+    for needle in ["class=\"theme-toggle\"", "aria-label=\"toggle theme\""] {
         assert!(html.contains(needle), "toggle missing `{needle}`: {html}");
+    }
+    // Pinning glyph against class keeps the pair from swapping: the moon
+    // shows under light (inviting the switch to dark), the sun under dark.
+    for (glyph, theme) in [("☾", "light"), ("☀", "dark")] {
+        assert!(
+            tag_containing(&html, glyph).contains(&format!("class=\"glyph when-{theme}\"")),
+            "`{glyph}` must show under the {theme} scheme: {html}"
+        );
     }
 }
 

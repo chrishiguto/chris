@@ -9,8 +9,7 @@
      flashes before hydration and the response stays one per URL. These
      rules own `display` outright; higher-specificity rules on the elements
      must not set it, or the hidden variant leaks back. */
-  .when-light,
-  .when-dark {
+  .when-light {
     display: inline-block;
   }
 
