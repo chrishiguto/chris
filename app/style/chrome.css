@@ -1,4 +1,4 @@
-/* Site chrome: the sticky nav bar with its wordmark and links, the theme
+/* Site chrome: the sticky nav bar with its logo and links, the theme
    toggle, the footer, and the konami toast. */
 
 @layer components {
@@ -117,25 +117,40 @@
     color: var(--color-ink);
   }
 
-  /* The `~/chris` wordmark, on every page: faint tilde, mark warms to accent
-     on hover, no underline. The color sits on the anchor itself, so it needs
-     its own hover rule — the base `a:hover` can't win from an earlier layer. */
-  .nav-mark {
-    display: flex;
-    align-items: baseline;
-    gap: 2px;
+  /* The logo linking home, on every page. Both theme variants ship in the
+     server HTML; these rules show the one matching the effective scheme,
+     exactly like the toggle glyphs above — no flash, no server variance. */
+  .nav-logo {
+    display: inline-flex;
+    align-items: center;
     background-image: none;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-ink-2);
+    transition: opacity 120ms var(--ease-out);
   }
 
-  .nav-mark:hover {
-    color: var(--color-accent);
+  .nav-logo:hover {
+    opacity: 0.8;
   }
 
-  .nav-tilde {
-    color: var(--color-ink-3);
+  .nav-logo .logo-dark {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .nav-logo .logo-light {
+    display: none;
+  }
+
+  :root[data-theme="dark"] .nav-logo .logo-dark {
+    display: inline-block;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme]) .nav-logo .logo-light {
+      display: none;
+    }
+
+    :root:not([data-theme]) .nav-logo .logo-dark {
+      display: inline-block;
+    }
   }
 
   /* Footer: full-width mono signature line. */

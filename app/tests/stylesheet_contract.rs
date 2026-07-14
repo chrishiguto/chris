@@ -149,8 +149,9 @@ fn every_component_class_is_styled() {
         ".code-copy",
         // chrome
         ".site-nav",
-        ".nav-mark",
-        ".nav-tilde",
+        ".nav-logo",
+        ".logo-light",
+        ".logo-dark",
         ".nav-link",
         ".theme-toggle",
         ".glyph-sun",
@@ -182,6 +183,8 @@ fn state_flipped_selectors_are_styled() {
         ".nav-link[aria-current=\"page\"]",
         ":root[data-theme=\"dark\"] .theme-toggle .glyph-moon",
         ":root:not([data-theme]) .theme-toggle .glyph-moon",
+        ":root[data-theme=\"dark\"] .nav-logo .logo-dark",
+        ":root:not([data-theme]) .nav-logo .logo-dark",
     ] {
         assert!(css.contains(selector), "no `{selector}` in the stylesheet");
     }

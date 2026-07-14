@@ -1,5 +1,5 @@
-//! Site chrome: the bar with its `~/chris` wordmark, nav links, and the
-//! footer with its konami package — all fully server-rendered.
+//! Site chrome: the bar with its logo, nav links, and the footer with its
+//! konami package — all fully server-rendered.
 #![cfg(feature = "ssr")]
 
 use app::components::{Footer, Header};
@@ -41,18 +41,24 @@ fn assert_global_nav_links(html: &str) {
     );
 }
 
+// Both theme variants of the logo ship in the HTML; CSS shows the one
+// matching the effective scheme, so the mark can't flash on theme change.
 #[test]
-fn bar_carries_the_wordmark_nav_and_toggle() {
+fn bar_carries_the_logo_nav_and_toggle() {
     let html = header_at("/");
-    assert!(
-        html.contains("<span class=\"nav-tilde\">~/</span>chris"),
-        "the wordmark must render `~/` faint before `chris`: {html}"
-    );
-    let mark = tag_containing(&html, "class=\"nav-mark\"");
-    assert!(
-        mark.contains("href=\"/\""),
-        "the wordmark links home: {html}"
-    );
+    let mark = tag_containing(&html, "class=\"nav-logo\"");
+    assert!(mark.contains("href=\"/\""), "the logo links home: {html}");
+    for img in ["logo-dark", "logo-light"] {
+        let img = tag_containing(&html, &format!("class=\"{img}\""));
+        assert!(
+            img.contains("src=\"/images/logo") && img.contains("alt=\"chris\""),
+            "both logo variants ship as sized, labeled images: {html}"
+        );
+        assert!(
+            img.contains("width=") && img.contains("height="),
+            "logo images carry dimensions so the bar never shifts: {html}"
+        );
+    }
     assert_global_nav_links(&html);
     assert!(
         html.contains("theme-toggle"),
@@ -87,16 +93,16 @@ fn active_nav_link_follows_the_route() {
     );
 }
 
-// The bar never grows breadcrumb segments: on post pages the wordmark and
+// The bar never grows breadcrumb segments: on post pages the logo and
 // nav render exactly as everywhere else — the article body carries the
 // breadcrumb instead.
 #[test]
-fn post_pages_keep_the_bare_wordmark() {
+fn post_pages_keep_the_bare_logo() {
     let html = header_at("/posts/missing-await");
-    let mark = tag_containing(&html, "class=\"nav-mark\"");
+    let mark = tag_containing(&html, "class=\"nav-logo\"");
     assert!(
         mark.contains("href=\"/\""),
-        "the wordmark stays and links home: {html}"
+        "the logo stays and links home: {html}"
     );
     assert!(
         !html.contains("missing-await") && !html.contains("post-path"),

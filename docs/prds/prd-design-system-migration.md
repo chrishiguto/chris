@@ -194,6 +194,13 @@ island. The toast easter egg ships with the hint as a package.
 > opens with the breadcrumb (`~/chris / posts / {slug}`) in the body, replacing the
 > "back to all posts" link.
 
+> **Amendment (2026-07-14)**: the wordmark became the image it was headed toward: the bar
+> links home through the round logo, one fixed-color SVG per theme (their discs
+> tone-match each theme's surface, so the mark can't be re-filled from tokens), both
+> shipped in the HTML with CSS showing the one matching the effective scheme — the same
+> mechanism as the toggle glyphs, keeping one response per URL. The `~/chris` text left
+> the bar; it lives on in the tab title and the about prompt.
+
 **Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
 + three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter
 island, ADR-0012) over the server-rendered post list, each row in the design's PostRow
