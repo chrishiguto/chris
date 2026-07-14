@@ -310,6 +310,15 @@ needs, and deletion shrinks the routed/purged surface instead of growing it.
 
 - **What makes a good test**: external behavior only — the rendered contract and the pure
   functions, never island DOM mechanics or CSS.
+
+  > **Amendment (2026-07-14)**: "never CSS" is refined to never CSS *values*. The suite
+  > keeps structural stylesheet contracts a compiler can't check — the `@import` bundle
+  > holds together, every class the components emit keeps a selector (and the converse
+  > via the kitchen-sink fixture), color tokens stay declared-once via `light-dark()`,
+  > and the shell orders the theme script ahead of stylesheets. Visual treatments,
+  > scales, and rule contents stay out of tests entirely: pinning them made the suite a
+  > second copy of the stylesheet, maintained in lockstep. How things look is the
+  > kitchen-sink QA read in both themes.
 - **Which modules will be tested**: the content crate's word counter, date formatter, and
   routes changes (native unit tests beside the existing routes tests); the publish crate's
   index building with `reading_minutes` (extending its existing pure tests); listing
