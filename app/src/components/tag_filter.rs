@@ -72,7 +72,7 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         {pill_row}
         {post_list(rows, "mt-8")}
         <Show when=none_visible>
-            <p class="filter-empty">"$ ls — nothing here yet"</p>
+            <p class="mt-8 font-mono text-sm text-ink-3">"$ ls — nothing here yet"</p>
         </Show>
     }
 }

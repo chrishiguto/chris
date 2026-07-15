@@ -26,8 +26,17 @@ pub fn BackLink() -> impl IntoView {
     };
 
     view! {
-        <a href=POSTS_PATH class="post-back" on:click=back>
-            <span class="link-arrow" aria-hidden="true">
+        <a
+            href=POSTS_PATH
+            class="group inline-flex items-baseline gap-1.5 bg-none font-mono text-sm text-ink-2 transition-colors duration-[120ms] ease-out hover:text-accent"
+            on:click=back
+        >
+            // The arrow mirrors the listing rows' slide-in lead; reduced
+            // motion leaves it parked.
+            <span
+                class="inline-block transition-transform duration-200 ease-out-expo motion-safe:group-hover:-translate-x-[3px]"
+                aria-hidden="true"
+            >
                 "←"
             </span>
             "back"

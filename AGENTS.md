@@ -22,6 +22,15 @@ All builds route through `just` (wrangler.toml's `[build]` also calls `just buil
 - `just fmt` — leptosfmt (view! macros, config in `leptosfmt.toml`) + cargo fmt
 - `just check` — fmt-check + `cargo clippy --workspace -- -D warnings` + `xtask check` content validation (runs on the native target — it only compiles because the ssr deps in `workers/site` are optional and feature-gated; keep them that way)
 
+## Styling
+
+Inline Tailwind utilities in the view are the default. A house class must earn its name —
+multi-state or pseudo-element rules, shared design-system vocabulary (`plink`, `when-*`,
+`page-enter`), or element selectors for markup that carries no classes (prose under
+`.post-body`) — and lives only in its owner's sheet. Never emit markup that needs a class
+or wrapper another component must supply. Looks are verified by the kitchen-sink read in
+both themes, never by unit tests on stylesheet content.
+
 ## Load-bearing pins and gotchas (do not "fix" these)
 
 - `worker = "=0.8.3"` hard pin: 0.8.4+ pulls wasm-streams 0.6 alongside server_fn's 0.5 and fat LTO fails on duplicate wasm-bindgen shims. Unpin only once server_fn catches up.

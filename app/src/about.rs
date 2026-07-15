@@ -6,11 +6,19 @@ use leptos_meta::Title;
 
 use crate::components::{page_title, section_label};
 
+// External contact links: mono, no house underline — the arrow nudges
+// outward on hover instead, and parks under reduced motion.
 fn contact_link(href: &'static str, label: &'static str) -> impl IntoView {
     view! {
-        <a href=href class="contact-link">
+        <a
+            href=href
+            class="group inline-flex items-baseline gap-1.5 bg-none font-mono text-sm text-ink-2"
+        >
             {label}
-            <span class="link-arrow" aria-hidden="true">
+            <span
+                class="inline-block transition-transform duration-200 ease-out-expo motion-safe:group-hover:translate-x-[2px] motion-safe:group-hover:-translate-y-[2px]"
+                aria-hidden="true"
+            >
                 "↗"
             </span>
         </a>

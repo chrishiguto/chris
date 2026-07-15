@@ -528,12 +528,12 @@ fn post_omits_empty_tag_list() {
 fn post_opens_with_a_back_link_island_to_the_listing() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
-    let link = tag_containing(&html, "class=\"post-back\"");
+    let link = tag_containing(&html, "href=\"/posts\"");
     assert!(
-        link.contains("href=\"/posts\""),
+        link.starts_with("<a"),
         "the no-JS fallback must link the listing: {html}"
     );
-    let back = html.find("class=\"post-back\"").unwrap();
+    let back = html.find("href=\"/posts\"").unwrap();
     assert!(
         html[..back].contains("<leptos-island"),
         "the back link must hydrate as an island: {html}"
@@ -542,7 +542,7 @@ fn post_opens_with_a_back_link_island_to_the_listing() {
         back < html.find("<header").expect("header missing"),
         "the back link must sit above the header: {html}"
     );
-    let arrow = tag_containing(&html, "link-arrow");
+    let arrow = tag_containing(&html, "←");
     assert!(
         arrow.contains("aria-hidden=\"true\""),
         "the arrow is decoration, hidden from readers: {html}"

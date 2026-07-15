@@ -268,7 +268,7 @@ fn filter_pills_skip_draft_only_tags() {
 fn posts_page_ssr_omits_the_ls_empty_state() {
     let html = posts_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
     assert!(
-        !html.contains("filter-empty") && !html.contains("$ ls"),
+        !html.contains("$ ls"),
         "the empty state must not ship in the server render: {html}"
     );
 }
@@ -278,7 +278,7 @@ fn posts_page_without_tags_has_no_filter_row() {
     let html = posts_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
     assert!(
-        !html.contains("filter-empty"),
+        !html.contains("$ ls"),
         "no pills means the `$ ls` state can never show: {html}"
     );
 }

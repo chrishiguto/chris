@@ -7,7 +7,6 @@
 @import "./post.css";
 @import "./code-block.css";
 @import "./callout.css";
-@import "./about.css";
 
 @source "../src";
 
@@ -168,22 +167,6 @@
   .plink:hover,
   .post-body a:hover {
     background-size: 100% 1.5px;
-  }
-
-  /* Slide-arrow glyphs, one motion primitive: each holder keeps only its
-     hover transform in its own sheet. */
-  .link-arrow {
-    display: inline-block;
-    transition: transform 200ms var(--ease-out-expo);
-  }
-
-  /* `!important` outranks every holder's hover transform, wherever its
-     sheet declares it. */
-  @media (prefers-reduced-motion: reduce) {
-    .link-arrow {
-      transition: none !important;
-      transform: none !important;
-    }
   }
 
   /* Page-enter: each page's main content fades up in 60ms steps on load;

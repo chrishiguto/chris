@@ -1,5 +1,4 @@
-/* Listing rows — the markup shape is ul.post-list > li > a.post-row — and
-   the writing page's `$ ls` filter empty state. */
+/* Listing rows: the markup shape is ul.post-list > li > a.post-row. */
 
 @layer components {
   /* A dividerless stack. Context spacing belongs to the pages, so the list
@@ -91,12 +90,4 @@
     text-overflow: ellipsis;
   }
 
-  /* The writing page's `$ ls` state: the filter island shows it when no row
-     matches the active tag. */
-  .filter-empty {
-    margin: 2rem 0 0;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-ink-3);
-  }
 }

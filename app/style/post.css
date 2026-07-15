@@ -1,7 +1,7 @@
 /* Prose for the AST renderer: bare semantic elements inside `.post-body`,
    styled via flat `.post-body <element>` selectors so nothing reaches the
-   post header chrome — plus that chrome (back link, meta row) and the
-   renderer's error surface. */
+   post header chrome — plus that chrome (the meta line) and the renderer's
+   error surface. */
 
 @layer components {
   /* Width/centering come from utilities on the article; only rhythm lives here. */
@@ -13,27 +13,6 @@
 
   .post header {
     margin-bottom: 2.25rem;
-  }
-
-  /* The mono `← back` opening the article; its `.link-arrow` nudges out
-     on hover, mirroring the listing rows' slide-in lead. */
-  .post-back {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.375rem;
-    background-image: none;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-ink-2);
-    transition: color 120ms var(--ease-out);
-  }
-
-  .post-back:hover {
-    color: var(--color-accent);
-  }
-
-  .post-back:hover .link-arrow {
-    transform: translateX(-3px);
   }
 
   .post header h1 {
