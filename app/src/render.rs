@@ -5,7 +5,7 @@ use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{meta_row, CodeBlock, TagPill};
+use crate::components::{meta_row, BackLink, CodeBlock, TagPill};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing.
@@ -22,6 +22,7 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post mx-auto max-w-2xl px-6">
+            <BackLink />
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
                 // The same ~200 wpm number the publish plan stamps into the

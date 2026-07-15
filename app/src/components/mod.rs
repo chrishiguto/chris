@@ -5,6 +5,7 @@ use leptos::prelude::*;
 use leptos_meta::Title;
 use serde::{Deserialize, Serialize};
 
+pub mod back_link;
 pub mod blog;
 pub mod code_block;
 pub mod footer;
@@ -14,6 +15,7 @@ pub mod not_found;
 pub mod tag_filter;
 pub mod theme_toggle;
 
+pub use back_link::BackLink;
 pub use code_block::CodeBlock;
 pub use footer::Footer;
 pub use header::Header;

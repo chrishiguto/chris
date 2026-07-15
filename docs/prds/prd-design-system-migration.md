@@ -114,6 +114,14 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
     > title. Wayfinding is the bar's job — the nav marks the writing section as current
     > on post pages (see Chrome). Removing it also decoupled the AST renderer from URL
     > knowledge: it renders content, never navigation.
+
+    > **Amendment (2026-07-15)**: a `← back` control opens the article again — but as
+    > history navigation, not a breadcrumb. The island calls `history.back()` when the
+    > referrer is same-origin, returning the reader to whatever they left (a filtered
+    > listing, home, another post); direct visits, external referrers, and no-JS readers
+    > follow its href to `/posts` instead. Unlike the breadcrumb it duplicates nothing on
+    > screen and names no part of the page's own URL, so the renderer stays decoupled
+    > from URL knowledge.
 19. As a reader, I want an about page with a short bio, what the author is currently into,
     and contact links, so that I can learn who writes this.
 20. As a reader, I want a footer on every page, so that the site feels finished and signed.

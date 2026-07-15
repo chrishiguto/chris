@@ -124,6 +124,7 @@ fn every_component_class_is_styled() {
         ".plink",
         // post
         ".post",
+        ".post-back",
         ".post-body",
         ".post-meta",
         ".meta-sep",

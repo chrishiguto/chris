@@ -508,6 +508,35 @@ fn post_omits_empty_tag_list() {
     );
 }
 
+// The back control opens the article as an island (`history.back` needs
+// JS), SSR'd as a plain listing link so it stays a way back without
+// hydration. It never names the post's own URL — the renderer stays
+// decoupled from URL knowledge.
+#[test]
+fn post_opens_with_a_back_link_island_to_the_listing() {
+    let doc = doc_with_tags(vec![]);
+    let html = strip_markers(render_document(&doc).to_html());
+    let link = tag_containing(&html, "class=\"post-back\"");
+    assert!(
+        link.contains("href=\"/posts\""),
+        "the no-JS fallback must link the listing: {html}"
+    );
+    let back = html.find("class=\"post-back\"").unwrap();
+    assert!(
+        html[..back].contains("<leptos-island"),
+        "the back link must hydrate as an island: {html}"
+    );
+    assert!(
+        back < html.find("<header").expect("header missing"),
+        "the back link must sit above the header: {html}"
+    );
+    let arrow = tag_containing(&html, "link-arrow");
+    assert!(
+        arrow.contains("aria-hidden=\"true\""),
+        "the arrow is decoration, hidden from readers: {html}"
+    );
+}
+
 // The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
 // separator span, and a read time computed live from the AST the page holds.
 #[test]
