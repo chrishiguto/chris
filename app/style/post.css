@@ -56,11 +56,6 @@
     color: var(--color-ink-2);
   }
 
-  /* The `·` between meta spans reads a step quieter than either side. */
-  .meta-sep {
-    color: var(--color-ink-3);
-  }
-
   /* The 65ch reading measure; the header and full-bleed surfaces sit outside. */
   .post-body {
     max-width: 65ch;

@@ -560,12 +560,12 @@ fn post_header_renders_formatted_date_and_read_time() {
             && html.contains("<span>1 min</span>"),
         "meta row must read `jul 04, 2026 · 1 min`: {html}"
     );
-    let sep = tag_containing(&html, "meta-sep");
+    let sep = tag_containing(&html, "·");
     assert!(
         sep.contains("aria-hidden=\"true\""),
         "the separator hides from readers: {html}"
     );
-    let sep_at = html.find("meta-sep").unwrap();
+    let sep_at = html.find("·").unwrap();
     assert!(
         html.find("jul 04, 2026").unwrap() < sep_at && sep_at < html.find("1 min").unwrap(),
         "the meta row must read `date · minutes`: {html}"

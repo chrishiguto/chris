@@ -24,13 +24,18 @@ pub use not_found::NotFound;
 pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
 
-/// Meta-row content: formatted date, then `· N min` when the
-/// read time is known — absent minutes render the date alone. The wrapper
-/// (`p.post-meta` / `span.post-row-meta`) belongs to the caller.
-pub(crate) fn meta_row(date: &str, minutes: Option<u32>) -> impl IntoView {
+/// The article header's meta line: formatted date, then `· N min` when the
+/// read time is known — absent minutes render the date alone.
+pub(crate) fn post_meta(date: &str, minutes: Option<u32>) -> impl IntoView {
+    view! { <p class="post-meta">{meta_row(date, minutes)}</p> }
+}
+
+/// Shared `date · minutes` content for the article meta line and the row
+/// meta; the separator reads a step quieter than either side.
+fn meta_row(date: &str, minutes: Option<u32>) -> impl IntoView {
     let time = minutes.map(|minutes| {
         view! {
-            <span class="meta-sep" aria-hidden="true">
+            <span class="text-ink-3" aria-hidden="true">
                 "·"
             </span>
             <span>{format!("{minutes} min")}</span>
@@ -141,10 +146,21 @@ fn post_row(post: ListedPost) -> impl IntoView {
     }
 }
 
-/// Tag pill: one `<li>` of a `.post-tags` row, shared by the article bottom
-/// and the listing's filter row. The filter island drives `active` and
-/// `on_select`; rendered statically, the pill is a plain link to the
-/// pre-filtered listing.
+/// The pill row — `ul.post-tags` of [`TagPill`]s — shared by the article
+/// bottom and the filter; no pills, no row. Spacing overrides belong to
+/// callers.
+pub(crate) fn tag_row<V: IntoView>(pills: Vec<V>, spacing: &'static str) -> Option<impl IntoView> {
+    let class = if spacing.is_empty() {
+        "post-tags".to_string()
+    } else {
+        format!("post-tags {spacing}")
+    };
+    (!pills.is_empty()).then(|| view! { <ul class=class>{pills}</ul> })
+}
+
+/// Tag pill: one `<li>` of the [`tag_row`]. The filter island drives
+/// `active` and `on_select`; rendered statically, the pill is a plain link
+/// to the pre-filtered listing.
 #[component]
 pub(crate) fn TagPill(
     tag: String,

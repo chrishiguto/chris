@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::UrlSearchParams;
 
-use crate::components::{post_list, ListedPost, TagPill};
+use crate::components::{post_list, tag_row, ListedPost, TagPill};
 
 /// In-page tag filter for the writing page: one island owning the pill row,
 /// the post list, and the `$ ls` empty state, so filtering is plain signal
@@ -47,7 +47,7 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
             view! { <TagPill tag=tag.clone() active=is_active on_select=on_select /> }
         })
         .collect();
-    let pill_row = (!pills.is_empty()).then(|| view! { <ul class="post-tags mt-4.5">{pills}</ul> });
+    let pill_row = tag_row(pills, "mt-4.5");
 
     // The union semantics live here alone: a row hides when it carries
     // none of the selection.

@@ -104,18 +104,18 @@ fn post_rows_show_read_time_only_when_present() {
             && html.contains("<span>4 min</span>"),
         "{html}"
     );
-    let sep = tag_containing(&html, "meta-sep");
+    let sep = tag_containing(&html, "·");
     assert!(
         sep.contains("aria-hidden=\"true\""),
         "the separator hides from readers: {html}"
     );
-    let sep_at = html.find("meta-sep").unwrap();
+    let sep_at = html.find("·").unwrap();
     assert!(
         html.find("feb 01, 2026").unwrap() < sep_at && sep_at < html.find("4 min").unwrap(),
         "the meta row must read `date · minutes`: {html}"
     );
     assert_eq!(
-        html.matches("meta-sep").count(),
+        html.matches("·").count(),
         1,
         "rows without minutes must not render a separator: {html}"
     );
