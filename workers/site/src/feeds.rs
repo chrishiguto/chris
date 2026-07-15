@@ -2,9 +2,8 @@
 //! natively testable. The feed is Atom served at `/rss.xml` (Atom takes
 //! ISO-8601 dates directly, unlike RSS's RFC-822).
 
-use content::{post_path, IndexEntry, LISTING_PAGES, RSS_PATH, STATIC_PAGES};
+use content::{post_path, IndexEntry, LISTING_PAGES, RSS_PATH, SITE_TITLE, STATIC_PAGES};
 
-const SITE_TITLE: &str = "chris";
 const AUTHOR: &str = "chris";
 /// Feed-level `updated` when nothing is published yet (Atom requires one).
 const EPOCH: &str = "1970-01-01";

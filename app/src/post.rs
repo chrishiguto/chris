@@ -4,7 +4,7 @@ use content::Document;
 use leptos::prelude::*;
 use leptos_meta::{Meta, Title};
 
-use crate::components::NotFound;
+use crate::components::{page_title, NotFound};
 use crate::render::render_document;
 
 /// Per-request post from the site worker; `None` means no document lives at
@@ -25,15 +25,12 @@ pub fn PostPage() -> impl IntoView {
 
 fn post_article(doc: Document) -> impl IntoView {
     view! {
-        <Title text=doc.frontmatter.title.clone() />
+        <Title text=page_title(&doc.frontmatter.title) />
         <Meta property="article:published_time" content=doc.frontmatter.date.clone() />
         {render_document(&doc)}
     }
 }
 
 fn post_not_found() -> impl IntoView {
-    view! {
-        <Title text="post not found" />
-        <NotFound message="no post lives at this address." />
-    }
+    view! { <NotFound message="no post lives at this address." /> }
 }

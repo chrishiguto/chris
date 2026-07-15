@@ -4,7 +4,7 @@
 use leptos::prelude::*;
 use leptos_meta::Title;
 
-use crate::components::section_label;
+use crate::components::{page_title, section_label};
 
 fn contact_link(href: &'static str, label: &'static str) -> impl IntoView {
     view! {
@@ -20,10 +20,10 @@ fn contact_link(href: &'static str, label: &'static str) -> impl IntoView {
 #[component]
 pub fn AboutPage() -> impl IntoView {
     view! {
-        <Title text="about — chris" />
-        <section class="mx-auto max-w-2xl px-6 py-16">
+        <Title text=page_title("about") />
+        <section class="page-enter mx-auto max-w-2xl px-6 py-16">
             <p class="flex items-baseline gap-2 font-mono text-sm">
-                <span class="text-ink-3">"~/chris"</span>
+                <span class="text-ink-3">{content::SITE_TITLE}</span>
                 <span class="text-accent">"$"</span>
                 <span>"cat about.md"</span>
             </p>

@@ -68,6 +68,11 @@ fn digits(part: &str, len: usize) -> bool {
     part.len() == len && part.bytes().all(|byte| byte.is_ascii_digit())
 }
 
+/// `{page} — ~/chris`: every non-home tab title hangs off the site title.
+pub(crate) fn page_title(page: &str) -> String {
+    format!("{page} — {}", content::SITE_TITLE)
+}
+
 /// Mono section label; shared by the home and about pages.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
     view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
@@ -162,7 +167,7 @@ pub(crate) fn page(
 ) -> impl IntoView {
     view! {
         {title.map(|text| view! { <Title text=text /> })}
-        <section class="mx-auto max-w-2xl px-6 py-16">
+        <section class="page-enter mx-auto max-w-2xl px-6 py-16">
             <h1 class="text-3xl font-semibold tracking-tight">{heading}</h1>
             {body}
         </section>
@@ -171,7 +176,14 @@ pub(crate) fn page(
 
 #[cfg(test)]
 mod tests {
-    use super::format_date;
+    use super::{format_date, page_title};
+
+    // The literal pins the suffix shape; agreement with the tab and feed is
+    // structural through `content::SITE_TITLE`.
+    #[test]
+    fn page_titles_hang_off_the_site_title() {
+        assert_eq!(page_title("posts"), "posts — ~/chris");
+    }
 
     #[test]
     fn dates_format_with_every_english_month_name() {

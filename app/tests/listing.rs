@@ -138,7 +138,7 @@ fn posts_page_filters_drafts() {
 fn posts_page_with_empty_index_says_so() {
     let html = posts_html(Vec::new());
     assert!(
-        html.contains("Nothing published yet"),
+        html.contains("nothing published yet"),
         "empty index needs a readable state, not a blank page: {html}"
     );
 }
@@ -297,5 +297,5 @@ fn tag_routes_fall_through_to_the_404_page() {
 fn home_page_without_index_context_still_renders() {
     // A missing IndexData context must degrade to the empty state, never panic.
     let html = ssr(|| (), || leptos::view! { <HomePage /> });
-    assert!(html.contains("Nothing published yet"), "{html}");
+    assert!(html.contains("nothing published yet"), "{html}");
 }

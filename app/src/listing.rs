@@ -4,7 +4,7 @@
 use content::{IndexEntry, ABOUT_PATH, POSTS_PATH};
 use leptos::prelude::*;
 
-use crate::components::{page, post_row, section_label, ListedPost, TagFilter};
+use crate::components::{page, page_title, post_row, section_label, ListedPost, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -33,7 +33,7 @@ fn post_list(posts: Vec<ListedPost>) -> impl IntoView {
 
 /// One empty state for both listings, so `/` and `/posts` can't drift.
 fn nothing_published() -> impl IntoView {
-    view! { <p class="mt-6 text-ink-2">"Nothing published yet — check back soon."</p> }
+    view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
 }
 
 #[component]
@@ -45,7 +45,7 @@ pub fn PostsPage() -> impl IntoView {
             <TagFilter posts=posts.clone() />
         </Show>
     };
-    page(Some("posts — chris".into()), "posts", listing)
+    page(Some(page_title("posts")), "posts", listing)
 }
 
 #[component]

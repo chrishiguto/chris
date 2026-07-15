@@ -163,6 +163,21 @@ fn footer_ships_copyright_and_the_konami_package() {
     );
 }
 
+// The fade-up stagger is a page-load cadence: every routed page and both
+// 404s mount their main content under `page-enter`. The CSS side of the
+// contract pins in stylesheet_contract.rs.
+#[test]
+fn every_page_mounts_its_content_under_page_enter() {
+    for path in ["/", "/posts", "/posts/anything", "/about", "/nowhere"] {
+        let html = common::app_at(path);
+        let mount = tag_containing(&html, "page-enter");
+        assert!(
+            mount.starts_with("<section") || mount.starts_with("<article"),
+            "`{path}` must mount main content under page-enter: {html}"
+        );
+    }
+}
+
 // The chrome wraps every routed page and the 404 fallback alike: header and
 // footer sit outside `Routes`, so nothing can render without them.
 #[test]

@@ -30,6 +30,10 @@ pub use parse::*;
 /// serialized shape.
 pub const SCHEMA_VERSION: u32 = 1;
 
+/// The site's name, declared once so the browser tab, page-title suffixes,
+/// and the feed can never disagree.
+pub const SITE_TITLE: &str = "~/chris";
+
 #[derive(Debug)]
 pub enum AstError {
     SchemaVersionMismatch { found: u32, expected: u32 },

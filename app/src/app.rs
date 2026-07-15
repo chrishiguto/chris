@@ -41,7 +41,7 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
                 <link
                     rel="alternate"
                     type="application/atom+xml"
-                    title="chris"
+                    title=content::SITE_TITLE
                     href=content::RSS_PATH
                 />
                 <AutoReload options=options.clone() />
@@ -60,7 +60,7 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        <Title text="~/chris" />
+        <Title text=content::SITE_TITLE />
 
         <Router>
             <div class="flex min-h-screen flex-col">

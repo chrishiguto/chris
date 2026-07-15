@@ -1,6 +1,6 @@
 @import "tailwindcss";
 /* One sheet per concern; this file owns fonts, tokens, the base layer, and
-   the shared link primitives. */
+   the shared link and motion primitives. */
 @import "./chrome.css";
 @import "./listing.css";
 @import "./tags.css";
@@ -152,7 +152,7 @@
   }
 }
 
-/* Shared link primitives, used across pages and components. */
+/* Shared link and motion primitives, used across pages and components. */
 
 @layer components {
   /* Emphasis link: medium weight marks it at rest, the accent underline
@@ -184,5 +184,42 @@
       transition: none !important;
       transform: none !important;
     }
+  }
+
+  /* Page-enter: each page's main content fades up in 60ms steps on load;
+     the token's `both` fill keeps late children hidden through their
+     delay. Everything that moves sits inside the gate — under reduced
+     motion the content simply appears. */
+  @media (prefers-reduced-motion: no-preference) {
+    .page-enter > * {
+      animation: var(--animate-fade-up);
+    }
+
+    .page-enter > :nth-child(2) {
+      animation-delay: 60ms;
+    }
+
+    .page-enter > :nth-child(3) {
+      animation-delay: 120ms;
+    }
+
+    .page-enter > :nth-child(4) {
+      animation-delay: 180ms;
+    }
+
+    .page-enter > :nth-child(5) {
+      animation-delay: 240ms;
+    }
+
+    .page-enter > :nth-child(n + 6) {
+      animation-delay: 300ms;
+    }
+  }
+
+  /* Islands are custom elements, inline by default: a transform needs a
+     box, and layout must not differ by motion preference, so this sits
+     outside the gate. */
+  .page-enter > leptos-island {
+    display: block;
   }
 }

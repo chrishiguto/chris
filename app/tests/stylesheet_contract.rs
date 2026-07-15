@@ -157,6 +157,8 @@ fn every_component_class_is_styled() {
         ".filter-empty",
         ".contact-link",
         ".link-arrow",
+        // motion
+        ".page-enter",
     ] {
         assert!(
             has_selector(&css, class),
@@ -186,6 +188,63 @@ fn state_flipped_selectors_are_styled() {
     assert!(
         css.contains("(prefers-color-scheme: dark)"),
         "the unset state must follow the system preference"
+    );
+}
+
+/// The `{ … }` bodies of every at-rule matching `query`, brace-balanced so
+/// nested rules stay inside.
+fn at_rule_blocks<'a>(css: &'a str, query: &str) -> Vec<&'a str> {
+    css.match_indices(query)
+        .map(|(at, _)| {
+            let open = at + css[at..].find('{').expect("at-rule without a block");
+            let mut depth = 0usize;
+            for (offset, ch) in css[open..].char_indices() {
+                match ch {
+                    '{' => depth += 1,
+                    '}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return &css[open..open + offset];
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            panic!("unclosed `{query}` block");
+        })
+        .collect()
+}
+
+// Page-enter: the mock's route-change motion, retimed to the full page
+// loads this MPA actually performs. Main content fades up in 60ms steps,
+// and every animating declaration sits inside a motion-preference gate —
+// reduced motion never sees a transform.
+#[test]
+fn page_enter_stagger_animates_only_when_motion_is_wanted() {
+    let css = stylesheet();
+    let gated = at_rule_blocks(&css, "@media (prefers-reduced-motion: no-preference)");
+    let enter = gated
+        .iter()
+        .find(|block| block.contains(".page-enter"))
+        .expect("page-enter must sit inside a motion-preference gate");
+    assert!(
+        enter.contains("var(--animate-fade-up)"),
+        "page-enter must ride the fade-up token: {enter}"
+    );
+    for delay in ["60ms", "120ms", "180ms", "240ms", "300ms"] {
+        assert!(
+            enter.contains(&format!("animation-delay: {delay}")),
+            "missing the {delay} stagger step: {enter}"
+        );
+    }
+    let gated_delays: usize = gated
+        .iter()
+        .map(|block| block.matches("animation-delay").count())
+        .sum();
+    assert_eq!(
+        gated_delays,
+        css.matches("animation-delay").count(),
+        "no stagger step may leak outside a motion gate"
     );
 }
 

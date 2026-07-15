@@ -191,6 +191,11 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
 font preloads are removed. A blocking inline head script applies the stored theme before
 the stylesheet (ADR-0011). The base document title becomes `~/chris`.
 
+> **Amendment (2026-07-15)**: the base title widened into the site's name everywhere it
+> appears: page titles suffix `— ~/chris` (posts, about, articles, and both 404s, which
+> now share `404 — ~/chris`), and the Atom feed's title says `~/chris` too — all reading
+> one `SITE_TITLE` constant in the content crate, so tab, page, and feed can't drift.
+
 **Chrome**: the header carries the `~/chris` wordmark, lowercase mono nav
 ("writing" → `/posts`, "about" → `/about`), the active-link accent underline, and the
 `ThemeToggle` island; on post pages it switches to the breadcrumb variant

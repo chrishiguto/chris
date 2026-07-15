@@ -386,6 +386,14 @@ fn post_page_without_post_renders_404_content() {
     let html = page_html(None);
     assert!(html.contains("404"), "missing 404 heading: {html}");
     assert!(html.contains("href=\"/\""), "missing link home: {html}");
+    assert!(
+        html.contains("no such file or directory"),
+        "the 404 speaks in the site's shell voice: {html}"
+    );
+    assert!(
+        html.contains("no post lives at this address."),
+        "the post miss keeps its own message: {html}"
+    );
 }
 
 #[test]
@@ -450,6 +458,10 @@ fn render_document_wraps_body_in_article_with_header() {
     assert!(
         html.starts_with("<article"),
         "expected article root: {html}"
+    );
+    assert!(
+        tag_containing(&html, "article").contains("page-enter"),
+        "the article mounts under the page-enter stagger: {html}"
     );
     assert!(html.contains("<h1>Hello, KV</h1>"), "title missing: {html}");
     assert!(

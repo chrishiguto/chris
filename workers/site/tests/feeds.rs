@@ -71,6 +71,10 @@ fn feed_is_a_well_formed_atom_document() {
         "{xml}"
     );
     assert!(xml.contains("<author><name>"), "{xml}");
+    assert!(
+        xml.contains("<title>~/chris</title>"),
+        "the feed names the site the way the tab does: {xml}"
+    );
     assert!(xml.trim_end().ends_with("</feed>"), "{xml}");
     // Every entry needs an id and, absent atom:content, a summary.
     assert_eq!(xml.matches("<entry>").count(), 2, "{xml}");

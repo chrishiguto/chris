@@ -21,7 +21,7 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     });
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
-        <article class="post mx-auto max-w-2xl px-6">
+        <article class="post page-enter mx-auto max-w-2xl px-6">
             <BackLink />
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
