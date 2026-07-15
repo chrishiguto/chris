@@ -571,3 +571,51 @@ fn post_header_renders_formatted_date_and_read_time() {
         "the meta row must read `date · minutes`: {html}"
     );
 }
+
+// One real post exercising every node type and Callout kind — if it renders,
+// the whole vocabulary reached markup. Looks are the kitchen-sink read's job.
+#[test]
+fn kitchen_sink_fixture_exercises_every_node_type() {
+    let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
+    let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
+        .expect("kitchen-sink post must validate against the live manifest");
+    let html = strip_markers(render_document(&doc).to_html());
+    for needle in [
+        "<h2",
+        "<h3",
+        "<h4",
+        "<h5",
+        "<h6",
+        "<em>",
+        "<strong>",
+        "<code",
+        "<pre",
+        "<a href",
+        "<img",
+        "<ol start",
+        "<ul>",
+        "<blockquote>",
+        "<hr",
+        "<br",
+        "<kbd>",
+        "class=\"post-tags\"",
+        "callout callout-note",
+        "callout callout-tip",
+        "callout callout-warning",
+        "callout callout-danger",
+        "// note",
+        "// tip",
+        "// warning",
+        "// danger",
+        "<span class=\"code-lang\">rust</span>",
+        "<span class=\"code-lang\">code</span>",
+        "class=\"code-copy\"",
+        "<leptos-island",
+    ] {
+        assert!(html.contains(needle), "kitchen sink missing {needle}");
+    }
+    assert!(
+        !html.contains("component-error"),
+        "no component may fail dispatch: {html}"
+    );
+}
