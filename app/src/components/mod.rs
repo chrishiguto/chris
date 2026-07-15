@@ -104,9 +104,25 @@ impl From<IndexEntry> for ListedPost {
     }
 }
 
-/// The whole row is the link; the arrow slides in on hover via CSS. The
-/// `<li>` belongs to the caller — the filter island binds visibility to it.
-pub(crate) fn post_row(post: ListedPost) -> impl IntoView {
+/// The whole listing shape — `ul.post-list > li > a.post-row` — declared
+/// once. A row given a visibility signal hides reactively (the filter
+/// island's live selection); without one it renders plain, so the server
+/// baseline never carries `hidden`. Context spacing belongs to callers.
+pub(crate) fn post_list(
+    rows: Vec<(ListedPost, Option<Signal<bool>>)>,
+    spacing: &'static str,
+) -> impl IntoView {
+    let items: Vec<_> = rows
+        .into_iter()
+        .map(|(post, hidden)| {
+            view! { <li hidden=move || hidden.is_some_and(|hidden| hidden.get())>{post_row(post)}</li> }
+        })
+        .collect();
+    view! { <ul class=format!("post-list {spacing}")>{items}</ul> }
+}
+
+/// The whole row is the link; the arrow slides in on hover via CSS.
+fn post_row(post: ListedPost) -> impl IntoView {
     let meta = meta_row(&post.date, post.reading_minutes);
     view! {
         <a href=post_path(&post.slug) class="post-row">

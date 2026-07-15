@@ -4,7 +4,7 @@
 use content::{IndexEntry, ABOUT_PATH, POSTS_PATH};
 use leptos::prelude::*;
 
-use crate::components::{page, page_title, post_row, section_label, ListedPost, TagFilter};
+use crate::components::{page, page_title, post_list, section_label, ListedPost, TagFilter};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -20,15 +20,6 @@ fn listed_posts() -> Vec<ListedPost> {
         .filter(|entry| entry.is_listed())
         .map(Into::into)
         .collect()
-}
-
-/// Markup shape `listing.css` styles: `ul.post-list > li > a.post-row`.
-fn post_list(posts: Vec<ListedPost>) -> impl IntoView {
-    let items: Vec<_> = posts
-        .into_iter()
-        .map(|post| view! { <li>{post_row(post)}</li> })
-        .collect();
-    view! { <ul class="post-list">{items}</ul> }
 }
 
 /// One empty state for both listings, so `/` and `/posts` can't drift.
@@ -58,7 +49,7 @@ pub fn HomePage() -> impl IntoView {
     // rustc's query depth.
     let latest = view! {
         <Show when=move || has_posts fallback=nothing_published>
-            <div class="mt-4">{post_list(recent.clone())}</div>
+            {post_list(recent.iter().cloned().map(|post| (post, None)).collect(), "mt-4")}
             <p class="mt-4 text-ink-2">
                 "that's the latest three. " <a href=POSTS_PATH class="plink">
                     {format!("read all {total} posts →")}

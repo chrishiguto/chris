@@ -4,7 +4,7 @@ use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::UrlSearchParams;
 
-use crate::components::{post_row, ListedPost, TagPill};
+use crate::components::{post_list, ListedPost, TagPill};
 
 /// In-page tag filter for the writing page: one island owning the pill row,
 /// the post list, and the `$ ls` empty state, so filtering is plain signal
@@ -64,14 +64,13 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         .into_iter()
         .map(|post| {
             let tags = post.tags.clone();
-            let hidden = move || hides(&tags);
-            view! { <li hidden=hidden>{post_row(post)}</li> }
+            (post, Some(Signal::derive(move || hides(&tags))))
         })
         .collect();
 
     view! {
         {pill_row}
-        <ul class="post-list mt-8">{rows}</ul>
+        {post_list(rows, "mt-8")}
         <Show when=none_visible>
             <p class="filter-empty">"$ ls — nothing here yet"</p>
         </Show>
