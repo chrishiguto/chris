@@ -109,6 +109,15 @@ impl From<IndexEntry> for ListedPost {
     }
 }
 
+/// `base` plus caller spacing utilities; no trailing space when empty.
+fn classed(base: &'static str, spacing: &'static str) -> String {
+    if spacing.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base} {spacing}")
+    }
+}
+
 /// The whole listing shape — `ul.post-list > li > a.post-row` — declared
 /// once. A row given a visibility signal hides reactively (the filter
 /// island's live selection); without one it renders plain, so the server
@@ -120,10 +129,10 @@ pub(crate) fn post_list(
     let items: Vec<_> = rows
         .into_iter()
         .map(|(post, hidden)| {
-            view! { <li hidden=move || hidden.is_some_and(|hidden| hidden.get())>{post_row(post)}</li> }
+            view! { <li hidden=move || hidden.is_some_and(|signal| signal.get())>{post_row(post)}</li> }
         })
         .collect();
-    view! { <ul class=format!("post-list {spacing}")>{items}</ul> }
+    view! { <ul class=classed("post-list", spacing)>{items}</ul> }
 }
 
 /// The whole row is the link; the arrow slides in on hover via CSS.
@@ -150,12 +159,7 @@ fn post_row(post: ListedPost) -> impl IntoView {
 /// bottom and the filter; no pills, no row. Spacing overrides belong to
 /// callers.
 pub(crate) fn tag_row<V: IntoView>(pills: Vec<V>, spacing: &'static str) -> Option<impl IntoView> {
-    let class = if spacing.is_empty() {
-        "post-tags".to_string()
-    } else {
-        format!("post-tags {spacing}")
-    };
-    (!pills.is_empty()).then(|| view! { <ul class=class>{pills}</ul> })
+    (!pills.is_empty()).then(|| view! { <ul class=classed("post-tags", spacing)>{pills}</ul> })
 }
 
 /// Tag pill: one `<li>` of the [`tag_row`]. The filter island drives
