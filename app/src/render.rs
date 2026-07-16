@@ -1,29 +1,34 @@
 //! AST renderer: [`Document`] → Leptos views. The stored AST is semantic;
 //! every presentational decision lives here.
 
-use content::{Document, Node};
+use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
+use crate::components::{post_meta, tag_row, BackLink, CodeBlock, TagPill};
+
 pub fn render_document(doc: &Document) -> impl IntoView {
-    let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
-        let tags: Vec<_> = doc
-            .frontmatter
-            .tags
-            .iter()
-            .map(|tag| view! { <li class="tag">{tag.clone()}</li> })
-            .collect();
-        view! { <ul class="post-tags">{tags}</ul> }
-    });
-    // Prose sits in `.post-body` so its element selectors never hit the header.
+    // Pills close the article and land on the pre-filtered listing.
+    let pills: Vec<_> = doc
+        .frontmatter
+        .tags
+        .iter()
+        .cloned()
+        .map(|tag| view! { <TagPill tag=tag /> })
+        .collect();
+    let tags = tag_row(pills, "");
+    // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
-        <article class="post mx-auto max-w-2xl px-6">
+        <article class="post page-enter mx-auto max-w-2xl px-6">
+            <BackLink />
             <header>
                 <h1>{doc.frontmatter.title.clone()}</h1>
-                <p class="post-date">{doc.frontmatter.date.clone()}</p>
-                {tags}
+                // The same ~200 wpm number the publish plan stamps into the
+                // index, computed live from the AST this page already holds.
+                {post_meta(&doc.frontmatter.date, Some(reading_minutes(&doc.ast)))}
             </header>
             <div class="post-body">{render_nodes(&doc.ast)}</div>
+            {tags}
         </article>
     }
 }
@@ -87,21 +92,9 @@ fn render_node(node: &Node) -> AnyView {
                 view! { <ul>{items}</ul> }.into_any()
             }
         }
-        // `class=Option::None` still emits `class=""`, so branch instead.
-        Node::CodeBlock { lang, text } => match lang {
-            Some(lang) => view! {
-                <pre>
-                    <code class=format!("language-{lang}")>{text.clone()}</code>
-                </pre>
-            }
-            .into_any(),
-            None => view! {
-                <pre>
-                    <code>{text.clone()}</code>
-                </pre>
-            }
-            .into_any(),
-        },
+        Node::CodeBlock { lang, text } => {
+            view! { <CodeBlock lang=lang.clone() text=text.clone() /> }.into_any()
+        }
         Node::Blockquote { children } => {
             view! { <blockquote>{render_nodes(children)}</blockquote> }.into_any()
         }

@@ -1,20 +1,23 @@
 //! Native tests for feed/sitemap rendering over a fixture index.
 
-use content::IndexEntry;
+use content::{Frontmatter, IndexEntry};
 use site::feeds;
 
 const ORIGIN: &str = "https://example.com";
 
+/// Through the real constructor, so publish-computed fields default here
+/// the same way they do in production.
 fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
-    IndexEntry {
-        slug: slug.into(),
-        title: title.into(),
-        date: date.into(),
-        description: None,
-        tags: vec![],
-        draft: false,
-        content_hash: String::new(),
-    }
+    IndexEntry::new(
+        slug,
+        &Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: vec![],
+            draft: false,
+        },
+    )
 }
 
 fn fixture_index() -> Vec<IndexEntry> {
@@ -68,6 +71,10 @@ fn feed_is_a_well_formed_atom_document() {
         "{xml}"
     );
     assert!(xml.contains("<author><name>"), "{xml}");
+    assert!(
+        xml.contains("<title>~/chris</title>"),
+        "the feed names the site the way the tab does: {xml}"
+    );
     assert!(xml.trim_end().ends_with("</feed>"), "{xml}");
     // Every entry needs an id and, absent atom:content, a summary.
     assert_eq!(xml.matches("<entry>").count(), 2, "{xml}");
@@ -115,14 +122,12 @@ fn empty_index_still_yields_a_valid_feed() {
 }
 
 #[test]
-fn sitemap_lists_home_post_list_posts_and_tag_pages() {
+fn sitemap_lists_home_post_list_static_pages_and_posts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     for loc in [
         "<loc>https://example.com/</loc>",
         "<loc>https://example.com/posts</loc>",
-        "<loc>https://example.com/tags</loc>",
-        "<loc>https://example.com/tags/rust</loc>",
-        "<loc>https://example.com/tags/wasm</loc>",
+        "<loc>https://example.com/about</loc>",
         "<loc>https://example.com/posts/newer</loc>",
         "<loc>https://example.com/posts/older</loc>",
     ] {
@@ -136,12 +141,25 @@ fn sitemap_lists_home_post_list_posts_and_tag_pages() {
     assert!(xml.contains("<lastmod>2026-03-01</lastmod>"), "{xml}");
 }
 
+// Static pages change on deploy, not publish, so no date is honest as lastmod.
 #[test]
-fn sitemap_excludes_drafts_and_their_tags() {
+fn sitemap_lists_static_pages_without_lastmod() {
+    let xml = feeds::sitemap(ORIGIN, &[]);
+    assert!(
+        xml.contains("<url><loc>https://example.com/about</loc></url>"),
+        "{xml}"
+    );
+}
+
+#[test]
+fn sitemap_excludes_drafts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     assert!(!xml.contains("/posts/wip"), "{xml}");
-    assert!(
-        !xml.contains("/tags/secret"),
-        "a tag only drafts carry has no page: {xml}"
-    );
+}
+
+// Tag browsing is an in-page filter on /posts; no tag URL exists.
+#[test]
+fn sitemap_has_no_tag_urls() {
+    let xml = feeds::sitemap(ORIGIN, &fixture_index());
+    assert!(!xml.contains("/tags"), "the tag routes are deleted: {xml}");
 }

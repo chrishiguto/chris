@@ -103,6 +103,25 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
     that tag, so that I can find related posts.
 18. As a reader on a post page, I want a terminal breadcrumb (`~/chris/posts/{slug}`) and a
     "back to all posts" link, so that I always know where I am and how to get back.
+
+    > **Amendment (2026-07-12)**: the breadcrumb ships in the article body (see Chrome
+    > below) and replaces the "back to all posts" link — two stacked up-navigation rows
+    > read as clutter, and the breadcrumb's linked `posts` segment is the way back.
+
+    > **Amendment (2026-07-14)**: the breadcrumb is deleted. The site is one level deep,
+    > so every segment duplicated something already on screen: the root echoed the bar's
+    > home link, `posts` echoed the `writing` nav link, and the slug sat above the real
+    > title. Wayfinding is the bar's job — the nav marks the writing section as current
+    > on post pages (see Chrome). Removing it also decoupled the AST renderer from URL
+    > knowledge: it renders content, never navigation.
+
+    > **Amendment (2026-07-15)**: a `← back` control opens the article again — but as
+    > history navigation, not a breadcrumb. The island calls `history.back()` when the
+    > referrer is same-origin, returning the reader to whatever they left (a filtered
+    > listing, home, another post); direct visits, external referrers, and no-JS readers
+    > follow its href to `/posts` instead. Unlike the breadcrumb it duplicates nothing on
+    > screen and names no part of the page's own URL, so the renderer stays decoupled
+    > from URL knowledge.
 19. As a reader, I want an about page with a short bio, what the author is currently into,
     and contact links, so that I can learn who writes this.
 20. As a reader, I want a footer on every page, so that the site feels finished and signed.
@@ -172,12 +191,38 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
 font preloads are removed. A blocking inline head script applies the stored theme before
 the stylesheet (ADR-0011). The base document title becomes `~/chris`.
 
+> **Amendment (2026-07-15)**: the base title widened into the site's name everywhere it
+> appears: page titles suffix `— ~/chris` (posts, about, articles, and both 404s, which
+> now share `404 — ~/chris`), and the Atom feed's title says `~/chris` too — all reading
+> one `SITE_TITLE` constant in the content crate, so tab, page, and feed can't drift.
+
 **Chrome**: the header carries the `~/chris` wordmark, lowercase mono nav
 ("writing" → `/posts`, "about" → `/about`), the active-link accent underline, and the
 `ThemeToggle` island; on post pages it switches to the breadcrumb variant
 (`~/chris/posts/{slug}`) from route awareness — real path segments, not the mock's fake
 "blog". A footer renders on every page (copyright line + konami hint) and hosts the konami
 island. The toast easter egg ships with the hint as a package.
+
+> **Amendment (2026-07-10)**: "switches to the breadcrumb variant" shipped as the whole bar
+> switching — the mono nav disappeared on post pages, leaving `/about` unreachable and
+> nothing that reads as navigation. Only the wordmark gives way to the breadcrumb now; the
+> nav links and toggle render on every page.
+
+> **Amendment (2026-07-12)**: the breadcrumb left the bar entirely. Mixing it into the
+> header coupled it to the wordmark — which stays the site's mark (eventually an image),
+> not a path root. The bar now carries the wordmark on every page, and the post article
+> opens with the breadcrumb (`~/chris / posts / {slug}`) in the body, replacing the
+> "back to all posts" link.
+
+> **Amendment (2026-07-14)**: the wordmark became the image it was headed toward: the bar
+> links home through the round logo, one fixed-color SVG per theme (their discs
+> tone-match each theme's surface, so the mark can't be re-filled from tokens), both
+> shipped in the HTML with CSS showing the one matching the effective scheme — the same
+> mechanism as the toggle glyphs, keeping one response per URL. The `~/chris` text left
+> the bar; it lives on in the tab title and the about prompt. The post breadcrumb is
+> deleted the same day (see user story 18), making the bar the only navigation chrome:
+> exact routes mark their nav link `aria-current="page"`, post pages mark `writing`
+> `aria-current="true"` — the current section, not the current page.
 
 **Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
 + three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter
@@ -192,6 +237,11 @@ tag routes and their components are deleted.
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island
 that reads the adjacent code text from the DOM — the code is never serialized twice.
+
+> **Amendment (2026-07-10)**: the copy button is now part of a `CodeBlock` component and
+> takes the source as a prop instead of reading the adjacent DOM — component cohesion wins
+> over the never-serialized-twice rule, whose cost gzip absorbs (the prop sits right next
+> to the rendered copy).
 Callouts keep all four kinds and the optional title but collapse to two hue families
 (note/tip → accent; warning/danger → danger) with a mono `// kind` label row; the
 component-error style re-points at `danger`.
@@ -272,6 +322,12 @@ already server-renders every post — the filter's data set is the DOM itself.
 **Chosen Option**: Option 2, because the SSR HTML already contains everything the filter
 needs, and deletion shrinks the routed/purged surface instead of growing it.
 
+> **Amendment (2026-07-10)**: re-chosen as option 4 — the island owns the whole filter
+> region (pills, rows, empty state) with the listed posts as serialized props, so
+> filtering is signal state instead of DOM-attribute manipulation, and `data-tags` is
+> gone from the row markup. The hash contract and the no-JS SSR baseline stand. See
+> ADR-0012's amendment for the reasoning and measured costs.
+
 **Trade-offs**:
 
 - Good: instant, shareable, cache-invisible filtering; smaller pipeline surface.
@@ -284,6 +340,15 @@ needs, and deletion shrinks the routed/purged surface instead of growing it.
 
 - **What makes a good test**: external behavior only — the rendered contract and the pure
   functions, never island DOM mechanics or CSS.
+
+  > **Amendment (2026-07-14)**: "never CSS" is refined to never CSS *values*. The suite
+  > keeps structural stylesheet contracts a compiler can't check — the `@import` bundle
+  > holds together, every class the components emit keeps a selector (and the converse
+  > via the kitchen-sink fixture), color tokens stay declared-once via `light-dark()`,
+  > and the shell orders the theme script ahead of stylesheets. Visual treatments,
+  > scales, and rule contents stay out of tests entirely: pinning them made the suite a
+  > second copy of the stylesheet, maintained in lockstep. How things look is the
+  > kitchen-sink QA read in both themes.
 - **Which modules will be tested**: the content crate's word counter, date formatter, and
   routes changes (native unit tests beside the existing routes tests); the publish crate's
   index building with `reading_minutes` (extending its existing pure tests); listing

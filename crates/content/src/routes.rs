@@ -1,6 +1,8 @@
 //! KV keys and public URL paths, defined once so routers, sitemaps, and
 //! publish plans never hand-copy literals.
 
+use std::collections::BTreeSet;
+
 use serde::{Deserialize, Serialize};
 
 /// The only mutable content key: names the published snapshot. Flipped last,
@@ -79,18 +81,72 @@ pub fn valid_slug(slug: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
 }
 
+/// The writing page's public path; post pages and the tag filter hang off it.
+pub const POSTS_PATH: &str = "/posts";
+
 /// A post's public path (and cache key / purge path).
 pub fn post_path(slug: &str) -> String {
-    format!("/posts/{slug}")
+    format!("{POSTS_PATH}/{slug}")
 }
 
-/// A tag page's public path (and cache key / purge path).
-pub fn tag_path(tag: &str) -> String {
-    format!("/tags/{tag}")
+/// The writing page's filter query parameter: the selected tags ride in it
+/// comma-separated, so a filtered view is a plain shareable URL.
+pub const TAG_FILTER_PARAM: &str = "q";
+
+/// Tag grammar: lowercase letters, digits, and `-`, never empty. This
+/// charset is what lets tags ride verbatim in [`TAG_FILTER_PARAM`]'s value
+/// and keeps its comma separator unambiguous.
+pub fn valid_tag(tag: &str) -> bool {
+    !tag.is_empty()
+        && tag
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+/// A tag's filter target on the writing page: a single-tag deep link into
+/// the listing's filter island — [`tag_filter_path_selected`]'s singleton
+/// case.
+pub fn tag_filter_path(tag: &str) -> String {
+    tag_filter_path_selected(&BTreeSet::from([tag.to_string()]))
+}
+
+/// The listing path carrying a whole selection, bare when it is empty.
+/// `BTreeSet` iteration keeps the URL canonical — sorted and deduped — so
+/// equal selections share one URL however they were clicked together.
+pub fn tag_filter_path_selected(tags: &BTreeSet<String>) -> String {
+    if tags.is_empty() {
+        return POSTS_PATH.to_string();
+    }
+    let tags: Vec<&str> = tags.iter().map(String::as_str).collect();
+    format!("{POSTS_PATH}?{TAG_FILTER_PARAM}={}", tags.join(","))
+}
+
+/// The path builders' inverse, over the filter parameter's already-decoded
+/// values (URL decoding is the browser's job — [`valid_tag`]'s grammar means
+/// the builders never encode anything to begin with): every tag the values
+/// name, across repeats and comma lists; empty segments drop.
+pub fn tag_filter_selection(values: impl IntoIterator<Item = String>) -> BTreeSet<String> {
+    let mut tags = BTreeSet::new();
+    for value in values {
+        tags.extend(
+            value
+                .split(',')
+                .filter(|tag| !tag.is_empty())
+                .map(str::to_string),
+        );
+    }
+    tags
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-pub const LISTING_PAGES: [&str; 3] = ["/", "/posts", "/tags"];
+pub const LISTING_PAGES: [&str; 2] = ["/", POSTS_PATH];
+
+/// The about page's public path (and cache key / purge path).
+pub const ABOUT_PATH: &str = "/about";
+
+/// Hardcoded pages with no KV read: routed and sitemapped, but cached under
+/// the site tag alone — they change on deploy, never on publish.
+pub const STATIC_PAGES: [&str; 1] = [ABOUT_PATH];
 
 /// The Atom feed's public path (and cache key / purge path).
 pub const RSS_PATH: &str = "/rss.xml";
@@ -104,8 +160,8 @@ pub const FEED_PATHS: [&str; 2] = [RSS_PATH, SITEMAP_PATH];
 /// Cache tag carried by every cacheable response; purging it evicts the site.
 pub const SITE_TAG: &str = "site";
 
-/// Cache tag shared by the index-backed views (listings, tag pages, feeds):
-/// they project every post, so any content change purges them together.
+/// Cache tag shared by the index-backed views (listings, feeds): they
+/// project every post, so any content change purges them together.
 pub const VIEWS_TAG: &str = "views";
 
 /// Cache tag of one post's page; scoped purges evict exactly the posts that
@@ -169,6 +225,63 @@ mod tests {
     fn source_path_inverts_post_slug() {
         assert_eq!(source_path("hello"), "content/blog/hello/index.mdx");
         assert_eq!(post_slug(&source_path("hello")), Some("hello"));
+    }
+
+    #[test]
+    fn tag_filter_path_rides_the_listing_query() {
+        assert_eq!(tag_filter_path("rust"), "/posts?q=rust");
+    }
+
+    #[test]
+    fn valid_tag_admits_only_the_comma_safe_slug_charset() {
+        assert!(valid_tag("rust"));
+        assert!(valid_tag("web-2"));
+        assert!(!valid_tag(""));
+        assert!(!valid_tag("Rust"));
+        assert!(!valid_tag("a,b"));
+        assert!(!valid_tag("a b"));
+    }
+
+    #[test]
+    fn tag_filter_path_selected_sorts_tags_and_bares_the_empty_selection() {
+        let selected = BTreeSet::from(["wasm".to_string(), "rust".to_string()]);
+        assert_eq!(tag_filter_path_selected(&selected), "/posts?q=rust,wasm");
+        assert_eq!(tag_filter_path_selected(&BTreeSet::new()), "/posts");
+    }
+
+    #[test]
+    fn tag_filter_selection_inverts_the_paths_over_decoded_values() {
+        let selected = BTreeSet::from(["rust".to_string(), "wasm".to_string()]);
+        // Slug-grammar tags carry no escapes, so a built query value is
+        // already the decoded form the browser hands back.
+        let query = tag_filter_path_selected(&selected);
+        let (_, value) = query.split_once('=').unwrap();
+        assert_eq!(tag_filter_selection([value.to_string()]), selected);
+        let single = tag_filter_path("rust");
+        let (_, value) = single.split_once('=').unwrap();
+        assert_eq!(
+            tag_filter_selection([value.to_string()]),
+            BTreeSet::from(["rust".to_string()])
+        );
+        // Repeated params union; empty segments drop.
+        assert_eq!(
+            tag_filter_selection(["wasm".to_string(), "rust,".to_string()]),
+            selected
+        );
+        assert_eq!(tag_filter_selection([String::new()]), BTreeSet::new());
+        assert_eq!(tag_filter_selection(None::<String>), BTreeSet::new());
+    }
+
+    // Tag browsing is an in-page filter, never a routed page.
+    #[test]
+    fn listing_pages_are_home_and_posts_only() {
+        assert_eq!(LISTING_PAGES, ["/", "/posts"]);
+    }
+
+    #[test]
+    fn static_pages_carry_the_about_path() {
+        assert_eq!(ABOUT_PATH, "/about");
+        assert!(STATIC_PAGES.contains(&ABOUT_PATH));
     }
 
     #[test]

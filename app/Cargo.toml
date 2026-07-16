@@ -16,9 +16,20 @@ leptos_router = { workspace = true }
 registry = { workspace = true, features = ["dispatch"] }
 serde = { workspace = true }
 wasm-bindgen = { workspace = true }
+web-sys = { workspace = true, features = [
+    "Clipboard",
+    "History",
+    "MediaQueryList",
+    "Navigator",
+    "Storage",
+    "UrlSearchParams",
+] }
 
 [dev-dependencies]
 content = { workspace = true, features = ["parse"] }
+# The SSR test harness builds the same shared-context root owner leptos_axum
+# does; version tracks leptos's own hydration_context dependency.
+hydration_context = "0.3"
 
 [features]
 hydrate = ["leptos/hydrate"]

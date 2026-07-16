@@ -25,6 +25,30 @@ references, tests). Tag browsing becomes a small **filter island on the writing 
 - Tag pills on a post page link to `/posts#that-tag`, landing on the pre-filtered listing.
 - An empty filter result shows a mono `$ ls`-style empty state.
 
+> **Amendment (2026-07-10)**: the island now owns the whole filter region — pill row, post
+> list, and empty state — with the listed posts serialized as island props (option 4 below,
+> originally rejected). Filtering over SSR'd rows meant the island talked to server HTML
+> through DOM selectors and attribute contracts (`data-tags`, tags read back out of pill
+> hrefs) instead of signals — the framework's reactivity was unused exactly where state
+> changes. At this site's scale the rejected costs are noise: a listed post serializes to
+> ~200 bytes of props and the row markup adds little to a worker already ~750 KB gzipped
+> against the size gate's 5 MB warning. What stands unchanged: filter state lives in the
+> URL hash, the server and cache still see exactly one `/posts` page, and the island's own
+> server render keeps the complete list visible without JS.
+
+> **Amendment (2026-07-14)**: filter state moves from the URL hash to the `q` query
+> parameter and becomes a multi-tag selection — `/posts?q=rust,wasm`, comma-separated and
+> sorted (the slug-only tag grammar keeps the comma unambiguous), a row showing when it
+> carries *any* selected tag. The fragment was the wrong slot for view state: `?q=` is the
+> conventional shape, and a single hash never generalized to a selection. What this trades
+> away: the query string, unlike the fragment, reaches the server, so Workers Cache can now
+> hold one entry per deep-linked selection instead of exactly one `/posts` page. Each such
+> entry is the same unfiltered SSR body (filtering stays client-side; pill clicks
+> `replaceState` and never navigate, so only shared or reloaded links mint new entries), all
+> carry the `views` tag, and publishes purge them together — the fragmentation is unbounded
+> in count (any query string mints an entry here, as on every cached route) but uniform in
+> body and purge-safe. Old `/posts#tag` deep links land on the unfiltered listing, not a 404.
+
 ADR-0008's `views` tag description narrows accordingly: it now covers the listings and
 feeds only (there are no tag pages left to project the index).
 

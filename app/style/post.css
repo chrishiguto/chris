@@ -1,6 +1,7 @@
 /* Prose for the AST renderer: bare semantic elements inside `.post-body`,
    styled via flat `.post-body <element>` selectors so nothing reaches the
-   post header chrome. */
+   post header chrome — plus that chrome (the meta line) and the renderer's
+   error surface. */
 
 @layer components {
   /* Width/centering come from utilities on the article; only rhythm lives here. */
@@ -11,20 +12,32 @@
   }
 
   .post header {
-    margin-bottom: 3rem;
+    margin-bottom: 2.25rem;
   }
 
   .post header h1 {
-    margin: 0;
-    font-size: 2.125rem;
-    line-height: 1.25;
+    margin: 1.5rem 0 0.75rem;
+    font-size: 2.375rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
   }
 
-  .post-date {
-    margin-top: 0.75rem;
+  /* Mono meta row under the title: formatted date · read time as spans;
+     flex gap spaces them, so absent minutes leave no hole. */
+  .post-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
     font-family: var(--font-mono);
     font-size: 0.8125rem;
-    color: var(--color-ink-faint);
+    color: var(--color-ink-2);
+  }
+
+  /* The 65ch reading measure; the header and full-bleed surfaces sit outside. */
+  .post-body {
+    max-width: 65ch;
   }
 
   .post-body h1,
@@ -33,9 +46,10 @@
   .post-body h4,
   .post-body h5,
   .post-body h6 {
-    font-family: var(--font-heading);
-    font-weight: 700;
-    line-height: 1.3;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
     margin: 2.25em 0 0.75em;
     text-wrap: balance;
   }
@@ -45,11 +59,11 @@
   }
 
   .post-body h2 {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
   }
 
   .post-body h3 {
-    font-size: 1.25rem;
+    font-size: 1.375rem;
   }
 
   .post-body h4 {
@@ -62,23 +76,11 @@
   }
 
   .post-body h6 {
-    color: var(--color-ink-muted);
+    color: var(--color-ink-2);
   }
 
   .post-body p {
     margin-block: 1.25em;
-  }
-
-  .post-body a {
-    color: var(--color-accent);
-    text-decoration: underline;
-    text-decoration-thickness: 1px;
-    text-underline-offset: 0.2em;
-    text-decoration-color: color-mix(in oklab, var(--color-accent) 45%, transparent);
-  }
-
-  .post-body a:hover {
-    text-decoration-color: var(--color-accent);
   }
 
   .post-body strong {
@@ -88,29 +90,10 @@
   .post-body code {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    background-color: var(--color-surface-raised);
+    background-color: var(--color-surface-2);
     border: 1px solid var(--color-line);
     border-radius: 0.25rem;
     padding: 0.125em 0.375em;
-  }
-
-  .post-body pre {
-    margin-block: 1.5em;
-    padding: 1rem 1.25rem;
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    overflow-x: auto;
-    font-size: 0.875rem;
-    line-height: 1.65;
-  }
-
-  .post-body pre code {
-    background-color: transparent;
-    border: none;
-    border-radius: 0;
-    padding: 0;
-    font-size: 1em;
   }
 
   .post-body ul,
@@ -133,14 +116,14 @@
   }
 
   .post-body li::marker {
-    color: var(--color-ink-faint);
+    color: var(--color-ink-3);
   }
 
   .post-body blockquote {
     margin-block: 1.5em;
     padding-inline-start: 1.25em;
     border-inline-start: 3px solid var(--color-line);
-    color: var(--color-ink-muted);
+    color: var(--color-ink-2);
     font-style: italic;
   }
 
@@ -156,119 +139,13 @@
     border-top: 1px solid var(--color-line);
   }
 
-  /* Tag pills, shared by the post header and the listing/tag pages;
-     prose rules are scoped to `.post-body`, so nothing bleeds in here. */
-
-  .post-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin: 0.75rem 0 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .tag {
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    color: var(--color-ink-muted);
-    background-color: var(--color-surface-raised);
-    border: 1px solid var(--color-line);
-    border-radius: 9999px;
-    padding: 0.125rem 0.625rem;
-  }
-
-  /* On /tags the pills are links; keep the pill look, signal on hover. */
-  .tag a {
-    color: inherit;
-    text-decoration: none;
-  }
-
-  .tag a:hover {
-    color: var(--color-accent);
-  }
-
-  /* Listing markup shape: ul.post-list > li > a > h2 + p.post-date */
-
-  .post-list {
-    margin-block: 2rem;
-    padding: 0;
-    list-style: none;
-  }
-
-  .post-list li {
-    border-bottom: 1px solid var(--color-line);
-  }
-
-  .post-list a {
-    display: block;
-    padding-block: 1.25rem;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .post-list h2 {
-    margin: 0;
-    font-family: var(--font-heading);
-    font-size: 1.125rem;
-    font-weight: 700;
-  }
-
-  .post-list a:hover h2 {
-    color: var(--color-accent);
-  }
-
-  /* Component surfaces. */
-
-  .callout {
-    --callout-hue: var(--color-accent);
-    margin-block: 1.5em;
-    padding: 1rem 1.25rem;
-    border: 1px solid color-mix(in oklab, var(--callout-hue) 35%, var(--color-line));
-    border-inline-start: 3px solid var(--callout-hue);
-    border-radius: 0.5rem;
-    background-color: color-mix(in oklab, var(--callout-hue) 7%, var(--color-surface));
-  }
-
-  .callout-note {
-    --callout-hue: var(--hue-note);
-  }
-
-  .callout-tip {
-    --callout-hue: var(--hue-tip);
-  }
-
-  .callout-warning {
-    --callout-hue: var(--hue-warning);
-  }
-
-  .callout-danger {
-    --callout-hue: var(--hue-danger);
-  }
-
-  .callout-title {
-    margin: 0 0 0.5em;
-    font-family: var(--font-heading);
-    font-weight: 700;
-    font-size: 0.9375rem;
-    color: color-mix(in oklab, var(--callout-hue) 75%, var(--color-ink));
-  }
-
-  .callout-body > :first-child {
-    margin-top: 0;
-  }
-
-  .callout-body > :last-child {
-    margin-bottom: 0;
-  }
-
   /* Bad KV data must fail loudly; deliberately jarring in both modes. */
   .component-error {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    color: var(--hue-danger);
-    background-color: color-mix(in oklab, var(--hue-danger) 12%, var(--color-surface));
-    border: 1px dashed var(--hue-danger);
+    color: var(--color-danger);
+    background-color: color-mix(in oklab, var(--color-danger) 12%, var(--color-surface));
+    border: 1px dashed var(--color-danger);
     border-radius: 0.25rem;
     padding: 0.125em 0.5em;
   }

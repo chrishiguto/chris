@@ -12,6 +12,29 @@ enabled = true
 [build]
 # The pipeline lives in the justfile so dev, deploy, and ci share one definition.
 command = "just build"
+# wrangler dev re-runs the build on changes here; its default watch dir is
+# ./src, which doesn't exist in this workspace — without this list it watches
+# nothing and every change needs a manual restart. Build inputs only: app/tests
+# is native-only, content ships via `just publish` not the build (so a post's
+# rare components.rs island needs a manual restart), crates are narrowed to
+# the site build's dependency graph at src granularity (publish/xtask and the
+# crates' test trees never reach the worker), and workers/site is narrowed to
+# src because build/ is generated output and would loop.
+watch_dir = [
+    "app/src",
+    "app/style",
+    "app/assets",
+    "crates/content/src",
+    "crates/registry/src",
+    "crates/registry-macro/src",
+    "crates/authn/src",
+    "workers/site/src",
+]
+
+# The deployed version's identity, folded into every ETag so code deploys
+# invalidate browser caches — the snapshot sha alone survives a deploy.
+[version_metadata]
+binding = "CF_VERSION_METADATA"
 
 # Anything under target/site (including /pkg/*) is served without invoking the worker.
 [assets]

@@ -42,6 +42,9 @@ serde_yaml = "0.9"
 sha2 = "0.10"
 tower-service = "0.3"
 wasm-bindgen = "0.2"
+# Already in the graph via leptos; declared directly only to switch on the
+# web-sys features the islands need (Storage, Clipboard, UrlSearchParams, …).
+web-sys = "0.3"
 # Pinned: 0.8.4+ pulls wasm-streams 0.6 alongside server_fn's 0.5 and fat LTO
 # fails on duplicate wasm-bindgen shims. Unpin once server_fn catches up.
 worker = { version = "=0.8.3", features = ["http", "axum"] }
@@ -71,3 +74,8 @@ lib-features = ["hydrate"]
 lib-default-features = false
 # The "server" artifact is wasm, not a native binary.
 wasm-validation = false
+# cargo-leptos builds only the client half here (worker-build does the ssr
+# worker), so its debug default of `--cfg erase_components` would hand the
+# hydrating client erased-view markers the un-erased worker HTML never
+# renders — every island then panics on hydrate under `just dev`.
+disable-erase-components = true

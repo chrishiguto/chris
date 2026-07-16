@@ -119,6 +119,35 @@ retry covers transient failures and a hard failure goes red, so there is nothing
 as debt. The `purged` field leaves `PublishOutcome`; `ok` now reflects validation only. (See
 ADR-0009's 2026-07-09 amendment for the coordinator side.)
 
+*Amendment (2026-07-10, ADR-0012):* the tag pages are gone — tag browsing moved into the
+writing page as a client-side filter island, so `/tags` and `/tags/{tag}` are no longer
+routed, sitemapped, or cached (`LISTING_PAGES` dropped `/tags`, `tag_path` is deleted).
+The `views` tag narrows accordingly: it now covers the index-backed listings and feeds only
+(`/`, `/posts`, `/rss.xml`, `/sitemap.xml`). The publish purge scope is structurally
+unchanged — changed posts' tags plus `views` — it simply selects fewer cached entries.
+Filter state rides the URL hash, which never reaches the cache key, so Workers Cache still
+sees exactly one `/posts` page.
+
+*Amendment (2026-07-14, ADR-0012 as amended):* filter state moved from the URL hash to the
+`?q=` query parameter (multi-tag, comma-separated). Query strings do reach the cache key, so
+deep-linked selections can each cache their own copy of the identical unfiltered `/posts`
+render. Every copy carries the `views` tag, so the purge scope is structurally unchanged —
+one select still evicts them all. In-page filtering moves the URL by `replaceState` without
+navigating, so only shared or reloaded links mint extra entries.
+
+*Amendment (2026-07-12, deploy-aware ETags):* the snapshot-sha ETag survived code deploys —
+browsers revalidating at `max-age=0` got a 304 against the unchanged validator and kept HTML
+rendered by the *previous* worker until the next content publish (a presentation-only deploy
+was invisible to returning readers). The validator now pairs the sha with the deployed
+version: `ETag: "{sha}-{version id}"`, the id from the Version Metadata binding
+(`[version_metadata]`, available in the pinned worker 0.8.3). Static pages — previously
+validator-less because they read nothing from KV — carry the version alone and gain cheap
+304s between deploys. Same trade as ever: over-fetching (a redeploy of identical code
+re-sends bodies once), never staleness. Dev builds (`BUILD_PROFILE=dev`, compiled with
+`debug_assertions`) skip cache decoration entirely, falling through to the `no-store`
+default — wrangler dev's version id is a static placeholder that can never bust anything,
+and watch rebuilds must not be masked by the local cache simulation or a browser validator.
+
 Two invariants keep the scoped design honest — both close holes a future implementer could
 easily reopen. First, *purge debt*: a failed purge leaves its tag scope in the coordinator's
 storage; every later reconcile merges that debt into its own scope and clears it only once a

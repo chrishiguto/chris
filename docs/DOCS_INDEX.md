@@ -58,8 +58,13 @@ summary, key topics.
   version-keying verification; amended 2026-07-09: the content purge moves to CI over HTTP —
   `cache.purge` is entrypoint-scoped so the pipeline's binding purge no-op'd, `/publish` now
   returns the stale-tag scope and CI evicts it via the site's public `/__purge`, retiring the
-  in-worker purge, the `SITE` binding, the pipeline's purge secret, and the purge-debt ledger).
-  Topics: caching, purge, cache tags, workers cache, deploys, islands.
+  in-worker purge, the `SITE` binding, the pipeline's purge secret, and the purge-debt ledger;
+  amended 2026-07-10 per ADR-0012: the tag pages are deleted, so `views` narrows to the
+  listings and feeds — the purge scope's shape is unchanged; amended 2026-07-12: ETags pair
+  the snapshot sha with the deployed version id from the `[version_metadata]` binding so
+  code deploys re-send bodies, sha-less static pages validate on the version alone, and dev
+  builds skip cache decoration entirely).
+  Topics: caching, purge, cache tags, workers cache, deploys, etags, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
   reconcile-to-HEAD (full rebuild, carry-forward for invalid posts) serialized by a single
@@ -85,10 +90,12 @@ summary, key topics.
   variance. Topics: theming, dark mode, light-dark, islands, caching, css tokens.
 - `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
   SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
-  toggling visibility of server-rendered rows (`data-tags`), state in the URL hash
-  (`/posts#tag`) so the cache key space never grows; `views` tag narrows to listings + feeds;
-  revisit when pagination arrives. Topics: tags, islands, url hash, sitemap, purge scope,
-  routes.
+  (amended 2026-07-10: the island owns the whole filter region — pills, rows, empty state —
+  with the listed posts as serialized props, filtering by signal instead of DOM attributes;
+  amended 2026-07-14: filter state moves from the URL hash to a multi-tag `?q=rust,wasm`
+  query — deep links now fragment the cache key per selection, all entries still under
+  `views`); `views` tag narrows to listings + feeds; revisit when pagination arrives.
+  Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides
 

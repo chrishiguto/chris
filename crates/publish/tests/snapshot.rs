@@ -1,5 +1,4 @@
-use content::IndexEntry;
-use content::{ComponentSpec, Manifest, PropSpec, PropType};
+use content::{ComponentSpec, Frontmatter, IndexEntry, Manifest, PropSpec, PropType};
 use publish::{check, check_each, content_hash, snapshot, stale_tags, CarriedPost, PostSource};
 
 fn manifest() -> Manifest {
@@ -24,16 +23,19 @@ fn post(slug: &str, title: &str, date: &str, body: &str) -> PostSource {
     }
 }
 
+/// Through the real constructor, so publish-computed fields default here
+/// the same way they do in production.
 fn entry(slug: &str, title: &str, date: &str, tags: &[&str], draft: bool) -> IndexEntry {
-    IndexEntry {
-        slug: slug.into(),
-        title: title.into(),
-        date: date.into(),
-        description: None,
-        tags: tags.iter().map(|t| t.to_string()).collect(),
-        draft,
-        content_hash: String::new(),
-    }
+    IndexEntry::new(
+        slug,
+        &Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: tags.iter().map(|t| t.to_string()).collect(),
+            draft,
+        },
+    )
 }
 
 #[test]
@@ -234,6 +236,25 @@ fn snapshot_stamps_every_entry_with_its_payload_hash() {
             entry.slug
         );
     }
+}
+
+/// Checked posts get their read time computed from the parsed AST; carried
+/// entries ride in unchanged — their AST was not re-parsed.
+#[test]
+fn snapshot_populates_reading_minutes_for_checked_posts() {
+    let parsed = check(&[post("good", "Good", "2026-05-01", "Fine.")], &manifest()).unwrap();
+    let carried = vec![CarriedPost {
+        entry: entry("broken", "Broken", "2026-01-01", &[], false),
+        payload: r#"{"stored":"payload"}"#.into(),
+    }];
+    let plan = snapshot(&parsed, carried, "abc123").unwrap();
+
+    let minutes: Vec<_> = plan
+        .index
+        .iter()
+        .map(|e| (e.slug.as_str(), e.reading_minutes))
+        .collect();
+    assert_eq!(minutes, [("good", Some(1)), ("broken", None)]);
 }
 
 /// Identical payloads hash identically across snapshots; that equality is

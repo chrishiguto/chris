@@ -155,6 +155,33 @@ fn index_entry_defaults_tags_and_draft() {
     assert!(entry.tags.is_empty());
     assert!(!entry.draft);
     assert!(entry.description.is_none());
+    assert!(entry.reading_minutes.is_none());
+}
+
+/// `reading_minutes` follows the `description` precedent: additive, skipped
+/// when absent, no schema bump — old index payloads stay byte-identical.
+#[test]
+fn reading_minutes_round_trips_and_stays_absent_when_unset() {
+    assert_eq!(
+        SCHEMA_VERSION, 1,
+        "an additive field must not bump the schema"
+    );
+    let frontmatter = Frontmatter {
+        title: "Hello".into(),
+        date: "2026-07-04".into(),
+        description: None,
+        tags: vec![],
+        draft: false,
+    };
+    let mut entry = content::IndexEntry::new("hello", &frontmatter);
+    let json = serde_json::to_value(&entry).unwrap();
+    assert!(json.as_object().unwrap().get("reading_minutes").is_none());
+
+    entry.reading_minutes = Some(4);
+    let json = serde_json::to_value(&entry).unwrap();
+    assert_eq!(json["reading_minutes"], 4);
+    let back: content::IndexEntry = serde_json::from_value(json).unwrap();
+    assert_eq!(back, entry);
 }
 
 #[test]

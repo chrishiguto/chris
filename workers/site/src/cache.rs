@@ -12,7 +12,7 @@ pub fn post_cache_tags(slug: &str) -> String {
     format!("{SITE_TAG},{}", post_tag(slug))
 }
 
-/// `Cache-Tag` for the index-backed views (listings, tag pages, feeds).
+/// `Cache-Tag` for the index-backed views (listings, feeds).
 pub fn view_cache_tags() -> String {
     format!("{SITE_TAG},{VIEWS_TAG}")
 }
@@ -36,10 +36,15 @@ pub fn parse_purge_body(body: &[u8]) -> Result<Vec<String>, String> {
     Ok(parsed.tags)
 }
 
-/// The quoted snapshot sha — one site-wide validator, so any publish
-/// invalidates every page.
-pub fn etag(sha: &str) -> String {
-    format!("\"{sha}\"")
+/// The quoted validator: snapshot sha paired with the deployed code version,
+/// so a publish *or* a deploy re-sends every page's body — a content sha
+/// alone let browsers 304 their way past redesigns. Pages that read nothing
+/// from KV validate on the version alone.
+pub fn etag(sha: Option<&str>, version: &str) -> String {
+    match sha {
+        Some(sha) => format!("\"{sha}-{version}\""),
+        None => format!("\"{version}\""),
+    }
 }
 
 /// Does an `If-None-Match` value (list, `W/` prefixes, `*`) match `etag`?

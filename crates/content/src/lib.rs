@@ -6,15 +6,19 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+mod derived;
+pub use derived::reading_minutes;
+
 mod manifest;
 pub use manifest::{integral, ComponentSpec, Manifest, PropSpec, PropType};
 
 mod routes;
 pub use routes::{
     index_key_at, post_key, post_key_at, post_path, post_slug, post_tag, snapshot_index_key,
-    snapshot_key_sha, snapshot_post_key, source_path, tag_path, valid_slug, CurrentPointer,
-    CONTENT_ROOT, CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POST_FILE, RSS_PATH,
-    SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, VIEWS_TAG,
+    snapshot_key_sha, snapshot_post_key, source_path, tag_filter_path, tag_filter_path_selected,
+    tag_filter_selection, valid_slug, valid_tag, CurrentPointer, ABOUT_PATH, CONTENT_ROOT,
+    CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POSTS_PATH, POST_FILE, RSS_PATH,
+    SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, STATIC_PAGES, TAG_FILTER_PARAM, VIEWS_TAG,
 };
 
 #[cfg(feature = "parse")]
@@ -25,6 +29,10 @@ pub use parse::*;
 /// Stamped into every serialized [`Document`]; bump on any change to the
 /// serialized shape.
 pub const SCHEMA_VERSION: u32 = 1;
+
+/// The site's name, declared once so the browser tab, page-title suffixes,
+/// and the feed can never disagree.
+pub const SITE_TITLE: &str = "~/chris";
 
 #[derive(Debug)]
 pub enum AstError {
@@ -113,6 +121,11 @@ pub struct IndexEntry {
     /// Skipped when absent (see [`Frontmatter`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Computed from the AST at publish (~200 wpm); skipped when absent so
+    /// pre-existing index payloads round-trip unchanged. Absent means the
+    /// row renders its date alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reading_minutes: Option<u32>,
     #[serde(default)]
     pub tags: Vec<String>,
     #[serde(default)]
@@ -137,6 +150,7 @@ impl IndexEntry {
             title: frontmatter.title.clone(),
             date: frontmatter.date.clone(),
             description: frontmatter.description.clone(),
+            reading_minutes: None,
             tags: frontmatter.tags.clone(),
             draft: frontmatter.draft,
             content_hash: String::new(),
