@@ -35,10 +35,10 @@ pub fn AboutPage() -> impl IntoView {
                 <span class="text-accent">"$"</span>
                 <span>"cat about.md"</span>
             </p>
-            <h1 class="mt-5 text-2xl font-semibold tracking-tight">"about"</h1>
+            <h1 class="mt-5 font-display text-display font-semibold tracking-[-0.01em]">"about"</h1>
             <div class="mt-6 max-w-[65ch] space-y-5 text-[1.0625rem] leading-relaxed">
                 <p>
-                    "i'm christiano higuto — chris. software engineer from brazil, curious by default. i've been paid to write code for a while now, and i still think the best part is the moment something finally clicks."
+                    "i’m christiano higuto — chris. software engineer from brazil, curious by default. i’ve been paid to write code for a while now, and i still think the best part is the moment something finally clicks."
                 </p>
                 <p>
                     "this site is my personal space on the internet: a giant notebook where i write about code, systems, and the non-code parts of an engineering life. some posts are in english, some em português, all lowercase."

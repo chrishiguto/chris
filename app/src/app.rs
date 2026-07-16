@@ -10,8 +10,11 @@ use crate::components::{Footer, Header, NotFound};
 use crate::listing::{HomePage, PostsPage};
 use crate::post::PostPage;
 
-/// Geist + Geist Mono from Google Fonts, loaded with `display=swap`.
-pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap";
+/// Fraunces (display) + Figtree (body) + Geist Mono (labels) from Google
+/// Fonts, loaded with `display=swap`. Fraunces' SOFT/WONK axes are pinned in
+/// the URL — the served face is already soft, so retune the axes here, never
+/// via `font-variation-settings`.
+pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,75,1&family=Figtree:wght@400..700&family=Geist+Mono:wght@400;500;600&display=swap";
 
 /// The localStorage key an explicit theme choice persists under; the toggle
 /// island writes it and [`THEME_SCRIPT`] reads it.

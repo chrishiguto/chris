@@ -186,10 +186,23 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
 - The serif/heading font stacks are deleted; `--font-sans` (Geist) and `--font-mono`
   (Geist Mono) remain.
 
+  > **Amendment (2026-07-15)**: the type stack reopened after a design audit flagged
+  > single-family Geist as the era's default generated look. `--font-display` — Fraunces,
+  > its SOFT/WONK axes pinned in the fonts URL so the served face is pre-tuned — joins the
+  > tokens and carries page headings, post titles, and prose h1–h3 at a new clamped
+  > `--text-display` size (36→56px, line-height 1.08, −0.01em); `--font-sans` re-points at
+  > Figtree; Geist Mono stays the label/mono voice unchanged. The pairing — soft
+  > high-contrast serif display, geometric sans body, mono labels — follows a reference
+  > the author supplied; the palette and voice are untouched. Prose h4–h6 stay sans so
+  > small ranks read as labels, not titles.
+
 **Document shell**: Geist + Geist Mono load from Google Fonts (`display=swap`) via a
 `leptos_meta` stylesheet plus preconnect — the self-hosted faces, `@font-face` blocks, and
 font preloads are removed. A blocking inline head script applies the stored theme before
 the stylesheet (ADR-0011). The base document title becomes `~/chris`.
+
+> **Amendment (2026-07-15)**: the loaded families are now Fraunces + Figtree + Geist Mono
+> (see the token-layer amendment); the loading strategy is unchanged.
 
 > **Amendment (2026-07-15)**: the base title widened into the site's name everywhere it
 > appears: page titles suffix `— ~/chris` (posts, about, articles, and both 404s, which

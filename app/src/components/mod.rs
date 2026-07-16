@@ -204,7 +204,7 @@ pub(crate) fn page(
     view! {
         {title.map(|text| view! { <Title text=text /> })}
         <section class="page-enter mx-auto max-w-2xl px-6 py-16">
-            <h1 class="text-3xl font-semibold tracking-tight">{heading}</h1>
+            <h1 class="font-display text-display font-semibold tracking-[-0.01em]">{heading}</h1>
             {body}
         </section>
     }

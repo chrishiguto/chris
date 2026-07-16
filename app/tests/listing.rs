@@ -156,7 +156,7 @@ fn home_page_filters_drafts() {
 #[test]
 fn home_page_greets_with_intro_links_and_section_label() {
     let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
-    assert!(html.contains("hey, i'm chris"), "{html}");
+    assert!(html.contains("hey, i’m chris"), "{html}");
     let writing = tag_containing(&html, ">the writing<");
     assert!(
         writing.contains("href=\"/posts\"") && writing.contains("plink"),

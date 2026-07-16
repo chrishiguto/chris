@@ -11,13 +11,14 @@ summary, key topics.
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
 - `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer: adopt the
-  claude.ai/design "chris" design system (Geist type via Google Fonts, warm-tonal oklch
+  claude.ai/design "chris" design system (Fraunces display + Figtree body + Geist Mono
+  labels via Google Fonts — amended 2026-07-15 from all-Geist — warm-tonal oklch
   palette declared once via `light-dark()`, role+numeric token names, theme-toggle island,
   `~/chris` IA with `/about` and a footer, tags reworked to an in-page filter island with
   URL-hash state, computed read time, formatted dates, two-hue callouts, code-copy island,
   motion grammar); four hand-rolled islands total, no pipeline invariants disturbed.
-  Topics: design system, tailwind v4, theming, tokens, geist, islands, tags, read time,
-  about page, prd.
+  Topics: design system, tailwind v4, theming, tokens, fraunces, figtree, geist mono,
+  islands, tags, read time, about page, prd.
 
 ## ADRs
 
