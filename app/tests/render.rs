@@ -248,8 +248,8 @@ fn callout_dispatches_through_registry_with_markdown_children() {
         "kind prop must reach the component: {html}"
     );
     assert!(
-        html.contains("<span class=\"callout-label\">// warning</span>"),
-        "mono `// kind` label row missing: {html}"
+        html.contains("<span class=\"callout-label\">warning</span>"),
+        "kind label row missing: {html}"
     );
     assert!(
         html.contains("<p>still readable</p>"),
@@ -275,7 +275,9 @@ fn callout_renders_optional_title_when_given() {
         html.contains("<p class=\"callout-title\">Psst</p>"),
         "title missing: {html}"
     );
-    let label = html.find("// note").expect("label row missing");
+    let label = html
+        .find("callout-label\">note</span>")
+        .expect("label row missing");
     let title = html.find("callout-title").expect("title missing");
     let body = html.find("callout-body").expect("body missing");
     assert!(
@@ -603,10 +605,10 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "callout callout-tip",
         "callout callout-warning",
         "callout callout-danger",
-        "// note",
-        "// tip",
-        "// warning",
-        "// danger",
+        "callout-label\">note</span>",
+        "callout-label\">tip</span>",
+        "callout-label\">warning</span>",
+        "callout-label\">danger</span>",
         "<span class=\"code-lang\">rust</span>",
         "<span class=\"code-lang\">code</span>",
         "class=\"code-copy\"",

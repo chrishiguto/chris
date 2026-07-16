@@ -9,7 +9,7 @@ mod common;
 fn about_route_renders_the_page() {
     let html = common::app_at("/about");
     assert!(
-        html.contains("cat about.md"),
+        html.contains(">about</h1>"),
         "/about must render the about page: {html}"
     );
     assert!(

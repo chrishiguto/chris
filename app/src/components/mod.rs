@@ -10,7 +10,6 @@ pub mod blog;
 pub mod code_block;
 pub mod footer;
 pub mod header;
-pub mod konami;
 pub mod not_found;
 pub mod tag_filter;
 pub mod theme_toggle;
@@ -19,7 +18,6 @@ pub use back_link::BackLink;
 pub use code_block::CodeBlock;
 pub use footer::Footer;
 pub use header::Header;
-pub use konami::Konami;
 pub use not_found::NotFound;
 pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
@@ -78,9 +76,9 @@ pub(crate) fn page_title(page: &str) -> String {
     format!("{page} — {}", content::SITE_TITLE)
 }
 
-/// Mono section label; shared by the home and about pages.
+/// Small tracked section label; shared by the home and about pages.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
-    view! { <p class="font-mono text-xs tracking-wide text-ink-3">{text}</p> }
+    view! { <p class="text-xs font-medium tracking-wide text-ink-3">{text}</p> }
 }
 
 /// One listed post, in the shape the pages render: the published subset of

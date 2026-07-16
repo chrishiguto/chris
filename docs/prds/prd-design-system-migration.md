@@ -75,6 +75,13 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
    17px), so that long posts are pleasant to read.
 6. As a reader, I want structural chrome (nav, dates, tags, labels, code) in a mono face,
    so that the terminal voice of the site is consistent.
+
+   > **Amendment (2026-07-15)**: reversed with the type-pairing swap — the terminal voice
+   > retired. Geist Mono narrows to actual code (code panels, inline code, the renderer's
+   > error chip); nav, dates, tags, labels, and the footer read the body sans with weight
+   > and tracking doing the label work. The `$ cat about.md` prompt, the `$ ls` empty
+   > state, and the konami egg are deleted with it (stories 10 and 22, Pages, and the
+   > islands inventory below).
 7. As a reader, I want each post to show a formatted date and an estimated read time, so
    that I can decide when to read it.
 8. As a reader, I want code blocks with a header bar naming the language, so that I can
@@ -84,6 +91,10 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
 10. As a reader, I want callouts whose kind is visible at a glance (`// note`, `// tip`,
     `// warning`, `// danger`) with severity readable through intensity, so that asides
     don't shout in four rainbow colors.
+
+    > **Amendment (2026-07-15)**: the labels drop the `//` comment prefix and the mono
+    > face with the terminal voice (story 6); the kind renders as a small tracked sans
+    > label in the family hue. The two-hue-family contract stands.
 11. As a reader with `prefers-reduced-motion` set, I want transform animations disabled,
     so that the site respects my settings.
 
@@ -129,6 +140,10 @@ labels; code blocks gaining a chrome bar and copy button; and the design's motio
     even errors feel designed.
 22. As a curious reader, I want the konami code hinted in the footer to actually do
     something, so that the site rewards attention.
+
+    > **Amendment (2026-07-15)**: deleted — the hint read as clutter once the terminal
+    > voice retired (story 6), and an unhinted egg is dead weight. The island, toast,
+    > and blink keyframe went with it; the footer is the signature line alone.
 
 **Readers — degraded modes**
 
@@ -243,7 +258,10 @@ island, ADR-0012) over the server-rendered post list, each row in the design's P
 shape (title with hover arrow, mono date · read time, truncated description, `data-tags`).
 `/about` is a new hardcoded component — prompt motif, prose, "currently" list, contact
 block (github + linkedin + email, all mocked until real URLs exist) — cached under the
-`site` tag and sitemapped as a static page. The 404 page restyles into the same voice. Both
+`site` tag and sitemapped as a static page.
+
+> **Amendment (2026-07-15)**: the prompt motif is deleted with the terminal voice
+> (user story 6); the page opens on the display-face heading. The 404 page restyles into the same voice. Both
 tag routes and their components are deleted.
 
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
@@ -258,6 +276,9 @@ that reads the adjacent code text from the DOM — the code is never serialized 
 Callouts keep all four kinds and the optional title but collapse to two hue families
 (note/tip → accent; warning/danger → danger) with a mono `// kind` label row; the
 component-error style re-points at `danger`.
+
+> **Amendment (2026-07-15)**: the label row is a small tracked sans `kind` — no `//`
+> prefix, no mono (user story 10).
 
 **Content crate**: `IndexEntry` gains optional `reading_minutes`, following the
 `description` precedent exactly (additive serde, skip-when-absent, no schema bump, absent
@@ -275,6 +296,10 @@ the routes change — the `views` tag now projects listings and feeds only.
 
 **Islands inventory** (the complete list, all hand-rolled, no new dependencies):
 `ThemeToggle`, `TagFilter`, `CopyButton`, `Konami`.
+
+> **Amendment (2026-07-15)**: `Konami` is deleted (user story 22) and `BackLink` joined
+> earlier (user story 18) — the inventory is `ThemeToggle`, `TagFilter`, `CopyButton`,
+> `BackLink`.
 
 ## Architectural Decisions
 

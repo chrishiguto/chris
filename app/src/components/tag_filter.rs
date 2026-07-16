@@ -7,7 +7,7 @@ use web_sys::UrlSearchParams;
 use crate::components::{post_list, tag_row, ListedPost, TagPill};
 
 /// In-page tag filter for the writing page: one island owning the pill row,
-/// the post list, and the `$ ls` empty state, so filtering is plain signal
+/// the post list, and the empty state, so filtering is plain signal
 /// state. The selection mirrors the `?q=` query — shareable, restored on
 /// load, and never navigated to (clicks move the URL by `replaceState`), so
 /// the server keeps rendering the one unfiltered listing whatever the query
@@ -72,7 +72,7 @@ pub fn TagFilter(posts: Vec<ListedPost>) -> impl IntoView {
         {pill_row}
         {post_list(rows, "mt-8")}
         <Show when=none_visible>
-            <p class="mt-8 font-mono text-sm text-ink-3">"$ ls — nothing here yet"</p>
+            <p class="mt-8 text-sm text-ink-3">"nothing here yet"</p>
         </Show>
     }
 }

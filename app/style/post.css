@@ -25,13 +25,12 @@
     text-wrap: balance;
   }
 
-  /* Mono meta row under the title: formatted date · read time as spans;
+  /* Meta row under the title: formatted date · read time as spans;
      flex gap spaces them, so absent minutes leave no hole. */
   .post-meta {
     display: flex;
     align-items: baseline;
     gap: 0.5rem;
-    font-family: var(--font-mono);
     font-size: 0.8125rem;
     color: var(--color-ink-2);
   }
