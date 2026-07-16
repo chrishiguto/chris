@@ -156,7 +156,7 @@ fn home_page_filters_drafts() {
 #[test]
 fn home_page_greets_with_intro_links_and_section_label() {
     let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
-    assert!(html.contains("hey, i'm chris"), "{html}");
+    assert!(html.contains("hey, i’m chris"), "{html}");
     let writing = tag_containing(&html, ">the writing<");
     assert!(
         writing.contains("href=\"/posts\"") && writing.contains("plink"),
@@ -261,14 +261,14 @@ fn filter_pills_skip_draft_only_tags() {
     assert!(html.contains("/posts?q=rust"), "{html}");
 }
 
-// The `$ ls` line is island state shown only when a filter leaves no rows;
-// the server render never ships it, so no-JS readers can't see it under
-// the full list.
+// The empty-state line is island state shown only when a filter leaves no
+// rows; the server render never ships it, so no-JS readers can't see it
+// under the full list.
 #[test]
-fn posts_page_ssr_omits_the_ls_empty_state() {
+fn posts_page_ssr_omits_the_filter_empty_state() {
     let html = posts_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
     assert!(
-        !html.contains("$ ls"),
+        !html.contains("nothing here yet"),
         "the empty state must not ship in the server render: {html}"
     );
 }
@@ -278,8 +278,8 @@ fn posts_page_without_tags_has_no_filter_row() {
     let html = posts_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
     assert!(
-        !html.contains("$ ls"),
-        "no pills means the `$ ls` state can never show: {html}"
+        !html.contains("nothing here yet"),
+        "no pills means the empty state can never show: {html}"
     );
 }
 

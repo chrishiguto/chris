@@ -64,7 +64,8 @@
    reading measure lives with the prose rules in post.css. */
 
 @theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Georgia", serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
 
   --text-xs: 0.75rem;
@@ -83,6 +84,10 @@
   --text-3xl--line-height: 1.15;
   --text-4xl: 3.25rem;
   --text-4xl--line-height: 1.15;
+  /* The display register: page headings and post titles, in the display
+     face only. The clamp runs 36px on phones to 56px past ~1170px. */
+  --text-display: clamp(2.25rem, 1.5rem + 3vw, 3.5rem);
+  --text-display--line-height: 1.08;
 
   --leading-tight: 1.15;
   --leading-snug: 1.4;

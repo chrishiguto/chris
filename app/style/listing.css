@@ -43,9 +43,7 @@
   .post-row-lead {
     display: inline-block;
     margin-left: 0.4375rem;
-    font-family: var(--font-mono);
     font-size: 0.75rem;
-    letter-spacing: 0;
     color: var(--color-accent);
     opacity: 0;
     transform: translateX(-5px);
@@ -75,7 +73,6 @@
     display: inline-flex;
     align-items: baseline;
     gap: 0.375rem;
-    font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--color-ink-3);
     white-space: nowrap;

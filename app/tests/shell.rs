@@ -19,11 +19,16 @@ fn shell_html() -> String {
     )
 }
 
-// Geist + Geist Mono come from Google Fonts with `display=swap`, preconnected
-// and linked in the shell head.
+// Fraunces + Figtree + Geist Mono come from Google Fonts with
+// `display=swap`, preconnected and linked in the shell head.
 #[test]
 fn fonts_load_from_google_with_swap() {
-    for part in ["family=Geist", "family=Geist+Mono", "display=swap"] {
+    for part in [
+        "family=Fraunces",
+        "family=Figtree",
+        "family=Geist+Mono",
+        "display=swap",
+    ] {
         assert!(
             GOOGLE_FONTS_URL.contains(part),
             "Google Fonts URL missing `{part}`"

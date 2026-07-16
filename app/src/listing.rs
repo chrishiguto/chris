@@ -51,7 +51,7 @@ pub fn HomePage() -> impl IntoView {
         <Show when=move || has_posts fallback=nothing_published>
             {post_list(recent.iter().cloned().map(|post| (post, None)).collect(), "mt-4")}
             <p class="mt-4 text-ink-2">
-                "that's the latest three. " <a href=POSTS_PATH class="plink">
+                "that’s the latest three. " <a href=POSTS_PATH class="plink">
                     {format!("read all {total} posts →")}
                 </a>
             </p>
@@ -60,7 +60,7 @@ pub fn HomePage() -> impl IntoView {
     .into_any();
     page(
         None,
-        "hey, i'm chris",
+        "hey, i’m chris",
         view! {
             <p class="mt-5 max-w-[48ch] leading-relaxed text-ink-2">
                 "software engineer. i write about code, systems, and figuring things out — in english e às vezes em português. this site is my notebook, left open on purpose."

@@ -15,8 +15,8 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-family: var(--font-mono);
     font-size: 0.75rem;
+    font-weight: 500;
     color: var(--color-ink-2);
     background-color: transparent;
     background-image: none;

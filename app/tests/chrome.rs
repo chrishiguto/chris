@@ -1,5 +1,5 @@
-//! Site chrome: the bar with its logo, nav links, and the footer with its
-//! konami package — all fully server-rendered.
+//! Site chrome: the bar with its logo, nav links, and the signature
+//! footer — all fully server-rendered.
 #![cfg(feature = "ssr")]
 
 use app::components::{Footer, Header};
@@ -143,23 +143,11 @@ fn theme_toggle_ssrs_both_glyphs_as_an_island() {
 }
 
 #[test]
-fn footer_ships_copyright_and_the_konami_package() {
+fn footer_signs_the_site() {
     let html = common::ssr(|| {}, || view! { <Footer /> });
     assert!(
         html.contains("© 2026 christiano higuto — built slowly, on purpose"),
         "the footer signs the site: {html}"
-    );
-    assert!(
-        html.contains("<leptos-island"),
-        "the konami egg must hydrate as an island: {html}"
-    );
-    assert!(
-        html.contains("↑↑↓↓←→←→ba"),
-        "the hint ships with the egg: {html}"
-    );
-    assert!(
-        !html.contains("konami-toast"),
-        "the toast only exists after the code is entered: {html}"
     );
 }
 

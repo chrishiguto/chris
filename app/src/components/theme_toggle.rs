@@ -29,12 +29,13 @@ pub fn ThemeToggle() -> impl IntoView {
 
     view! {
         <button type="button" class="theme-toggle" aria-label="toggle theme" on:click=toggle>
-            // Moon invites the switch to dark, sun back.
+            // Moon invites the switch to dark, sun back. U+FE0E keeps both
+            // glyphs text-presentation — a bare ☀ turns emoji on some platforms.
             <span class="glyph when-light" aria-hidden="true">
-                "☾"
+                "☾\u{FE0E}"
             </span>
             <span class="glyph when-dark" aria-hidden="true">
-                "☀"
+                "☀\u{FE0E}"
             </span>
         </button>
     }

@@ -28,7 +28,7 @@ pub fn BackLink() -> impl IntoView {
     view! {
         <a
             href=POSTS_PATH
-            class="group inline-flex items-baseline gap-1.5 bg-none font-mono text-sm text-ink-2 transition-colors duration-120 ease-out hover:text-accent"
+            class="group inline-flex items-baseline gap-1.5 bg-none text-sm font-medium text-ink-2 transition-colors duration-120 ease-out hover:text-accent"
             on:click=back
         >
             // The arrow mirrors the listing rows' slide-in lead; reduced

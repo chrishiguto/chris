@@ -9,16 +9,16 @@ pub fn Counter(initial: i64) -> impl IntoView {
     view! {
         <div class="my-6 inline-flex items-center gap-4 rounded-lg border border-line bg-surface-3 p-4">
             <button
-                class="h-10 w-10 rounded bg-ink font-mono text-lg text-surface hover:bg-accent"
+                class="h-10 w-10 rounded bg-ink text-lg text-surface hover:bg-accent"
                 on:click=move |_| count.update(|n| *n -= 1)
             >
                 "−"
             </button>
-            <span class="min-w-12 text-center font-mono text-2xl tabular-nums">
+            <span class="min-w-12 text-center text-2xl font-semibold tabular-nums">
                 {move || count.get()}
             </span>
             <button
-                class="h-10 w-10 rounded bg-ink font-mono text-lg text-surface hover:bg-accent"
+                class="h-10 w-10 rounded bg-ink text-lg text-surface hover:bg-accent"
                 on:click=move |_| count.update(|n| *n += 1)
             >
                 "+"

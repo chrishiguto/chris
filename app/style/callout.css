@@ -1,7 +1,7 @@
-/* The Callout component: code-comment asides with a mono `// kind` label
-   row in the family hue, flat 1px border, no left-border stripes, ever.
-   Two hue families — note/tip accent, warning/danger danger — with severity
-   read through fill intensity: subtle tint, no tint, danger tint. */
+/* The Callout component: asides with a small tracked kind-label row in the
+   family hue, flat 1px border, no left-border stripes, ever. Two hue
+   families — note/tip accent, warning/danger danger — with severity read
+   through fill intensity: subtle tint, no tint, danger tint. */
 
 @layer components {
   .callout {
@@ -24,8 +24,8 @@
   }
 
   .callout-label {
-    font-family: var(--font-mono);
     font-size: 0.75rem;
+    font-weight: 500;
     letter-spacing: 0.06em;
     text-transform: lowercase;
     color: var(--color-accent);
