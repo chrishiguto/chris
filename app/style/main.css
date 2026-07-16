@@ -154,11 +154,14 @@
 /* Shared link and motion primitives, used across pages and components. */
 
 @layer components {
-  /* Emphasis link: medium weight marks it at rest, the accent underline
-     grows in via the base-layer rule. Prose anchors are bare markdown
-     output, so they take the same treatment by element. */
+  /* Emphasis link: title-strength ink and medium weight mark it at rest
+     against muted copy, the accent underline grows in on hover. Prose
+     anchors are bare markdown output, so they take the same treatment by
+     element. The explicit resting color outranks the base-layer hover
+     (components layer wins), so the accent hover is restated here. */
   .plink,
   .post-body a {
+    color: var(--color-ink);
     font-weight: 500;
     background-image: linear-gradient(var(--color-accent), var(--color-accent));
     background-size: 0% 1.5px;
@@ -166,6 +169,7 @@
 
   .plink:hover,
   .post-body a:hover {
+    color: var(--color-accent);
     background-size: 100% 1.5px;
   }
 
