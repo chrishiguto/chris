@@ -37,27 +37,25 @@ pub fn Header() -> impl IntoView {
                     />
                 </a>
                 <nav class="flex shrink-0 items-center gap-1">
-                    {nav_link("about", ABOUT_PATH, &path)} <ThemeToggle />
+                    <NavLink label="about" href=ABOUT_PATH path=path />
+                    <ThemeToggle />
                 </nav>
             </div>
         </header>
     }
 }
 
-/// `page` on the link's exact route, `true` on a subpath — the about link
-/// marks itself current on `/about` and its subpaths. The segment boundary
-/// keeps lookalike 404 paths (`/about-x`) from claiming the section.
+/// `page` on the link's exact route only. The about page has no subpaths, so
+/// anything under `/about/` is a 404 that must not claim the link — the same
+/// bar 404s render — and lookalike paths (`/about-x`) never could.
 fn aria_current(path: &str, href: &str) -> Option<&'static str> {
-    match path.strip_prefix(href) {
-        Some("") => Some("page"),
-        Some(rest) if rest.starts_with('/') => Some("true"),
-        _ => None,
-    }
+    (path == href).then_some("page")
 }
 
-fn nav_link(label: &'static str, href: &'static str, path: &str) -> impl IntoView {
+#[component]
+fn NavLink(label: &'static str, href: &'static str, path: String) -> impl IntoView {
     view! {
-        <a href=href class="nav-link" aria-current=aria_current(path, href)>
+        <a href=href class="nav-link" aria-current=aria_current(&path, href)>
             {label}
         </a>
     }

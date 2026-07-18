@@ -3,14 +3,12 @@
 
 use leptos::prelude::*;
 
-use crate::components::{contacts, page, page_title, section_label};
+use crate::components::{page_title, Contacts, Page, SectionLabel};
 
 #[component]
 pub fn AboutPage() -> impl IntoView {
-    page(
-        Some(page_title("about")),
-        "about",
-        view! {
+    view! {
+        <Page title=page_title("about") heading="about">
             <div class="mt-6 max-w-[65ch] space-y-5 text-[1.0625rem] leading-relaxed">
                 <p>
                     "i’m christiano higuto — chris. software engineer from brazil, curious by default. i’ve been paid to write code for a while now, and i still think the best part is the moment something finally clicks."
@@ -23,7 +21,7 @@ pub fn AboutPage() -> impl IntoView {
                 </p>
             </div>
             <div class="mt-9">
-                {section_label("currently")}
+                <SectionLabel text="currently" />
                 <ul class="mt-4 flex flex-col gap-2 text-sm text-ink-2">
                     <li>"reading · designing data-intensive applications (again)"</li>
                     <li>"learning · rust, slowly and stubbornly"</li>
@@ -31,11 +29,12 @@ pub fn AboutPage() -> impl IntoView {
                 </ul>
             </div>
             <div class="mt-12">
-                {section_label("contact")}
+                <SectionLabel text="contact" />
                 <p class="mt-4 max-w-[48ch] text-ink-2">
                     "say hi, ask anything, or tell me my code is wrong (politely). i read everything."
-                </p> {contacts("mt-4")}
+                </p>
+                <Contacts lead="mt-4" />
             </div>
-        },
-    )
+        </Page>
+    }
 }

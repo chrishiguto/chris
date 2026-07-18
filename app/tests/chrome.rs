@@ -91,8 +91,8 @@ fn active_nav_link_follows_the_route() {
 }
 
 // The bar is the only navigation chrome, and it never leaks the route it sits
-// on: a post page shows no slug, and a lookalike path can't wrongly mark the
-// about link current.
+// on: a post page shows no slug, and neither a lookalike path nor a 404 under
+// `/about/` can wrongly mark the about link current.
 #[test]
 fn the_bar_never_leaks_the_route_or_claims_a_lookalike() {
     let post = header_at("/posts/missing-await");
@@ -101,11 +101,13 @@ fn the_bar_never_leaks_the_route_or_claims_a_lookalike() {
         "the bar must not carry the slug: {post}"
     );
 
-    let lookalike = header_at("/about-x");
-    assert!(
-        !lookalike.contains("aria-current"),
-        "a lookalike path must not claim the about link: {lookalike}"
-    );
+    for path in ["/about-x", "/about/", "/about/x"] {
+        let html = header_at(path);
+        assert!(
+            !html.contains("aria-current"),
+            "`{path}` is not the about page and must not claim its link: {html}"
+        );
+    }
 }
 
 // The toggle island SSRs both glyphs: CSS picks the visible one,
@@ -165,7 +167,7 @@ fn chrome_wraps_every_page_including_404() {
             "`{path}` must render the nav: {html}"
         );
         assert!(
-            html.contains("site-footer"),
+            html.contains("<footer"),
             "`{path}` must render the footer: {html}"
         );
         if path == "/nowhere" {

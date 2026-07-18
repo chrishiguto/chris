@@ -4,10 +4,11 @@ pub mod cache;
 pub mod feeds;
 #[cfg(feature = "ssr")]
 mod purge;
+pub mod redirects;
 
 #[cfg(feature = "ssr")]
 mod server {
-    use crate::{cache, feeds, purge};
+    use crate::{cache, feeds, purge, redirects};
     use app::{app::shell, listing::IndexData, post::PostData};
     use authn::verify_bearer;
     use axum::{
@@ -22,7 +23,7 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY, HOME_PATH,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
         LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
     };
     use leptos::prelude::*;
@@ -108,6 +109,9 @@ mod server {
         let router = Router::new()
             .route(POST_ROUTE, get(post_page))
             .route(POSTS_PATH, get(redirect_home))
+            // The trailing-slash twin: axum matches paths exactly, and the
+            // retired listing's links exist in both spellings.
+            .route(&format!("{POSTS_PATH}/"), get(redirect_home))
             .route(RSS_PATH, get(feed_xml))
             .route(SITEMAP_PATH, get(sitemap_xml))
             .route(PURGE_ROUTE, post(purge_route));
@@ -270,14 +274,12 @@ mod server {
     }
 
     /// The bare `/posts` listing folded into the home front door; its old URL
-    /// and any `?q=` deep link redirect there permanently. Left no-store: a
-    /// standing redirect costs nothing to re-answer and needs no purge handle.
+    /// — either slash spelling — and any `?q=` deep link redirect there
+    /// permanently. Left no-store: a standing redirect costs nothing to
+    /// re-answer and needs no purge handle.
     #[worker::send]
     async fn redirect_home(req: Request<Body>) -> Response<Body> {
-        let location = match req.uri().query() {
-            Some(query) if !query.is_empty() => format!("{HOME_PATH}?{query}"),
-            _ => HOME_PATH.to_string(),
-        };
+        let location = redirects::posts_redirect_location(req.uri().query());
         (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
     }
 

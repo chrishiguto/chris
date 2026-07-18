@@ -210,7 +210,7 @@ fn home_lists_every_listed_post() {
     );
 }
 
-// The reserved search slot ships F's field focusable — its resting/focus
+// The reserved search slot ships its field focusable — the resting/focus
 // affordances stay live — but with no filtering wired yet. It must not be
 // disabled, or the focus states the design wants can never fire.
 #[test]
@@ -279,10 +279,13 @@ fn home_ssr_omits_the_filter_empty_state() {
     );
 }
 
+// A tagless index drops the whole rail column with its divider, not just
+// the pills: the list runs full width instead of sitting beside dead space.
 #[test]
 fn home_without_tags_has_no_filter_row() {
     let html = home_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
+    assert!(!html.contains("<aside"), "no tags, no rail column: {html}");
     assert!(
         !html.contains("nothing here yet"),
         "no pills means the empty state can never show: {html}"
