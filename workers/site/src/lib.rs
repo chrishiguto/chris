@@ -273,8 +273,8 @@ mod server {
         response
     }
 
-    /// The bare `/posts` listing folded into the home front door; its old URL
-    /// — either slash spelling — and any `?q=` deep link redirect there
+    /// The home front door carries the writing listing; the bare `/posts`
+    /// URL — either slash spelling — and any `?q=` deep link redirect there
     /// permanently. Left no-store: a standing redirect costs nothing to
     /// re-answer and needs no purge handle.
     #[worker::send]

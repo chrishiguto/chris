@@ -82,7 +82,7 @@ pub fn valid_slug(slug: &str) -> bool {
 }
 
 /// The `/posts` namespace: post pages hang off it (`/posts/{slug}`). The bare
-/// `/posts` listing is gone — it redirects to the home front door, which now
+/// path serves no listing — it redirects to the home front door, which
 /// carries the writing list itself.
 pub const POSTS_PATH: &str = "/posts";
 
@@ -146,7 +146,7 @@ pub fn tag_filter_selection(values: impl IntoIterator<Item = String>) -> BTreeSe
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-/// Just the home front door now — the bare `/posts` path redirects here.
+/// The home front door alone — the bare `/posts` path redirects there.
 pub const LISTING_PAGES: [&str; 1] = [HOME_PATH];
 
 /// The about page's public path (and cache key / purge path).

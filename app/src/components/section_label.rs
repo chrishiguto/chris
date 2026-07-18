@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
-/// The section-label type: semibold, tracked, `ink-2` for WCAG AA (the old
-/// `text-xs`/`ink-3` pairing failed it). [`SectionLabel`] prepends `text-sm`;
+/// The section-label type: semibold, tracked, `ink-2` — a lighter ink fails
+/// WCAG AA at label sizes. [`SectionLabel`] prepends `text-sm`;
 /// inline labels that set their own size (the writing header) reuse this
 /// alone, so the AA-critical color can't drift between them.
 pub(crate) const SECTION_LABEL_CLASS: &str = "font-semibold tracking-wide text-ink-2";

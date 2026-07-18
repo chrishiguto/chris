@@ -184,8 +184,8 @@ fn home_writing_header_counts_the_listed_archive() {
     );
 }
 
-// Writing is the home now: every listed post shows, not a recent teaser, and
-// there is no "read all" link.
+// Writing is the home: the complete list shows — no recent-posts teaser, no
+// "read all" link.
 #[test]
 fn home_lists_every_listed_post() {
     let index: Vec<_> = (0..5)

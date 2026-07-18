@@ -132,7 +132,7 @@ fn sitemap_lists_home_static_pages_and_posts() {
     ] {
         assert!(xml.contains(loc), "missing {loc}: {xml}");
     }
-    // The writing listing is the home now; the bare `/posts` path only
+    // The writing listing is the home; the bare `/posts` path only
     // redirects there, so it is not a sitemap URL.
     assert!(
         !xml.contains("<loc>https://example.com/posts</loc>"),
