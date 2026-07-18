@@ -31,6 +31,6 @@ pub(crate) use heading::Heading;
 pub(crate) use page::{page_title, Page, PageShell};
 pub(crate) use post_list::{ListedPost, PostList};
 pub(crate) use post_meta::PostMeta;
-pub(crate) use section_label::{SectionLabel, SECTION_LABEL_CLASS};
+pub(crate) use section_label::SectionLabel;
 pub(crate) use tag_pill::TagPill;
 pub(crate) use tag_row::TagRow;

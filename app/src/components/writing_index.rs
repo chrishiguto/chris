@@ -5,7 +5,7 @@ use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::UrlSearchParams;
 
-use crate::components::{ListedPost, PostList, SectionLabel, TagPill, TagRow, SECTION_LABEL_CLASS};
+use crate::components::{ListedPost, PostList, SectionLabel, TagPill, TagRow};
 
 /// The writing front door's whole body: the post list under a
 /// `writing (N) · rss` header and a reserved search slot, with the topics
@@ -126,7 +126,7 @@ fn TopicsRail<V: IntoView + 'static>(pills: Vec<V>) -> impl IntoView {
         view! { <TagRow pills=pills spacing="mt-3" /> }.into_any()
     };
     Some(view! {
-        <SectionLabel text="topics" />
+        <SectionLabel>"topics"</SectionLabel>
         {body}
     })
 }
@@ -171,15 +171,15 @@ fn ClampedTopics<V: IntoView + 'static>(pills: Vec<V>, n: usize) -> impl IntoVie
 #[component]
 fn WritingHeader(total: usize) -> impl IntoView {
     view! {
-        <p class="flex items-baseline gap-2 text-sm">
-            <span class=SECTION_LABEL_CLASS>{format!("writing ({total})")}</span>
+        <div class="flex items-baseline gap-2 text-sm">
+            <SectionLabel>{format!("writing ({total})")}</SectionLabel>
             <span class="text-ink-3" aria-hidden="true">
                 "·"
             </span>
             <a href=RSS_PATH class="plink">
                 "rss"
             </a>
-        </p>
+        </div>
     }
 }
 

@@ -21,7 +21,7 @@ pub fn AboutPage() -> impl IntoView {
                 </p>
             </div>
             <div class="mt-9">
-                <SectionLabel text="currently" />
+                <SectionLabel>"currently"</SectionLabel>
                 <ul class="mt-4 flex flex-col gap-2 text-sm text-ink-2">
                     <li>"reading · designing data-intensive applications (again)"</li>
                     <li>"learning · rust, slowly and stubbornly"</li>
@@ -29,7 +29,7 @@ pub fn AboutPage() -> impl IntoView {
                 </ul>
             </div>
             <div class="mt-12">
-                <SectionLabel text="contact" />
+                <SectionLabel>"contact"</SectionLabel>
                 <p class="mt-4 max-w-[48ch] text-ink-2">
                     "say hi, ask anything, or tell me my code is wrong (politely). i read everything."
                 </p>
