@@ -95,7 +95,9 @@ summary, key topics.
   with the listed posts as serialized props, filtering by signal instead of DOM attributes;
   amended 2026-07-14: filter state moves from the URL hash to a multi-tag `?q=rust,wasm`
   query — deep links now fragment the cache key per selection, all entries still under
-  `views`); `views` tag narrows to listings + feeds; revisit when pagination arrives.
+  `views`; amended 2026-07-16: writing became the home, so the island and its `?q=` root at
+  `/`, `/posts` `301`s to `/`, and `LISTING_PAGES` shrinks to `/`); `views` tag narrows to
+  listings + feeds; revisit when pagination arrives.
   Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides

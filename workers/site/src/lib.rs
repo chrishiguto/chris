@@ -14,7 +14,7 @@ mod server {
         body::Body,
         extract::{FromRef, Path, State},
         http::{
-            header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
+            header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH, LOCATION},
             HeaderName, HeaderValue, Request, Response, StatusCode,
         },
         response::IntoResponse,
@@ -22,8 +22,8 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
-        LISTING_PAGES, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY, HOME_PATH,
+        LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
     };
     use leptos::prelude::*;
     use tower_service::Service;
@@ -107,6 +107,7 @@ mod server {
         // router picks the page from the URL.
         let router = Router::new()
             .route(POST_ROUTE, get(post_page))
+            .route(POSTS_PATH, get(redirect_home))
             .route(RSS_PATH, get(feed_xml))
             .route(SITEMAP_PATH, get(sitemap_xml))
             .route(PURGE_ROUTE, post(purge_route));
@@ -266,6 +267,18 @@ mod server {
             &cache::view_cache_tags(),
         );
         response
+    }
+
+    /// The bare `/posts` listing folded into the home front door; its old URL
+    /// and any `?q=` deep link redirect there permanently. Left no-store: a
+    /// standing redirect costs nothing to re-answer and needs no purge handle.
+    #[worker::send]
+    async fn redirect_home(req: Request<Body>) -> Response<Body> {
+        let location = match req.uri().query() {
+            Some(query) if !query.is_empty() => format!("{HOME_PATH}?{query}"),
+            _ => HOME_PATH.to_string(),
+        };
+        (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
     }
 
     /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha —

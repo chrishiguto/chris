@@ -27,17 +27,17 @@ fn header_at(path: &'static str) -> String {
     )
 }
 
-/// The mono nav links render on every page, whatever the left slot shows.
+/// The nav collapses to a single "about" link (the logo carries you home),
+/// rendered on every page whatever the left slot shows.
 fn assert_global_nav_links(html: &str) {
-    let writing = tag_containing(html, ">writing<");
-    assert!(
-        writing.contains("href=\"/posts\"") && writing.contains("nav-link"),
-        "`writing` must be a nav-link to /posts: {html}"
-    );
     let about = tag_containing(html, ">about<");
     assert!(
         about.contains("href=\"/about\"") && about.contains("nav-link"),
         "`about` must be a nav-link to /about: {html}"
+    );
+    assert!(
+        !html.contains(">writing<"),
+        "the nav no longer carries a `writing` link — the logo goes home: {html}"
     );
 }
 
@@ -73,50 +73,38 @@ fn bar_carries_the_logo_nav_and_toggle() {
 
 #[test]
 fn active_nav_link_follows_the_route() {
-    let posts = header_at("/posts");
-    assert!(
-        tag_containing(&posts, ">writing<").contains("aria-current=\"page\""),
-        "`writing` must be active on /posts: {posts}"
-    );
-    assert!(
-        !tag_containing(&posts, ">about<").contains("aria-current"),
-        "`about` must not be active on /posts: {posts}"
-    );
-
     let about = header_at("/about");
     assert!(
         tag_containing(&about, ">about<").contains("aria-current=\"page\""),
         "`about` must be active on /about: {about}"
     );
-    assert!(
-        !tag_containing(&about, ">writing<").contains("aria-current"),
-        "`writing` must not be active on /about: {about}"
-    );
+
+    // Off /about — on the writing home and on a post page — no nav link is
+    // current; the logo, not a link, marks the way home.
+    for path in ["/", "/posts/missing-await"] {
+        let html = header_at(path);
+        assert!(
+            !html.contains("aria-current"),
+            "no nav link is current on `{path}`: {html}"
+        );
+    }
 }
 
-// Post pages live under the writing section: `writing` is current as the
-// section (`true`), never as the page (`page` is the exact route's). The
-// boundary check keeps lookalike 404 paths from claiming the section.
+// The bar is the only navigation chrome, and it never leaks the route it sits
+// on: a post page shows no slug, and a lookalike path can't wrongly mark the
+// about link current.
 #[test]
-fn writing_is_the_current_section_on_post_pages() {
-    let html = header_at("/posts/missing-await");
+fn the_bar_never_leaks_the_route_or_claims_a_lookalike() {
+    let post = header_at("/posts/missing-await");
     assert!(
-        tag_containing(&html, ">writing<").contains("aria-current=\"true\""),
-        "`writing` must be section-current on a post page: {html}"
-    );
-    assert!(
-        !tag_containing(&html, ">about<").contains("aria-current"),
-        "`about` must not be active on a post page: {html}"
-    );
-    assert!(
-        !html.contains("missing-await"),
-        "the bar must not carry the slug: {html}"
+        !post.contains("missing-await"),
+        "the bar must not carry the slug: {post}"
     );
 
-    let lookalike = header_at("/posts-lookalike");
+    let lookalike = header_at("/about-x");
     assert!(
         !lookalike.contains("aria-current"),
-        "a lookalike 404 path must not claim the section: {lookalike}"
+        "a lookalike path must not claim the about link: {lookalike}"
     );
 }
 
@@ -156,7 +144,7 @@ fn footer_signs_the_site() {
 // contract pins in stylesheet_contract.rs.
 #[test]
 fn every_page_mounts_its_content_under_page_enter() {
-    for path in ["/", "/posts", "/posts/anything", "/about", "/nowhere"] {
+    for path in ["/", "/posts/anything", "/about", "/nowhere"] {
         let html = common::app_at(path);
         let mount = tag_containing(&html, "page-enter");
         assert!(

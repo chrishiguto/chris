@@ -17,7 +17,7 @@ pub use routes::{
     index_key_at, post_key, post_key_at, post_path, post_slug, post_tag, snapshot_index_key,
     snapshot_key_sha, snapshot_post_key, source_path, tag_filter_path, tag_filter_path_selected,
     tag_filter_selection, valid_slug, valid_tag, CurrentPointer, ABOUT_PATH, CONTENT_ROOT,
-    CURRENT_KEY, FEED_PATHS, INDEX_KEY, LISTING_PAGES, POSTS_PATH, POST_FILE, RSS_PATH,
+    CURRENT_KEY, FEED_PATHS, HOME_PATH, INDEX_KEY, LISTING_PAGES, POSTS_PATH, POST_FILE, RSS_PATH,
     SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, STATIC_PAGES, TAG_FILTER_PARAM, VIEWS_TAG,
 };
 

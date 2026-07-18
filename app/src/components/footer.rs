@@ -6,7 +6,9 @@ use leptos::prelude::*;
 pub fn Footer() -> impl IntoView {
     view! {
         <footer class="site-footer">
-            <span>"© 2026 christiano higuto — built slowly, on purpose"</span>
+            <div class="mx-auto max-w-2xl px-6 py-5">
+                <span>"© 2026 christiano higuto — built slowly, on purpose"</span>
+            </div>
         </footer>
     }
 }

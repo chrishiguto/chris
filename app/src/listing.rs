@@ -1,16 +1,15 @@
-//! Listing pages: `/` and `/posts`, rendered from the index provided via
-//! context. Drafts are in the index but filtered here.
+//! The home page `/`: the writing front door. A masthead identity band over
+//! the two-panel writing index (the [`WritingIndex`] island). Drafts are in
+//! the index provided via context but filtered here.
 
-use content::{IndexEntry, ABOUT_PATH, POSTS_PATH};
+use content::IndexEntry;
 use leptos::prelude::*;
 
-use crate::components::{page, page_title, post_list, section_label, ListedPost, TagFilter};
+use crate::components::{contacts, page_shell, ListedPost, WritingIndex, DISPLAY_HEADING_CLASS};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
 pub struct IndexData(pub Vec<IndexEntry>);
-
-pub const RECENT_POSTS: usize = 3;
 
 fn listed_posts() -> Vec<ListedPost> {
     use_context::<IndexData>()
@@ -22,57 +21,39 @@ fn listed_posts() -> Vec<ListedPost> {
         .collect()
 }
 
-/// One empty state for both listings, so `/` and `/posts` can't drift.
+/// Shown when the index carries no published post.
 fn nothing_published() -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
 }
 
-#[component]
-pub fn PostsPage() -> impl IntoView {
-    let posts = listed_posts();
-    let has_posts = !posts.is_empty();
-    let listing = view! {
-        <Show when=move || has_posts fallback=nothing_published>
-            <TagFilter posts=posts.clone() />
-        </Show>
-    };
-    page(Some(page_title("posts")), "posts", listing)
+/// The front-door band: greeting, one voice line, external-only contacts. Nav
+/// owns "about", so the masthead carries no in-app links.
+fn masthead_band() -> impl IntoView {
+    view! {
+        <header class="border-b border-line pb-10">
+            <h1 class=DISPLAY_HEADING_CLASS>"hey, i’m chris"</h1>
+            <p class="mt-5 max-w-[58ch] text-lg leading-relaxed text-ink-2">
+                "software engineer. this is everything i’m writing — code, systems, and figuring things out, in english e às vezes em português."
+            </p>
+            {contacts("mt-6")}
+        </header>
+    }
 }
 
 #[component]
 pub fn HomePage() -> impl IntoView {
     let posts = listed_posts();
-    let total = posts.len();
-    let recent: Vec<_> = posts.into_iter().take(RECENT_POSTS).collect();
-    let has_posts = !recent.is_empty();
-    // Type-erased: the fully typed Show nested into the page view overflows
-    // rustc's query depth.
-    let latest = view! {
+    let has_posts = !posts.is_empty();
+    // Type-erased: the island nested through Show into the section overflows
+    // rustc's query depth otherwise.
+    let panel = view! {
         <Show when=move || has_posts fallback=nothing_published>
-            {post_list(recent.iter().cloned().map(|post| (post, None)).collect(), "mt-4")}
-            <p class="mt-4 text-ink-2">
-                "that’s the latest three. " <a href=POSTS_PATH class="plink">
-                    {format!("read all {total} posts →")}
-                </a>
-            </p>
+            <WritingIndex posts=posts.clone() />
         </Show>
     }
     .into_any();
-    page(
-        None,
-        "hey, i’m chris",
-        view! {
-            <p class="mt-5 max-w-[48ch] leading-relaxed text-ink-2">
-                "software engineer. i write about code, systems, and figuring things out — in english e às vezes em português. this site is my notebook, left open on purpose."
-            </p>
-            <p class="mt-6 max-w-[52ch] leading-relaxed text-ink-2">
-                "new here? start with " <a href=POSTS_PATH class="plink">
-                    "the writing"
-                </a> ", or read a little more " <a href=ABOUT_PATH class="plink">
-                    "about me"
-                </a> "."
-            </p>
-            <div class="mt-14">{section_label("latest writing")} {latest}</div>
-        },
-    )
+    page_shell(view! {
+        {masthead_band()}
+        {panel}
+    })
 }

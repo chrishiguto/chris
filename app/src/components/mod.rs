@@ -11,16 +11,16 @@ pub mod code_block;
 pub mod footer;
 pub mod header;
 pub mod not_found;
-pub mod tag_filter;
 pub mod theme_toggle;
+pub mod writing_index;
 
 pub use back_link::BackLink;
 pub use code_block::CodeBlock;
 pub use footer::Footer;
 pub use header::Header;
 pub use not_found::NotFound;
-pub use tag_filter::TagFilter;
 pub use theme_toggle::ThemeToggle;
+pub use writing_index::WritingIndex;
 
 /// The article header's meta line: formatted date, then `· N min` when the
 /// read time is known — absent minutes render the date alone.
@@ -76,9 +76,53 @@ pub(crate) fn page_title(page: &str) -> String {
     format!("{page} — {}", content::SITE_TITLE)
 }
 
-/// Small tracked section label; shared by the home and about pages.
+/// The section-label type: semibold, tracked, `ink-2` for WCAG AA (the old
+/// `text-xs`/`ink-3` pairing failed it). `section_label` prepends `text-sm`;
+/// inline labels that set their own size (the writing header) reuse this
+/// alone, so the AA-critical color can't drift between them.
+pub(crate) const SECTION_LABEL_CLASS: &str = "font-semibold tracking-wide text-ink-2";
+
+/// Small tracked section label; shared by the home rail and the about page.
+/// Marker-free by design.
 pub(crate) fn section_label(text: &'static str) -> impl IntoView {
-    view! { <p class="text-xs font-medium tracking-wide text-ink-3">{text}</p> }
+    view! { <p class=format!("text-sm {SECTION_LABEL_CLASS}")>{text}</p> }
+}
+
+/// External contact link: no house underline — the arrow nudges outward on
+/// hover instead, and parks under reduced motion. Wrapped by [`contacts`].
+fn contact_link(href: &'static str, label: &'static str) -> impl IntoView {
+    view! {
+        <a
+            href=href
+            class="group inline-flex items-baseline gap-1.5 bg-none text-sm font-medium text-ink-2"
+        >
+            {label}
+            <span
+                class="inline-block transition-transform duration-200 ease-out-expo motion-safe:group-hover:translate-x-[2px] motion-safe:group-hover:-translate-y-[2px]"
+                aria-hidden="true"
+            >
+                "↗"
+            </span>
+        </a>
+    }
+}
+
+/// The external contact cluster shared by the home masthead and the about
+/// page: the email line over the github + linkedin links. Hrefs are
+/// well-formed mocks until real handles exist — kept here so they live in one
+/// place. `lead` spaces the email line for its context.
+pub(crate) fn contacts(lead: &'static str) -> impl IntoView {
+    view! {
+        <p class=lead>
+            <a href="mailto:hi@chris.dev" class="text-sm font-medium">
+                "hi@chris.dev"
+            </a>
+        </p>
+        <div class="mt-3 flex gap-6">
+            {contact_link("https://github.com/chris", "github")}
+            {contact_link("https://www.linkedin.com/in/chris", "linkedin")}
+        </div>
+    }
 }
 
 /// One listed post, in the shape the pages render: the published subset of
@@ -192,8 +236,23 @@ pub(crate) fn TagPill(
     }
 }
 
-/// Shared page scaffold; every page except the post article and the about
-/// page (which opens with the prompt motif instead) renders through it.
+/// The page frame every route mounts into: the centered column carrying the
+/// `page-enter` transition every page's mount is pinned to. The home listing
+/// and the post article compose their own masthead into it directly; [`page`]
+/// adds the display heading on top for the about and 404 pages.
+pub(crate) fn page_shell(children: impl IntoView) -> impl IntoView {
+    view! { <section class="page-enter mx-auto max-w-2xl px-6 py-16">{children}</section> }
+}
+
+/// The display-face page heading: Fraunces, the display size, tight tracking.
+/// Shared by [`page`] and the home masthead so the two front-page headings
+/// can't drift in face, size, or tracking.
+pub(crate) const DISPLAY_HEADING_CLASS: &str =
+    "font-display text-display font-semibold tracking-[-0.01em]";
+
+/// [`page_shell`] plus a title and the display heading: the about and 404
+/// pages render through it. The home listing and post article open with their
+/// own masthead and use the bare shell instead.
 pub(crate) fn page(
     title: Option<String>,
     heading: impl IntoView,
@@ -201,10 +260,12 @@ pub(crate) fn page(
 ) -> impl IntoView {
     view! {
         {title.map(|text| view! { <Title text=text /> })}
-        <section class="page-enter mx-auto max-w-2xl px-6 py-16">
-            <h1 class="font-display text-display font-semibold tracking-[-0.01em]">{heading}</h1>
-            {body}
-        </section>
+        {page_shell(
+            view! {
+                <h1 class=DISPLAY_HEADING_CLASS>{heading}</h1>
+                {body}
+            },
+        )}
     }
 }
 

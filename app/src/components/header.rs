@@ -1,12 +1,13 @@
-use content::{ABOUT_PATH, POSTS_PATH};
+use content::ABOUT_PATH;
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// The sticky site bar: the logo linking home on the left, the mono nav
-/// with the theme toggle on the right. Fully server-rendered from the
-/// request URL.
+/// The sticky site bar: the logo linking home on the left, the "about" nav
+/// link with the theme toggle on the right. The logo carries you to the
+/// writing home, so the bar needs no "writing" link. Fully server-rendered
+/// from the request URL.
 #[component]
 pub fn Header() -> impl IntoView {
     // Read once, non-reactively: outside islands nothing runs client-side,
@@ -36,23 +37,16 @@ pub fn Header() -> impl IntoView {
                     />
                 </a>
                 <nav class="flex shrink-0 items-center gap-1">
-                    {bar_links(&path)} <ThemeToggle />
+                    {nav_link("about", ABOUT_PATH, &path)} <ThemeToggle />
                 </nav>
             </div>
         </header>
     }
 }
 
-fn bar_links(path: &str) -> impl IntoView {
-    view! {
-        {nav_link("writing", POSTS_PATH, path)}
-        {nav_link("about", ABOUT_PATH, path)}
-    }
-}
-
-/// `page` on the link's exact route, `true` on a subpath — a post page keeps
-/// `writing` current as its section, not as the page. The segment boundary
-/// keeps lookalike 404 paths (`/posts-x`) from claiming the section.
+/// `page` on the link's exact route, `true` on a subpath — the about link
+/// marks itself current on `/about` and its subpaths. The segment boundary
+/// keeps lookalike 404 paths (`/about-x`) from claiming the section.
 fn aria_current(path: &str, href: &str) -> Option<&'static str> {
     match path.strip_prefix(href) {
         Some("") => Some("page"),
