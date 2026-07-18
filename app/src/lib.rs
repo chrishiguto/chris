@@ -3,6 +3,7 @@
 
 pub mod about;
 pub mod app;
+mod classed;
 pub mod components;
 pub mod listing;
 pub mod post;

@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-use super::classed::classed;
+use crate::classed::classed;
 
 /// The pill row — `ul.post-tags` of [`TagPill`](super::TagPill)s — shared by
 /// the article bottom and the filter rail; no pills, no row. Spacing

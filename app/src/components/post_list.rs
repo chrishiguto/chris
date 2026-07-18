@@ -2,8 +2,8 @@ use content::{post_path, IndexEntry};
 use leptos::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use super::classed::classed;
 use super::post_meta::MetaRow;
+use crate::classed::classed;
 
 /// One listed post, in the shape the pages render: the published subset of
 /// an index entry. Internal fields (content hash, draft) never reach the

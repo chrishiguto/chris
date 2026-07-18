@@ -3,7 +3,6 @@
 
 pub mod back_link;
 pub mod blog;
-mod classed;
 pub mod code_block;
 pub mod contacts;
 pub mod footer;
