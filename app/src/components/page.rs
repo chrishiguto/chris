@@ -1,16 +1,12 @@
 use leptos::prelude::*;
 use leptos_meta::Title;
 
+use super::Heading;
+
 /// `{page} — ~/chris`: every non-home tab title hangs off the site title.
 pub(crate) fn page_title(page: &str) -> String {
     format!("{page} — {}", content::SITE_TITLE)
 }
-
-/// The display-face page heading: Fraunces, the display size, tight tracking.
-/// Shared by [`Page`] and the home masthead so the two front-page headings
-/// can't drift in face, size, or tracking.
-pub(crate) const DISPLAY_HEADING_CLASS: &str =
-    "font-display text-display font-semibold tracking-[-0.01em]";
 
 /// The page frame every route mounts into: the centered column carrying the
 /// `page-enter` transition every page's mount is pinned to. The home listing
@@ -29,7 +25,7 @@ pub(crate) fn Page(title: String, heading: &'static str, children: Children) -> 
     view! {
         <Title text=title />
         <PageShell>
-            <h1 class=DISPLAY_HEADING_CLASS>{heading}</h1>
+            <Heading>{heading}</Heading>
             {children()}
         </PageShell>
     }

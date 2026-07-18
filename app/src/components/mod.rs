@@ -7,6 +7,7 @@ pub mod code_block;
 pub mod contacts;
 pub mod footer;
 pub mod header;
+pub mod heading;
 pub mod not_found;
 pub mod page;
 pub mod post_list;
@@ -26,7 +27,8 @@ pub use theme_toggle::ThemeToggle;
 pub use writing_index::WritingIndex;
 
 pub(crate) use contacts::Contacts;
-pub(crate) use page::{page_title, Page, PageShell, DISPLAY_HEADING_CLASS};
+pub(crate) use heading::Heading;
+pub(crate) use page::{page_title, Page, PageShell};
 pub(crate) use post_list::{ListedPost, PostList};
 pub(crate) use post_meta::PostMeta;
 pub(crate) use section_label::{SectionLabel, SECTION_LABEL_CLASS};
