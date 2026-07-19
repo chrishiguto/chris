@@ -53,8 +53,11 @@ fn home_lists_rows_in_the_post_row_shape() {
     let row = tag_containing(&html, "class=\"post-row\"");
     assert!(row.contains("href=\"/posts/newer\""), "{html}");
     assert!(
-        html.contains("<span class=\"post-row-title\">the newer post"),
-        "{html}"
+        html.contains(concat!(
+            "<span class=\"post-row-title\">the newer ",
+            "<span class=\"whitespace-nowrap\">post<span class=\"post-row-lead\""
+        )),
+        "the title's last word is glued to the arrow so it never wraps alone: {html}"
     );
     let lead = tag_containing(&html, "class=\"post-row-lead\"");
     assert!(

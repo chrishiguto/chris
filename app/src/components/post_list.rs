@@ -53,15 +53,24 @@ pub(crate) fn PostList(
     view! { <ul class=classed("post-list", spacing)>{items}</ul> }
 }
 
-/// The whole row is the link; the arrow slides in on hover via CSS.
+/// The whole row is the link; the arrow slides in on hover via CSS. The
+/// title's last word is glued to the arrow so the arrow never wraps onto
+/// a line of its own — if it doesn't fit, the word drops down with it.
 #[component]
 fn PostRow(post: ListedPost) -> impl IntoView {
+    let (head, tail) = match post.title.rsplit_once(' ') {
+        Some((head, tail)) => (format!("{head} "), tail.to_string()),
+        None => (String::new(), post.title),
+    };
     view! {
         <a href=post_path(&post.slug) class="post-row">
             <span class="post-row-top">
                 <span class="post-row-title">
-                    {post.title} <span class="post-row-lead" aria-hidden="true">
-                        "→"
+                    {head}
+                    <span class="whitespace-nowrap">
+                        {tail} <span class="post-row-lead" aria-hidden="true">
+                            "→"
+                        </span>
                     </span>
                 </span>
                 <span class="post-row-meta">
