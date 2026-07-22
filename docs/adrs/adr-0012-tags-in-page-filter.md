@@ -75,3 +75,14 @@ feeds only (there are no tag pages left to project the index).
   baseline); the pills simply do nothing.
 - Bad: if the listing ever paginates, a client-side filter over one page is no longer
   complete — server-side filtering returns as part of that work, not this one.
+
+> **Amendment (2026-07-16)**: writing became the home. `/` now carries the listing and the
+> filter island directly, so the `?q=` selection roots at `/` (`/?q=rust,wasm`) instead of
+> `/posts`, and `tag_filter_path*` builds those. The bare `/posts` path is no longer a
+> listing route: it `301`s to `/` at the site worker (preserving any `?q=`), `LISTING_PAGES`
+> shrinks to just `/`, and the sitemap lists `/` (not `/posts`). Post pages are unchanged at
+> `/posts/{slug}`. The island also grew the writing page's structure — a topics rail of tag
+> pills beside the list, and a reserved (inert) search field above it — but its contract is
+> unchanged: server render is the full unfiltered list, pill clicks `replaceState` and never
+> navigate, and every deep-linked `?q=` entry is the same SSR body under the `views` tag.
+> Old `/posts?q=` links land filtered via the redirect; old `/posts` links land on `/`.

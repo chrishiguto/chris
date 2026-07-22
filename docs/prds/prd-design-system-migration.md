@@ -264,6 +264,22 @@ block (github + linkedin + email, all mocked until real URLs exist) — cached u
 > (user story 6); the page opens on the display-face heading. The 404 page restyles into the same voice. Both
 tag routes and their components are deleted.
 
+> **Amendment (2026-07-16)**: writing became the home (prototype variant "F"). `/` is now
+> the writing front door — a full-width masthead band (greeting + one voice line +
+> external-only contacts, each marked `↗`; no in-app links) over a two-panel split: a topics
+> rail of tag pills on the left, and the post list on the right under a `writing (N) · rss`
+> header, with a reserved (inert) search field above it. The old "greeting + latest three +
+> read-all" home and the separate `/posts` writing page are both gone; the home lists every
+> post directly. Consequently the nav collapses to **about only** — the logo carries you home,
+> so no nav link is current off `/about` (user story 18's `writing`-as-section marking retires
+> with the link). `/posts` `301`s to `/` (see ADR-0012's 2026-07-16 amendment); post pages
+> stay at `/posts/{slug}`. The shared `section_label` moves to `text-sm`/semibold/`ink-2` to
+> clear WCAG AA (the old `text-xs`/`ink-3` failed it), and a new `--input-fill` token backs
+> the search field's recessed fill. Text search itself is a reserved slot here — a separate
+> feature, not built in this slice. The `TagFilter` island is renamed `WritingIndex` in the
+> inventory above: it now owns the whole writing-index body (rail, header, search, list), and
+> filtering is one behavior of it rather than its whole job.
+
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island

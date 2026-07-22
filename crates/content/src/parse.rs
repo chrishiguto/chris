@@ -10,7 +10,7 @@ use markdown::unist::Position;
 use markdown::{Constructs, MdxSignal, ParseOptions};
 
 use crate::{
-    valid_tag, Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue, POSTS_PATH,
+    valid_tag, Document, Frontmatter, ListItem, Manifest, Node, PropType, PropValue,
     SCHEMA_VERSION, TAG_FILTER_PARAM,
 };
 
@@ -210,7 +210,7 @@ impl Converter<'_> {
             self.diags.push(Diagnostic {
                 message: format!(
                     "tag \"{tag}\" must be a lowercase slug (a-z, 0-9, -) — it rides verbatim \
-                     in the {POSTS_PATH}?{TAG_FILTER_PARAM}= filter URL's comma-separated tag list"
+                     in the writing page's ?{TAG_FILTER_PARAM}= filter query's comma-separated tag list"
                 ),
                 file: None,
                 line: yaml_key_line(yaml, "tags"),

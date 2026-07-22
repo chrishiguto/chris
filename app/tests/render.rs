@@ -499,7 +499,7 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     );
     for tag in ["rust", "wasm"] {
         assert!(
-            html.contains(&format!("<a href=\"/posts?q={tag}\" class=\"tag\">")),
+            html.contains(&format!("<a href=\"/?q={tag}\" class=\"tag\">")),
             "`{tag}` pill must link to the filtered listing: {html}"
         );
     }
@@ -530,12 +530,12 @@ fn post_omits_empty_tag_list() {
 fn post_opens_with_a_back_link_island_to_the_listing() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
-    let link = tag_containing(&html, "href=\"/posts\"");
+    let link = tag_containing(&html, "href=\"/\"");
     assert!(
         link.starts_with("<a"),
-        "the no-JS fallback must link the listing: {html}"
+        "the no-JS fallback must link the writing home: {html}"
     );
-    let back = html.find("href=\"/posts\"").unwrap();
+    let back = html.find("href=\"/\"").unwrap();
     assert!(
         html[..back].contains("<leptos-island"),
         "the back link must hydrate as an island: {html}"

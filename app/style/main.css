@@ -30,6 +30,9 @@
   --accent-2: light-dark(oklch(48.6% 0.084 8), oklch(77.4% 0.061 8));
   --accent-subtle: light-dark(oklch(94.3% 0.016 358), oklch(24.6% 0.023 0));
   --danger: light-dark(oklch(53.6% 0.148 33), oklch(68.9% 0.132 36));
+  /* Recessed fill for inset controls (the writing-page search): a step under
+     the surface in both themes. */
+  --input-fill: light-dark(oklch(94% 0.008 89), oklch(14.5% 0.008 96));
 
   /* Plain (non-utility) properties: consumed by the base layer only. */
   --selection-bg: light-dark(oklch(90.1% 0.024 1), oklch(33.3% 0.05 6));
@@ -58,6 +61,7 @@
   --color-accent-2: var(--accent-2);
   --color-accent-subtle: var(--accent-subtle);
   --color-danger: var(--danger);
+  --color-input-fill: var(--input-fill);
 }
 
 /* Tailwind default names re-valued to the site's type scale; the 17px/65ch

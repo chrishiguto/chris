@@ -1,7 +1,7 @@
-use content::POSTS_PATH;
+use content::HOME_PATH;
 use leptos::prelude::*;
 
-/// The article's way back. SSRs as a plain link to the listing; hydration
+/// The article's way back. SSRs as a plain link to the writing home; hydration
 /// upgrades the click to `history.back()` when the reader arrived from this
 /// site, returning them to whatever they left — a filtered listing, home,
 /// another post. Direct visits, external referrers, and no-JS readers all
@@ -27,7 +27,7 @@ pub fn BackLink() -> impl IntoView {
 
     view! {
         <a
-            href=POSTS_PATH
+            href=HOME_PATH
             class="group inline-flex items-baseline gap-1.5 bg-none text-sm font-medium text-ink-2 transition-colors duration-120 ease-out hover:text-accent"
             on:click=back
         >

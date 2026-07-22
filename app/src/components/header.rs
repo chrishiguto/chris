@@ -1,12 +1,13 @@
-use content::{ABOUT_PATH, POSTS_PATH};
+use content::ABOUT_PATH;
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// The sticky site bar: the logo linking home on the left, the mono nav
-/// with the theme toggle on the right. Fully server-rendered from the
-/// request URL.
+/// The sticky site bar: the logo linking home on the left, the "about" nav
+/// link with the theme toggle on the right. The logo carries you to the
+/// writing home, so the bar needs no "writing" link. Fully server-rendered
+/// from the request URL.
 #[component]
 pub fn Header() -> impl IntoView {
     // Read once, non-reactively: outside islands nothing runs client-side,
@@ -36,34 +37,25 @@ pub fn Header() -> impl IntoView {
                     />
                 </a>
                 <nav class="flex shrink-0 items-center gap-1">
-                    {bar_links(&path)} <ThemeToggle />
+                    <NavLink label="about" href=ABOUT_PATH path=path />
+                    <ThemeToggle />
                 </nav>
             </div>
         </header>
     }
 }
 
-fn bar_links(path: &str) -> impl IntoView {
-    view! {
-        {nav_link("writing", POSTS_PATH, path)}
-        {nav_link("about", ABOUT_PATH, path)}
-    }
-}
-
-/// `page` on the link's exact route, `true` on a subpath — a post page keeps
-/// `writing` current as its section, not as the page. The segment boundary
-/// keeps lookalike 404 paths (`/posts-x`) from claiming the section.
+/// `page` on the link's exact route only. The about page has no subpaths, so
+/// anything under `/about/` is a 404 that must not claim the link — the same
+/// bar 404s render — and lookalike paths (`/about-x`) never could.
 fn aria_current(path: &str, href: &str) -> Option<&'static str> {
-    match path.strip_prefix(href) {
-        Some("") => Some("page"),
-        Some(rest) if rest.starts_with('/') => Some("true"),
-        _ => None,
-    }
+    (path == href).then_some("page")
 }
 
-fn nav_link(label: &'static str, href: &'static str, path: &str) -> impl IntoView {
+#[component]
+fn NavLink(label: &'static str, href: &'static str, path: String) -> impl IntoView {
     view! {
-        <a href=href class="nav-link" aria-current=aria_current(path, href)>
+        <a href=href class="nav-link" aria-current=aria_current(&path, href)>
             {label}
         </a>
     }

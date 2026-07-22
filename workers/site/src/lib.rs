@@ -4,17 +4,18 @@ pub mod cache;
 pub mod feeds;
 #[cfg(feature = "ssr")]
 mod purge;
+pub mod redirects;
 
 #[cfg(feature = "ssr")]
 mod server {
-    use crate::{cache, feeds, purge};
+    use crate::{cache, feeds, purge, redirects};
     use app::{app::shell, listing::IndexData, post::PostData};
     use authn::verify_bearer;
     use axum::{
         body::Body,
         extract::{FromRef, Path, State},
         http::{
-            header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH},
+            header::{AUTHORIZATION, CACHE_CONTROL, CONTENT_TYPE, ETAG, IF_NONE_MATCH, LOCATION},
             HeaderName, HeaderValue, Request, Response, StatusCode,
         },
         response::IntoResponse,
@@ -23,7 +24,7 @@ mod server {
     };
     use content::{
         index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
-        LISTING_PAGES, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
+        LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
     };
     use leptos::prelude::*;
     use tower_service::Service;
@@ -107,6 +108,10 @@ mod server {
         // router picks the page from the URL.
         let router = Router::new()
             .route(POST_ROUTE, get(post_page))
+            .route(POSTS_PATH, get(redirect_home))
+            // The trailing-slash twin: axum matches paths exactly, and the
+            // retired listing's links exist in both spellings.
+            .route(&format!("{POSTS_PATH}/"), get(redirect_home))
             .route(RSS_PATH, get(feed_xml))
             .route(SITEMAP_PATH, get(sitemap_xml))
             .route(PURGE_ROUTE, post(purge_route));
@@ -266,6 +271,16 @@ mod server {
             &cache::view_cache_tags(),
         );
         response
+    }
+
+    /// The home front door carries the writing listing; the bare `/posts`
+    /// URL — either slash spelling — and any `?q=` deep link redirect there
+    /// permanently. Left no-store: a standing redirect costs nothing to
+    /// re-answer and needs no purge handle.
+    #[worker::send]
+    async fn redirect_home(req: Request<Body>) -> Response<Body> {
+        let location = redirects::posts_redirect_location(req.uri().query());
+        (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
     }
 
     /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha —
