@@ -1,13 +1,12 @@
-use content::ABOUT_PATH;
+use content::{ABOUT_PATH, WRITING_PATH};
 use leptos::prelude::*;
 use leptos_router::hooks::use_location;
 
 use super::ThemeToggle;
 
-/// The sticky site bar: the logo linking home on the left, the "about" nav
-/// link with the theme toggle on the right. The logo carries you to the
-/// writing home, so the bar needs no "writing" link. Fully server-rendered
-/// from the request URL.
+/// The sticky site bar: the logo linking home on the left, the "writing"
+/// and "about" nav links with the theme toggle on the right. Fully
+/// server-rendered from the request URL.
 #[component]
 pub fn Header() -> impl IntoView {
     // Read once, non-reactively: outside islands nothing runs client-side,
@@ -37,6 +36,7 @@ pub fn Header() -> impl IntoView {
                     />
                 </a>
                 <nav class="flex shrink-0 items-center gap-1">
+                    <NavLink label="writing" href=WRITING_PATH path=path.clone() />
                     <NavLink label="about" href=ABOUT_PATH path=path />
                     <ThemeToggle />
                 </nav>
@@ -45,9 +45,10 @@ pub fn Header() -> impl IntoView {
     }
 }
 
-/// `page` on the link's exact route only. The about page has no subpaths, so
-/// anything under `/about/` is a 404 that must not claim the link — the same
-/// bar 404s render — and lookalike paths (`/about-x`) never could.
+/// `page` on the link's exact route only. Neither linked page has subpaths,
+/// so anything under `/about/` or `/writing/` is a 404 that must not claim
+/// its link — the same bar 404s render — and lookalike paths (`/about-x`)
+/// never could.
 fn aria_current(path: &str, href: &str) -> Option<&'static str> {
     (path == href).then_some("page")
 }

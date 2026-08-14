@@ -7,8 +7,9 @@ use leptos_router::{
 
 use crate::about::AboutPage;
 use crate::components::{Footer, Header, NotFound};
-use crate::listing::HomePage;
+use crate::home::HomePage;
 use crate::post::PostPage;
+use crate::writing::WritingPage;
 
 /// Fraunces (display) + Figtree (body and chrome) + Geist Mono (code only)
 /// from Google Fonts, loaded with `display=swap`. Fraunces' SOFT/WONK axes
@@ -71,6 +72,7 @@ pub fn App() -> impl IntoView {
                 <main class="flex-1">
                     <Routes fallback=|| view! { <NotFound /> }>
                         <Route path=StaticSegment("") view=HomePage />
+                        <Route path=StaticSegment("writing") view=WritingPage />
                         <Route path=(StaticSegment("posts"), ParamSegment("slug")) view=PostPage />
                         <Route path=StaticSegment("about") view=AboutPage />
                     </Routes>

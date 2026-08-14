@@ -19,6 +19,7 @@ pub use routes::{
     tag_filter_selection, valid_slug, valid_tag, CurrentPointer, ABOUT_PATH, CONTENT_ROOT,
     CURRENT_KEY, FEED_PATHS, HOME_PATH, INDEX_KEY, LISTING_PAGES, POSTS_PATH, POST_FILE, RSS_PATH,
     SITEMAP_PATH, SITE_TAG, SNAPSHOT_KEY_SPACE, STATIC_PAGES, TAG_FILTER_PARAM, VIEWS_TAG,
+    WRITING_PATH,
 };
 
 #[cfg(feature = "parse")]

@@ -126,14 +126,15 @@ fn sitemap_lists_home_static_pages_and_posts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     for loc in [
         "<loc>https://example.com/</loc>",
+        "<loc>https://example.com/writing</loc>",
         "<loc>https://example.com/about</loc>",
         "<loc>https://example.com/posts/newer</loc>",
         "<loc>https://example.com/posts/older</loc>",
     ] {
         assert!(xml.contains(loc), "missing {loc}: {xml}");
     }
-    // The writing listing is the home; the bare `/posts` path only
-    // redirects there, so it is not a sitemap URL.
+    // The listing lives at /writing; the bare `/posts` path only redirects
+    // there, so it is not a sitemap URL.
     assert!(
         !xml.contains("<loc>https://example.com/posts</loc>"),
         "the redirect stub must not be sitemapped: {xml}"

@@ -27,18 +27,16 @@ fn header_at(path: &'static str) -> String {
     )
 }
 
-/// The nav collapses to a single "about" link (the logo carries you home),
+/// The nav carries "writing" and "about" (the logo carries you home),
 /// rendered on every page whatever the left slot shows.
 fn assert_global_nav_links(html: &str) {
-    let about = tag_containing(html, ">about<");
-    assert!(
-        about.contains("href=\"/about\"") && about.contains("nav-link"),
-        "`about` must be a nav-link to /about: {html}"
-    );
-    assert!(
-        !html.contains(">writing<"),
-        "the nav no longer carries a `writing` link — the logo goes home: {html}"
-    );
+    for (label, href) in [(">writing<", "/writing"), (">about<", "/about")] {
+        let link = tag_containing(html, label);
+        assert!(
+            link.contains(&format!("href=\"{href}\"")) && link.contains("nav-link"),
+            "`{label}` must be a nav-link to {href}: {html}"
+        );
+    }
 }
 
 // Both theme variants of the logo ship in the HTML; the `when-*` pair shows
@@ -73,14 +71,22 @@ fn bar_carries_the_logo_nav_and_toggle() {
 
 #[test]
 fn active_nav_link_follows_the_route() {
-    let about = header_at("/about");
-    assert!(
-        tag_containing(&about, ">about<").contains("aria-current=\"page\""),
-        "`about` must be active on /about: {about}"
-    );
+    for (path, label) in [("/about", ">about<"), ("/writing", ">writing<")] {
+        let html = header_at(path);
+        let active = tag_containing(&html, label);
+        assert!(
+            active.contains("aria-current=\"page\""),
+            "`{label}` must be active on {path}: {html}"
+        );
+        assert_eq!(
+            html.matches("aria-current").count(),
+            1,
+            "only the route's own link is current on `{path}`: {html}"
+        );
+    }
 
-    // Off /about — on the writing home and on a post page — no nav link is
-    // current; the logo, not a link, marks the way home.
+    // Off the linked pages — on the home and on a post page — no nav link
+    // is current; the logo, not a link, marks the way home.
     for path in ["/", "/posts/missing-await"] {
         let html = header_at(path);
         assert!(
@@ -101,11 +107,18 @@ fn the_bar_never_leaks_the_route_or_claims_a_lookalike() {
         "the bar must not carry the slug: {post}"
     );
 
-    for path in ["/about-x", "/about/", "/about/x"] {
+    for path in [
+        "/about-x",
+        "/about/",
+        "/about/x",
+        "/writing-x",
+        "/writing/",
+        "/writing/x",
+    ] {
         let html = header_at(path);
         assert!(
             !html.contains("aria-current"),
-            "`{path}` is not the about page and must not claim its link: {html}"
+            "`{path}` is not a linked page and must not claim a link: {html}"
         );
     }
 }
@@ -146,7 +159,7 @@ fn footer_signs_the_site() {
 // contract pins in stylesheet_contract.rs.
 #[test]
 fn every_page_mounts_its_content_under_page_enter() {
-    for path in ["/", "/posts/anything", "/about", "/nowhere"] {
+    for path in ["/", "/writing", "/posts/anything", "/about", "/nowhere"] {
         let html = common::app_at(path);
         let mount = tag_containing(&html, "page-enter");
         assert!(

@@ -5,9 +5,10 @@ pub mod about;
 pub mod app;
 mod classed;
 pub mod components;
-pub mod listing;
+pub mod home;
 pub mod post;
 pub mod render;
+pub mod writing;
 
 /// The component vocabulary from this crate's inventory registrations.
 /// The `black_box` anchor is load-bearing: without a referenced `app` symbol

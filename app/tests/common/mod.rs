@@ -34,6 +34,29 @@ pub fn app_at(path: &'static str) -> String {
     )
 }
 
+/// An index entry through the real constructor, so publish-computed fields
+/// (read time, content hash) default here the same way they do in
+/// production.
+pub fn index_entry(slug: &str, title: &str, date: &str) -> content::IndexEntry {
+    content::IndexEntry::new(
+        slug,
+        &content::Frontmatter {
+            title: title.into(),
+            date: date.into(),
+            description: None,
+            tags: vec![],
+            draft: false,
+        },
+    )
+}
+
+/// [`index_entry`] carrying tags.
+pub fn tagged_entry(slug: &str, title: &str, date: &str, tags: &[&str]) -> content::IndexEntry {
+    let mut entry = index_entry(slug, title, date);
+    entry.tags = tags.iter().map(|t| t.to_string()).collect();
+    entry
+}
+
 /// The opening tag around the first occurrence of `needle` — attribute
 /// order in leptos output is an implementation detail, so assertions look
 /// inside one tag instead of pinning full-tag strings.

@@ -499,7 +499,7 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     );
     for tag in ["rust", "wasm"] {
         assert!(
-            html.contains(&format!("<a href=\"/?q={tag}\" class=\"tag\">")),
+            html.contains(&format!("<a href=\"/writing?q={tag}\" class=\"tag\">")),
             "`{tag}` pill must link to the filtered listing: {html}"
         );
     }

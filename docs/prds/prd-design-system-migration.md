@@ -287,9 +287,10 @@ tag routes and their components are deleted.
 > org in `ink-2`, tag chips, scroll-driven side reveals (`animation-timeline: view()`,
 > reduced-motion gated), and a breathing dot on the current stint. Design settled by the
 > career-timeline UI prototype (branch `prototype/career-timeline`); its data ships mocked
-> until the real history replaces it. The `WritingIndex` island and its `?q=` filter are
-> unmounted with the home swap — the components stay in the tree, and the writing surface's
-> next address (with `/posts`' redirect target) is an open follow-up.
+> until the real history replaces it. The `WritingIndex` island and its `?q=` filter moved
+> with the swap to their own page, **`/writing`** — the nav gains a "writing" link, `/posts`
+> (and legacy `/?q=`) redirect there with the query preserved, and the home caches as a
+> static page — per ADR-0012's amendment of the same date.
 
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code

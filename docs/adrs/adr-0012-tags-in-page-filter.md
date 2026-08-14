@@ -86,3 +86,14 @@ feeds only (there are no tag pages left to project the index).
 > unchanged: server render is the full unfiltered list, pill clicks `replaceState` and never
 > navigate, and every deep-linked `?q=` entry is the same SSR body under the `views` tag.
 > Old `/posts?q=` links land filtered via the redirect; old `/posts` links land on `/`.
+
+> **Amendment (2026-08-14)**: the home became the static career front door (see the PRD's
+> amendment of the same date), so the listing and its filter island moved to their own
+> page, **`/writing`**, and the `?q=` selection roots there (`/writing?q=rust,wasm`) —
+> `tag_filter_path*` builds those. Post-page tag pills land on `/writing?q={tag}`, the
+> `/posts` redirect targets `/writing` (query preserved, so old `/posts?q=` links still
+> land filtered), a home request carrying `?q=` 301s to `/writing` with its query — the
+> home-rooted filter links of the 07-16 era keep landing filtered — and the nav gains a
+> "writing" link beside "about". `LISTING_PAGES` is `["/writing"]` again; the home reads
+> no index and caches as a static page (`site` tag, no publish purge). The island's
+> contract is unchanged.

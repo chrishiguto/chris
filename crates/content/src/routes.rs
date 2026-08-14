@@ -82,14 +82,17 @@ pub fn valid_slug(slug: &str) -> bool {
 }
 
 /// The `/posts` namespace: post pages hang off it (`/posts/{slug}`). The bare
-/// path serves no listing — it redirects to the home front door, which
-/// carries the writing list itself.
+/// path serves no listing — it redirects to the writing page, which carries
+/// the list itself.
 pub const POSTS_PATH: &str = "/posts";
 
-/// The home listing's public path — the writing front door. The in-page tag
-/// filter's `?q=` selection rides on it, so a filtered view is a plain
-/// shareable URL rooted at `/`.
+/// The home front door's public path: the masthead over the career timeline.
 pub const HOME_PATH: &str = "/";
+
+/// The writing page's public path: the full listing under the filter island.
+/// The in-page tag filter's `?q=` selection rides on it, so a filtered view
+/// is a plain shareable URL rooted here.
+pub const WRITING_PATH: &str = "/writing";
 
 /// A post's public path (and cache key / purge path).
 pub fn post_path(slug: &str) -> String {
@@ -117,15 +120,15 @@ pub fn tag_filter_path(tag: &str) -> String {
     tag_filter_path_selected(&BTreeSet::from([tag.to_string()]))
 }
 
-/// The listing path carrying a whole selection, bare when it is empty.
+/// The writing path carrying a whole selection, bare when it is empty.
 /// `BTreeSet` iteration keeps the URL canonical — sorted and deduped — so
 /// equal selections share one URL however they were clicked together.
 pub fn tag_filter_path_selected(tags: &BTreeSet<String>) -> String {
     if tags.is_empty() {
-        return HOME_PATH.to_string();
+        return WRITING_PATH.to_string();
     }
     let tags: Vec<&str> = tags.iter().map(String::as_str).collect();
-    format!("{HOME_PATH}?{TAG_FILTER_PARAM}={}", tags.join(","))
+    format!("{WRITING_PATH}?{TAG_FILTER_PARAM}={}", tags.join(","))
 }
 
 /// The path builders' inverse, over the filter parameter's already-decoded
@@ -146,8 +149,9 @@ pub fn tag_filter_selection(values: impl IntoIterator<Item = String>) -> BTreeSe
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-/// The home front door alone — the bare `/posts` path redirects there.
-pub const LISTING_PAGES: [&str; 1] = [HOME_PATH];
+/// The home (career front door) and the writing page — the bare `/posts`
+/// path redirects to the latter.
+pub const LISTING_PAGES: [&str; 2] = [HOME_PATH, WRITING_PATH];
 
 /// The about page's public path (and cache key / purge path).
 pub const ABOUT_PATH: &str = "/about";
@@ -236,8 +240,8 @@ mod tests {
     }
 
     #[test]
-    fn tag_filter_path_rides_the_listing_query() {
-        assert_eq!(tag_filter_path("rust"), "/?q=rust");
+    fn tag_filter_path_rides_the_writing_query() {
+        assert_eq!(tag_filter_path("rust"), "/writing?q=rust");
     }
 
     #[test]
@@ -253,8 +257,8 @@ mod tests {
     #[test]
     fn tag_filter_path_selected_sorts_tags_and_bares_the_empty_selection() {
         let selected = BTreeSet::from(["wasm".to_string(), "rust".to_string()]);
-        assert_eq!(tag_filter_path_selected(&selected), "/?q=rust,wasm");
-        assert_eq!(tag_filter_path_selected(&BTreeSet::new()), "/");
+        assert_eq!(tag_filter_path_selected(&selected), "/writing?q=rust,wasm");
+        assert_eq!(tag_filter_path_selected(&BTreeSet::new()), "/writing");
     }
 
     #[test]
@@ -280,11 +284,11 @@ mod tests {
         assert_eq!(tag_filter_selection(None::<String>), BTreeSet::new());
     }
 
-    // Writing is the home front door; `/posts` redirects here, so the one
-    // index-backed listing page is `/`.
+    // The career home and the writing page; `/posts` redirects to the
+    // latter, so it is never a listing page itself.
     #[test]
-    fn listing_pages_are_the_home_front_door() {
-        assert_eq!(LISTING_PAGES, ["/"]);
+    fn listing_pages_are_the_home_and_the_writing_page() {
+        assert_eq!(LISTING_PAGES, ["/", "/writing"]);
     }
 
     #[test]

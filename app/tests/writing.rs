@@ -1,120 +1,26 @@
-//! The home page renders the masthead over the career timeline; the
-//! writing index island is unmounted from the home but keeps its contract,
-//! tested here directly until it gets its next address.
+//! The writing page `/writing`: the full listing under the filter island,
+//! rendered from the worker-provided index context. Drafts filter at render
+//! time — before the island serializes its props — and the island wraps the
+//! rows.
 #![cfg(feature = "ssr")]
 
-use app::components::post_list::ListedPost;
-use app::components::WritingIndex;
-use app::listing::HomePage;
-use common::{ssr, tag_containing};
-use content::{Frontmatter, IndexEntry};
+use app::writing::{IndexData, WritingPage};
+use common::{index_entry as entry, ssr, tag_containing, tagged_entry as tagged};
+use content::IndexEntry;
+use leptos::prelude::provide_context;
 
 mod common;
 
-/// Through the real constructor, so publish-computed fields (read time,
-/// content hash) default here the same way they do in production.
-fn entry(slug: &str, title: &str, date: &str) -> IndexEntry {
-    IndexEntry::new(
-        slug,
-        &Frontmatter {
-            title: title.into(),
-            date: date.into(),
-            description: None,
-            tags: vec![],
-            draft: false,
-        },
-    )
-}
-
-fn tagged(slug: &str, title: &str, date: &str, tags: &[&str]) -> IndexEntry {
-    let mut entry = entry(slug, title, date);
-    entry.tags = tags.iter().map(|t| t.to_string()).collect();
-    entry
-}
-
-fn home_html() -> String {
-    ssr(|| (), || leptos::view! { <HomePage /> })
-}
-
-fn index_html(posts: Vec<IndexEntry>) -> String {
-    let posts: Vec<ListedPost> = posts.into_iter().map(Into::into).collect();
+fn writing_html(index: Vec<IndexEntry>) -> String {
     ssr(
-        || (),
-        move || leptos::view! { <WritingIndex posts=posts /> },
+        move || provide_context(IndexData(index)),
+        || leptos::view! { <WritingPage /> },
     )
 }
 
 #[test]
-fn home_greets_with_masthead_and_external_contacts() {
-    let html = home_html();
-    assert!(
-        html.contains("hey, i’m chris"),
-        "the masthead greets: {html}"
-    );
-    // External-only contacts sharing the about page's contact-link component;
-    // the nav owns "about", so the masthead carries no in-app links.
-    assert!(
-        html.contains("mailto:hi@chris.dev"),
-        "the email contact ships: {html}"
-    );
-    assert!(
-        html.contains("github.com/chris"),
-        "the github contact ships: {html}"
-    );
-    assert!(
-        !html.contains(">the writing<") && !html.contains(">about me<"),
-        "the masthead carries no in-app writing/about links: {html}"
-    );
-}
-
-// The career section under the masthead: the markup shape the CSS styles —
-// div.tl > div.tl-spine + ol.tl-list > li.tl-item — with sides alternating
-// so the cards zigzag around the center spine.
-#[test]
-fn home_mounts_the_career_timeline() {
-    let html = home_html();
-    assert!(html.contains(">career</p>"), "the section label: {html}");
-    assert!(html.contains("class=\"tl mt-8\""), "{html}");
-    let spine = tag_containing(&html, "class=\"tl-spine\"");
-    assert!(
-        spine.contains("aria-hidden=\"true\""),
-        "the spine is decoration: {html}"
-    );
-    assert!(html.contains("<ol class=\"tl-list\""), "{html}");
-    let first_a = html.find("tl-item tl-side-a").expect("no side-a entry");
-    let first_b = html.find("tl-item tl-side-b").expect("no side-b entry");
-    assert!(first_a < first_b, "entries alternate starting left: {html}");
-    // Each entry pairs the display-face year numeral with its full range.
-    assert!(html.contains("tl-yearnum"), "{html}");
-    // Exactly one stint is current, and its dot breathes.
-    assert_eq!(html.matches("tl-dot tl-now").count(), 1, "{html}");
-}
-
-// The home no longer lists posts or hydrates the filter island — the
-// timeline is static HTML.
-#[test]
-fn home_carries_no_post_list_or_island() {
-    let html = home_html();
-    assert!(!html.contains("post-list"), "{html}");
-    assert!(!html.contains("<leptos-island"), "{html}");
-    assert!(!html.contains("type=\"search\""), "{html}");
-}
-
-// The tag routes are deleted end-to-end; the app router falls through to
-// the 404 page.
-#[test]
-fn tag_routes_fall_through_to_the_404_page() {
-    for path in ["/tags", "/tags/rust"] {
-        let html = common::app_at(path);
-        assert!(html.contains("404"), "`{path}` must 404: {html}");
-    }
-}
-
-// ---- the unmounted WritingIndex island keeps its contract ----------------
-
-#[test]
-fn writing_index_lists_rows_in_the_post_row_shape() {
-    let html = index_html(vec![
+fn writing_lists_rows_in_the_post_row_shape() {
+    let html = writing_html(vec![
         tagged("newer", "the newer post", "2026-03-01", &["rust", "wasm"]),
         entry("older", "the older post", "2026-01-01"),
     ]);
@@ -134,6 +40,11 @@ fn writing_index_lists_rows_in_the_post_row_shape() {
         )),
         "the title's last word is glued to the arrow so it never wraps alone: {html}"
     );
+    let lead = tag_containing(&html, "class=\"post-row-lead\"");
+    assert!(
+        lead.contains("aria-hidden=\"true\"") && html.contains(">→</span>"),
+        "the hover arrow must ship in the row markup: {html}"
+    );
     assert!(
         html.contains("<span class=\"post-row-meta\"><span>mar 01, 2026</span></span>"),
         "{html}"
@@ -147,7 +58,7 @@ fn writing_index_lists_rows_in_the_post_row_shape() {
 fn post_rows_render_the_description_only_when_present() {
     let mut described = entry("has-desc", "Described", "2026-02-01");
     described.description = Some("one honest line about the post".into());
-    let html = index_html(vec![described, entry("bare", "Bare", "2026-01-01")]);
+    let html = writing_html(vec![described, entry("bare", "Bare", "2026-01-01")]);
     assert!(
         html.contains("<span class=\"post-row-desc\">one honest line about the post</span>"),
         "{html}"
@@ -165,7 +76,7 @@ fn post_rows_render_the_description_only_when_present() {
 fn post_rows_show_read_time_only_when_present() {
     let mut timed = entry("timed", "Timed", "2026-02-01");
     timed.reading_minutes = Some(4);
-    let html = index_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
+    let html = writing_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
     assert!(
         html.contains("<span class=\"post-row-meta\"><span>feb 01, 2026</span>")
             && html.contains("<span>4 min</span>"),
@@ -190,18 +101,50 @@ fn post_rows_show_read_time_only_when_present() {
 }
 
 #[test]
-fn writing_index_header_counts_the_posts_and_links_the_feed() {
-    let index: Vec<_> = (0..4)
-        .map(|i| {
+fn writing_filters_drafts() {
+    let mut draft = entry("wip", "Not yet", "2026-05-01");
+    draft.draft = true;
+    let html = writing_html(vec![draft, entry("live", "Live", "2026-04-01")]);
+    assert!(!html.contains("wip"), "drafts must not be listed: {html}");
+    assert!(html.contains("/posts/live"), "{html}");
+}
+
+#[test]
+fn writing_with_empty_index_says_so() {
+    let html = writing_html(Vec::new());
+    assert!(
+        html.contains("nothing published yet"),
+        "empty index needs a readable state, not a blank page: {html}"
+    );
+}
+
+#[test]
+fn writing_without_index_context_still_renders() {
+    // A missing IndexData context must degrade to the empty state, never panic.
+    let html = ssr(|| (), || leptos::view! { <WritingPage /> });
+    assert!(html.contains("nothing published yet"), "{html}");
+}
+
+// The writing header carries the listed total (drafts excluded) and the feed
+// link — "writing (N) · rss".
+#[test]
+fn writing_header_counts_the_listed_archive() {
+    let mut draft = entry("wip", "Not yet", "2026-05-01");
+    draft.draft = true;
+    let index: Vec<_> = std::iter::once(draft)
+        .chain((0..4).map(|i| {
             entry(
                 &format!("post-{i}"),
                 &format!("Post {i}"),
                 &format!("2026-01-{:02}", 20 - i),
             )
-        })
+        }))
         .collect();
-    let html = index_html(index);
-    assert!(html.contains("writing (4)"), "{html}");
+    let html = writing_html(index);
+    assert!(
+        html.contains("writing (4)"),
+        "the header count must be the real listed total, drafts excluded: {html}"
+    );
     let rss = tag_containing(&html, ">rss<");
     assert!(
         rss.contains("href=\"/rss.xml\""),
@@ -213,8 +156,8 @@ fn writing_index_header_counts_the_posts_and_links_the_feed() {
 // affordances stay live — but with no filtering wired yet. It must not be
 // disabled, or the focus states the design wants can never fire.
 #[test]
-fn writing_index_renders_the_reserved_search_slot() {
-    let html = index_html(vec![entry("post", "A post", "2026-01-01")]);
+fn writing_renders_the_reserved_search_slot() {
+    let html = writing_html(vec![entry("post", "A post", "2026-01-01")]);
     let search = tag_containing(&html, "type=\"search\"");
     assert!(
         !search.contains("disabled"),
@@ -224,10 +167,10 @@ fn writing_index_renders_the_reserved_search_slot() {
 
 // The filter island owns the pill rail and the list, with the listed posts as
 // its props: pills are the post-pill shape, deduped and sorted, linking the
-// `?q=` filter contract rooted at the home listing.
+// `?q=` filter contract rooted at the writing page.
 #[test]
-fn writing_index_wraps_sorted_filter_pills_in_the_island() {
-    let html = index_html(vec![
+fn writing_wraps_sorted_filter_pills_in_the_island() {
+    let html = writing_html(vec![
         tagged("newer", "the newer post", "2026-03-01", &["wasm", "rust"]),
         tagged("older", "the older post", "2026-01-01", &["rust"]),
     ]);
@@ -240,24 +183,38 @@ fn writing_index_wraps_sorted_filter_pills_in_the_island() {
         island.contains("newer") && island.contains("older"),
         "the listed posts ride as island props: {html}"
     );
-    let pill = tag_containing(&html, "href=\"/?q=rust\"");
+    let pill = tag_containing(&html, "href=\"/writing?q=rust\"");
     assert!(pill.contains("class=\"tag\""), "{html}");
+    let hash = tag_containing(&html, "class=\"tag-hash\"");
+    assert!(
+        hash.contains("aria-hidden=\"true\"") && html.contains(">#</span>wasm"),
+        "pills carry the post-pill hash glyph: {html}"
+    );
     assert_eq!(
-        html.matches("/?q=rust").count(),
+        html.matches("/writing?q=rust").count(),
         1,
         "pills dedupe across posts: {html}"
     );
-    let rust = html.find("/?q=rust").unwrap();
-    let wasm = html.find("/?q=wasm").unwrap();
+    let rust = html.find("/writing?q=rust").unwrap();
+    let wasm = html.find("/writing?q=wasm").unwrap();
     assert!(rust < wasm, "pills sort alphabetically: {html}");
+}
+
+#[test]
+fn filter_pills_skip_draft_only_tags() {
+    let mut draft = tagged("wip", "Not yet", "2026-05-01", &["secret", "rust"]);
+    draft.draft = true;
+    let html = writing_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
+    assert!(!html.contains("secret"), "{html}");
+    assert!(html.contains("/writing?q=rust"), "{html}");
 }
 
 // The empty-state line is island state shown only when a filter leaves no
 // rows; the server render never ships it, so no-JS readers can't see it
 // under the full list.
 #[test]
-fn writing_index_ssr_omits_the_filter_empty_state() {
-    let html = index_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
+fn writing_ssr_omits_the_filter_empty_state() {
+    let html = writing_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
     assert!(
         !html.contains("nothing here yet"),
         "the empty state must not ship in the server render: {html}"
@@ -267,12 +224,30 @@ fn writing_index_ssr_omits_the_filter_empty_state() {
 // A tagless index drops the whole rail column with its divider, not just
 // the pills: the list runs full width instead of sitting beside dead space.
 #[test]
-fn writing_index_without_tags_has_no_filter_row() {
-    let html = index_html(vec![entry("plain", "Plain", "2026-01-01")]);
+fn writing_without_tags_has_no_filter_row() {
+    let html = writing_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
     assert!(!html.contains("<aside"), "no tags, no rail column: {html}");
     assert!(
         !html.contains("nothing here yet"),
         "no pills means the empty state can never show: {html}"
     );
+}
+
+// The app router mounts the page at /writing; with no index context the
+// route still answers with the readable empty state.
+#[test]
+fn the_router_serves_the_writing_page() {
+    let html = common::app_at("/writing");
+    assert!(html.contains("nothing published yet"), "{html}");
+}
+
+// The tag routes are deleted end-to-end; the app router falls through to
+// the 404 page.
+#[test]
+fn tag_routes_fall_through_to_the_404_page() {
+    for path in ["/tags", "/tags/rust"] {
+        let html = common::app_at(path);
+        assert!(html.contains("404"), "`{path}` must 404: {html}");
+    }
 }
