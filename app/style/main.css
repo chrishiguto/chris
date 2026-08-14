@@ -7,6 +7,8 @@
 @import "./post.css";
 @import "./code-block.css";
 @import "./callout.css";
+/* PROTOTYPE — delete with src/components/timeline_prototype.rs. */
+@import "./timeline-prototype.css";
 
 @source "../src";
 

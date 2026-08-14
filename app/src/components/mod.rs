@@ -16,6 +16,7 @@ pub mod section_label;
 pub mod tag_pill;
 pub mod tag_row;
 pub mod theme_toggle;
+pub mod timeline_prototype;
 pub mod writing_index;
 
 pub use back_link::BackLink;
@@ -34,3 +35,4 @@ pub(crate) use post_meta::PostMeta;
 pub(crate) use section_label::SectionLabel;
 pub(crate) use tag_pill::TagPill;
 pub(crate) use tag_row::TagRow;
+pub(crate) use timeline_prototype::TimelinePrototype;

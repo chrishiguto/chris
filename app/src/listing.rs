@@ -5,7 +5,9 @@
 use content::IndexEntry;
 use leptos::prelude::*;
 
-use crate::components::{Contacts, Heading, ListedPost, PageShell, WritingIndex};
+use crate::components::{
+    Contacts, Heading, ListedPost, PageShell, TimelinePrototype, WritingIndex,
+};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -49,7 +51,14 @@ pub fn HomePage() -> impl IntoView {
     // client-side — so no reactive Show, and the island props move instead
     // of cloning. Type-erased: the island nested into the section overflows
     // rustc's query depth otherwise.
-    let panel = if posts.is_empty() {
+    // PROTOTYPE — dev builds swap the writing panel for the career-timeline
+    // variants (`?variant=a|b|c`); release keeps the real front door.
+    let panel = if cfg!(debug_assertions) {
+        let variant = leptos_router::hooks::use_query_map()
+            .with_untracked(|query| query.get("variant"))
+            .unwrap_or_default();
+        view! { <TimelinePrototype variant=variant /> }.into_any()
+    } else if posts.is_empty() {
         view! { <NothingPublished /> }.into_any()
     } else {
         view! { <WritingIndex posts=posts /> }.into_any()
