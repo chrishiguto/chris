@@ -23,7 +23,7 @@ mod server {
         Router,
     };
     use content::{
-        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
+        index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY, HOME_PATH,
         LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
     };
     use leptos::prelude::*;
@@ -118,9 +118,14 @@ mod server {
         let router = LISTING_PAGES
             .iter()
             .fold(router, |r, path| r.route(path, get(listing_page)));
+        // The home is a static page with one extra duty: answering the
+        // legacy home-rooted `?q=` links with a redirect first.
         let mut router = STATIC_PAGES
             .iter()
-            .fold(router, |r, path| r.route(path, get(static_page)))
+            .fold(router, |r, path| match *path {
+                HOME_PATH => r.route(path, get(home_page)),
+                _ => r.route(path, get(static_page)),
+            })
             .fallback(not_found_page)
             .with_state(state);
 
@@ -291,6 +296,19 @@ mod server {
         let mut response = render_page(&state, req, || ()).await;
         mark_cacheable(&mut response, None, &state.version, SITE_TAG);
         response
+    }
+
+    /// The static home, minus the legacy shape it answers first: the filter
+    /// briefly rooted its `?q=` at `/`, and those links must keep landing
+    /// filtered on the writing page. The redirect is no-store like `/posts`'.
+    #[worker::send]
+    async fn home_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        match redirects::home_redirect_location(req.uri().query()) {
+            Some(location) => {
+                (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
+            }
+            None => static_page(State(state), req).await,
+        }
     }
 
     /// SSRs the shell so the app's router fallback renders the 404 page

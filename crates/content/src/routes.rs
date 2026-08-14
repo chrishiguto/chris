@@ -149,16 +149,17 @@ pub fn tag_filter_selection(values: impl IntoIterator<Item = String>) -> BTreeSe
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-/// The home (career front door) and the writing page — the bare `/posts`
-/// path redirects to the latter.
-pub const LISTING_PAGES: [&str; 2] = [HOME_PATH, WRITING_PATH];
+/// The writing page alone — the bare `/posts` path redirects there, and the
+/// home renders no index data at all.
+pub const LISTING_PAGES: [&str; 1] = [WRITING_PATH];
 
 /// The about page's public path (and cache key / purge path).
 pub const ABOUT_PATH: &str = "/about";
 
 /// Hardcoded pages with no KV read: routed and sitemapped, but cached under
-/// the site tag alone — they change on deploy, never on publish.
-pub const STATIC_PAGES: [&str; 1] = [ABOUT_PATH];
+/// the site tag alone — they change on deploy, never on publish. The home's
+/// career timeline is hardcoded, so it lives here.
+pub const STATIC_PAGES: [&str; 2] = [HOME_PATH, ABOUT_PATH];
 
 /// The Atom feed's public path (and cache key / purge path).
 pub const RSS_PATH: &str = "/rss.xml";
@@ -284,17 +285,17 @@ mod tests {
         assert_eq!(tag_filter_selection(None::<String>), BTreeSet::new());
     }
 
-    // The career home and the writing page; `/posts` redirects to the
-    // latter, so it is never a listing page itself.
+    // `/posts` redirects to the writing page, so it is never a listing page
+    // itself; the home is static and never index-backed.
     #[test]
-    fn listing_pages_are_the_home_and_the_writing_page() {
-        assert_eq!(LISTING_PAGES, ["/", "/writing"]);
+    fn the_writing_page_is_the_one_listing_page() {
+        assert_eq!(LISTING_PAGES, ["/writing"]);
     }
 
     #[test]
-    fn static_pages_carry_the_about_path() {
+    fn static_pages_carry_the_home_and_about_paths() {
         assert_eq!(ABOUT_PATH, "/about");
-        assert!(STATIC_PAGES.contains(&ABOUT_PATH));
+        assert_eq!(STATIC_PAGES, [HOME_PATH, ABOUT_PATH]);
     }
 
     #[test]

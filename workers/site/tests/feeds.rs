@@ -151,10 +151,12 @@ fn sitemap_lists_home_static_pages_and_posts() {
 #[test]
 fn sitemap_lists_static_pages_without_lastmod() {
     let xml = feeds::sitemap(ORIGIN, &[]);
-    assert!(
-        xml.contains("<url><loc>https://example.com/about</loc></url>"),
-        "{xml}"
-    );
+    for loc in [
+        "<url><loc>https://example.com/</loc></url>",
+        "<url><loc>https://example.com/about</loc></url>",
+    ] {
+        assert!(xml.contains(loc), "missing {loc}: {xml}");
+    }
 }
 
 #[test]
