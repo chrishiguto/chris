@@ -280,6 +280,17 @@ tag routes and their components are deleted.
 > inventory above: it now owns the whole writing-index body (rail, header, search, list), and
 > filtering is one behavior of it rather than its whole job.
 
+> **Amendment (2026-08-14)**: the home body under the masthead is now the **career
+> timeline**, not the writing index — a static `CareerTimeline` component (no island):
+> alternating ledger cards on a center spine (left rail on phones), a `text-2xl`
+> display-face year numeral with the small range opposite each card, "role @ org" with the
+> org in `ink-2`, tag chips, scroll-driven side reveals (`animation-timeline: view()`,
+> reduced-motion gated), and a breathing dot on the current stint. Design settled by the
+> career-timeline UI prototype (branch `prototype/career-timeline`); its data ships mocked
+> until the real history replaces it. The `WritingIndex` island and its `?q=` filter are
+> unmounted with the home swap — the components stay in the tree, and the writing surface's
+> next address (with `/posts`' redirect target) is an open follow-up.
+
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island

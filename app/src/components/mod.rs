@@ -3,6 +3,7 @@
 
 pub mod back_link;
 pub mod blog;
+pub mod career_timeline;
 pub mod code_block;
 pub mod contacts;
 pub mod footer;
@@ -26,6 +27,7 @@ pub use not_found::NotFound;
 pub use theme_toggle::ThemeToggle;
 pub use writing_index::WritingIndex;
 
+pub(crate) use career_timeline::CareerTimeline;
 pub(crate) use contacts::Contacts;
 pub(crate) use heading::Heading;
 pub(crate) use page::{page_title, Page, PageShell};

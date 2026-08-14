@@ -1,31 +1,18 @@
-//! The home page `/`: the writing front door. A masthead identity band over
-//! the two-panel writing index (the [`WritingIndex`] island). Drafts are in
-//! the index provided via context but filtered here.
+//! The home page `/`: the masthead identity band over the career timeline
+//! ([`CareerTimeline`]). The writing index moved off the home; its island
+//! ([`crate::components::WritingIndex`]) stays in the tree for the writing
+//! surface's next address.
 
 use content::IndexEntry;
 use leptos::prelude::*;
 
-use crate::components::{Contacts, Heading, ListedPost, PageShell, WritingIndex};
+use crate::components::{CareerTimeline, Contacts, Heading, PageShell};
 
-/// Per-request index from the site worker, newest-first.
+/// Per-request index from the site worker, newest-first. The home no longer
+/// reads it, but the worker still provides it and the feeds and sitemap ride
+/// the same index.
 #[derive(Clone)]
 pub struct IndexData(pub Vec<IndexEntry>);
-
-fn listed_posts() -> Vec<ListedPost> {
-    use_context::<IndexData>()
-        .map(|data| data.0)
-        .unwrap_or_default()
-        .into_iter()
-        .filter(|entry| entry.is_listed())
-        .map(Into::into)
-        .collect()
-}
-
-/// Shown when the index carries no published post.
-#[component]
-fn NothingPublished() -> impl IntoView {
-    view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
-}
 
 /// The front-door band: greeting, one voice line, external-only contacts. Nav
 /// owns "about", so the masthead carries no in-app links.
@@ -44,20 +31,10 @@ fn MastheadBand() -> impl IntoView {
 
 #[component]
 pub fn HomePage() -> impl IntoView {
-    let posts = listed_posts();
-    // A fixed per-request branch — outside islands nothing re-renders
-    // client-side — so no reactive Show, and the island props move instead
-    // of cloning. Type-erased: the island nested into the section overflows
-    // rustc's query depth otherwise.
-    let panel = if posts.is_empty() {
-        view! { <NothingPublished /> }.into_any()
-    } else {
-        view! { <WritingIndex posts=posts /> }.into_any()
-    };
     view! {
         <PageShell>
             <MastheadBand />
-            {panel}
+            <CareerTimeline />
         </PageShell>
     }
 }
