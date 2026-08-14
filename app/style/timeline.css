@@ -1,18 +1,21 @@
-/* The home career timeline: the markup shape is div.tl > div.tl-spine +
-   ol.tl-list > li.tl-item (see components/career_timeline.rs). Each item is
-   a grid of node/aside/body areas; on phones the spine is a left rail with
-   both text columns beside it, from md up it centers and tl-side-a/tl-side-b
-   alternate the card's side. Scroll-driven reveals ride
-   animation-timeline: view(); browsers without it resolve the 0s animation
-   instantly to its final (visible) state, and reduced motion gates the
-   moving pieces entirely. */
+/* The home career timeline: the markup shape is div.tl > ol.tl-list >
+   li.tl-item (see components/career_timeline.rs) — uniform items, the spine
+   a ::before on the wrapper and the alternation nth-child's, so the sheet
+   owns both. Each item is a grid of node/aside/body areas; on phones the
+   spine is a left rail with both text columns beside it, from md up it
+   centers and odd/even items swap the card's side. Scroll-driven reveals
+   ride animation-timeline: view(); browsers without it resolve the 0s
+   animation instantly to its final (visible) state, and reduced motion
+   gates the moving pieces entirely. */
 
 @layer components {
+  /* The wrapper draws the spine itself: pure decoration, no markup. */
   .tl {
     position: relative;
   }
 
-  .tl-spine {
+  .tl::before {
+    content: "";
     position: absolute;
     top: 0.25rem;
     bottom: 0.25rem;
@@ -60,7 +63,7 @@
   }
 
   @media (min-width: 48rem) {
-    .tl-spine {
+    .tl::before {
       left: 50%;
     }
 
@@ -69,34 +72,26 @@
       column-gap: 0;
     }
 
-    .tl-side-a {
+    .tl-item:nth-child(odd) {
       grid-template-areas: "body node aside";
     }
 
-    .tl-side-b {
+    .tl-item:nth-child(even) {
       grid-template-areas: "aside node body";
     }
 
-    .tl-side-a .tl-body,
-    .tl-side-b .tl-aside {
+    /* Whichever column sits left of the spine right-aligns against it;
+       the opposite column pads off it symmetrically. */
+    .tl-item:nth-child(odd) .tl-body,
+    .tl-item:nth-child(even) .tl-aside {
       text-align: right;
       justify-self: end;
-    }
-
-    .tl-side-a .tl-body {
       padding-right: 0.75rem;
     }
 
-    .tl-side-b .tl-body {
+    .tl-item:nth-child(even) .tl-body,
+    .tl-item:nth-child(odd) .tl-aside {
       padding-left: 0.75rem;
-    }
-
-    .tl-side-a .tl-aside {
-      padding-left: 0.75rem;
-    }
-
-    .tl-side-b .tl-aside {
-      padding-right: 0.75rem;
     }
 
     .tl-aside {
@@ -154,11 +149,11 @@
       background: var(--color-line-2);
     }
 
-    .tl-side-a .tl-card::after {
+    .tl-item:nth-child(odd) .tl-card::after {
       right: -0.75rem;
     }
 
-    .tl-side-b .tl-card::after {
+    .tl-item:nth-child(even) .tl-card::after {
       left: -0.75rem;
     }
   }
@@ -185,17 +180,20 @@
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    /* Entries slide in from their own side as they enter the viewport. */
-    .tl-side-a {
-      animation: tl-in-l var(--ease-out-expo) both;
+    /* Entries slide in from their own side as they enter the viewport;
+       the side only sets the offset the shared keyframe starts from. */
+    .tl-item {
+      animation: tl-in var(--ease-out-expo) both;
       animation-timeline: view();
       animation-range: entry 0% entry 45%;
     }
 
-    .tl-side-b {
-      animation: tl-in-r var(--ease-out-expo) both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 45%;
+    .tl-item:nth-child(odd) {
+      --tl-shift: -1.5rem;
+    }
+
+    .tl-item:nth-child(even) {
+      --tl-shift: 1.5rem;
     }
 
     /* The current stint's marker breathes. */
@@ -211,21 +209,10 @@
     }
   }
 
-  @keyframes tl-in-l {
+  @keyframes tl-in {
     from {
       opacity: 0;
-      transform: translateX(-1.5rem);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  @keyframes tl-in-r {
-    from {
-      opacity: 0;
-      transform: translateX(1.5rem);
+      transform: translateX(var(--tl-shift));
     }
     to {
       opacity: 1;

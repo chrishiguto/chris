@@ -1,8 +1,9 @@
 //! The home page's career timeline: alternating ledger cards on a center
-//! spine (left rail on phones). Markup shape is `div.tl > div.tl-spine +
-//! ol.tl-list > li.tl-item`, each item grid-placed by `tl-side-a`/`tl-side-b`;
-//! the look and motion live in `style/timeline.css`. Design settled by the
-//! career-timeline prototype (branch `prototype/career-timeline`).
+//! spine (left rail on phones). Markup shape is `div.tl > ol.tl-list >
+//! li.tl-item`, uniform on purpose — the spine is the sheet's `::before`
+//! and the sides alternate by `nth-child`, so the markup can't get them
+//! wrong. The look and motion live in `style/timeline.css`. Design settled
+//! by the career-timeline prototype (branch `prototype/career-timeline`).
 
 use leptos::prelude::*;
 
@@ -89,12 +90,14 @@ const STINTS: &[Stint] = &[
 /// The whole career section: the clean label over the timeline.
 #[component]
 pub(crate) fn CareerTimeline() -> impl IntoView {
-    let items = STINTS.iter().enumerate().map(entry).collect_view();
+    let items = STINTS
+        .iter()
+        .map(|stint| view! { <TimelineEntry stint=stint /> })
+        .collect_view();
     view! {
         <section class="mt-10">
             <SectionLabel>"career"</SectionLabel>
             <div class="tl mt-8">
-                <div class="tl-spine" aria-hidden="true"></div>
                 <ol class="tl-list">{items}</ol>
             </div>
         </section>
@@ -102,44 +105,45 @@ pub(crate) fn CareerTimeline() -> impl IntoView {
 }
 
 /// One timeline entry: the spine dot, the year numeral over the range in the
-/// aside, and the card. Sides alternate; on phones both columns sit right of
-/// the rail, aside above card.
-fn entry((i, s): (usize, &'static Stint)) -> impl IntoView {
-    let side = if i.is_multiple_of(2) {
-        "tl-side-a"
+/// aside, and the card. The sheet alternates the sides by position; on
+/// phones both columns sit right of the rail, aside above card.
+#[component]
+fn TimelineEntry(stint: &'static Stint) -> impl IntoView {
+    let dot = if stint.current {
+        "tl-dot tl-now"
     } else {
-        "tl-side-b"
+        "tl-dot"
     };
-    let dot = if s.current { "tl-dot tl-now" } else { "tl-dot" };
     view! {
-        <li class=format!("tl-item {side}")>
+        <li class="tl-item">
             <span class="tl-node">
                 <span class=dot></span>
             </span>
             <div class="tl-aside">
                 <p class="tl-yearnum font-display text-2xl font-semibold tracking-tight">
-                    {s.year}
+                    {stint.year}
                 </p>
-                <p class="mt-0.5 text-xs text-ink-3">{s.years}</p>
+                <p class="mt-0.5 text-xs text-ink-3">{stint.years}</p>
             </div>
             <div class="tl-body">
-                <article class="tl-card">{card_body(s)}</article>
+                <StintCard stint=stint />
             </div>
         </li>
     }
 }
 
-/// The card interior: "role @ org" — the `@` muted, the org a quiet step up
-/// in medium weight — over the summary and the tag chips.
-fn card_body(s: &'static Stint) -> impl IntoView {
-    let chips = (!s.tags.is_empty()).then(|| {
-        let chips = s
+/// The card: "role @ org" — the `@` muted, the org a quiet step up in
+/// medium weight — over the summary and the tag chips.
+#[component]
+fn StintCard(stint: &'static Stint) -> impl IntoView {
+    let chips = (!stint.tags.is_empty()).then(|| {
+        let chips = stint
             .tags
             .iter()
-            .map(|t| {
+            .map(|tag| {
                 view! {
                     <span class="tl-chip rounded-full border border-line px-2 py-0.5 text-xs text-ink-2">
-                        {*t}
+                        {*tag}
                     </span>
                 }
             })
@@ -147,11 +151,13 @@ fn card_body(s: &'static Stint) -> impl IntoView {
         view! { <div class="mt-3 flex flex-wrap gap-1.5">{chips}</div> }
     });
     view! {
-        <h3 class="text-base font-semibold tracking-tight">
-            {s.role} <span class="font-normal text-ink-3">" @ "</span>
-            <span class="font-medium text-ink-2">{s.org}</span>
-        </h3>
-        <p class="mt-1.5 text-sm leading-normal text-ink-2">{s.summary}</p>
-        {chips}
+        <article class="tl-card">
+            <h3 class="text-base font-semibold tracking-tight">
+                {stint.role} <span class="font-normal text-ink-3">" @ "</span>
+                <span class="font-medium text-ink-2">{stint.org}</span>
+            </h3>
+            <p class="mt-1.5 text-sm leading-normal text-ink-2">{stint.summary}</p>
+            {chips}
+        </article>
     }
 }

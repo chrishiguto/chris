@@ -36,22 +36,17 @@ fn home_greets_with_masthead_and_external_contacts() {
 }
 
 // The career section under the masthead: the markup shape the CSS styles —
-// div.tl > div.tl-spine + ol.tl-list > li.tl-item — with sides alternating
-// so the cards zigzag around the center spine.
+// div.tl > ol.tl-list > li.tl-item, uniform items. The spine (a ::before)
+// and the side alternation (nth-child) are the sheet's own, so the markup
+// carries neither.
 #[test]
 fn home_mounts_the_career_timeline() {
     let html = home_html();
     assert!(html.contains(">career</p>"), "the section label: {html}");
     assert!(html.contains("class=\"tl mt-8\""), "{html}");
-    let spine = tag_containing(&html, "class=\"tl-spine\"");
-    assert!(
-        spine.contains("aria-hidden=\"true\""),
-        "the spine is decoration: {html}"
-    );
     assert!(html.contains("<ol class=\"tl-list\""), "{html}");
-    let first_a = html.find("tl-item tl-side-a").expect("no side-a entry");
-    let first_b = html.find("tl-item tl-side-b").expect("no side-b entry");
-    assert!(first_a < first_b, "entries alternate starting left: {html}");
+    let item = tag_containing(&html, "class=\"tl-item\"");
+    assert!(item.starts_with("<li"), "entries are list items: {html}");
     // Each entry pairs the display-face year numeral with its full range.
     assert!(html.contains("tl-yearnum"), "{html}");
     // Exactly one stint is current, and its dot breathes.
