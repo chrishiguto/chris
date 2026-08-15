@@ -1,7 +1,7 @@
 /* The home career timeline: the markup shape is div.tl > ol.tl-list >
-   li.tl-item (see components/career_timeline.rs) — uniform items, the spine
-   a ::before on the wrapper and the alternation nth-child's, so the sheet
-   owns both. Each item is a grid of node/aside/body areas; on phones the
+   li.tl-item — uniform items, the spine a ::before on the wrapper and the
+   alternation nth-child's, so the sheet owns both. Each item is a grid of
+   node/aside/body areas; on phones the
    spine is a left rail with both text columns beside it, from md up it
    centers and odd/even items swap the card's side. Scroll-driven reveals
    ride animation-timeline: view(); browsers without it resolve the 0s

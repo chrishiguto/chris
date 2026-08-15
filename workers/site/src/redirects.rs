@@ -12,10 +12,10 @@ pub fn posts_redirect_location(query: Option<&str>) -> String {
     }
 }
 
-/// The filter briefly rooted at the home (ADR-0012's 07-16 shape), so `/?q=`
-/// links exist in the wild: a home query carrying the filter param moves to
-/// the writing page whole — campaign params ride along — and any other query
-/// stays put, since the static home ignores it.
+/// The filter briefly rooted its `?q=` at the home, so `/?q=` links exist in
+/// the wild: a home query carrying the filter param moves to the writing page
+/// whole — campaign params ride along — and any other query stays put, since
+/// the static home ignores it.
 pub fn home_redirect_location(query: Option<&str>) -> Option<String> {
     let query = query.filter(|query| {
         query

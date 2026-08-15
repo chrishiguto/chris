@@ -2,14 +2,12 @@
 //! spine (left rail on phones). Markup shape is `div.tl > ol.tl-list >
 //! li.tl-item`, uniform on purpose — the spine is the sheet's `::before`
 //! and the sides alternate by `nth-child`, so the markup can't get them
-//! wrong. The look and motion live in `style/timeline.css`. Design settled
-//! by the career-timeline prototype (branch `prototype/career-timeline`).
+//! wrong. The look and motion live in `style/timeline.css`.
 
 use leptos::prelude::*;
 
 use crate::components::SectionLabel;
 
-/// One career stint.
 struct Stint {
     /// The full range, shown small under the year numeral.
     years: &'static str,
@@ -23,8 +21,8 @@ struct Stint {
     current: bool,
 }
 
-/// Mocked career data carried over from the prototype — swap for the real
-/// history before this ships anywhere public.
+/// Mocked career data — swap for the real history before this ships
+/// anywhere public.
 const STINTS: &[Stint] = &[
     Stint {
         years: "2025 — now",
@@ -87,7 +85,6 @@ const STINTS: &[Stint] = &[
     },
 ];
 
-/// The whole career section: the clean label over the timeline.
 #[component]
 pub(crate) fn CareerTimeline() -> impl IntoView {
     let items = STINTS
@@ -104,9 +101,8 @@ pub(crate) fn CareerTimeline() -> impl IntoView {
     }
 }
 
-/// One timeline entry: the spine dot, the year numeral over the range in the
-/// aside, and the card. The sheet alternates the sides by position; on
-/// phones both columns sit right of the rail, aside above card.
+/// The sheet alternates the aside and body sides by position; on phones both
+/// columns sit right of the rail, aside above card.
 #[component]
 fn TimelineEntry(stint: &'static Stint) -> impl IntoView {
     let dot = if stint.current {
@@ -132,8 +128,6 @@ fn TimelineEntry(stint: &'static Stint) -> impl IntoView {
     }
 }
 
-/// The card: "role @ org" — the `@` muted, the org a quiet step up in
-/// medium weight — over the summary and the tag chips.
 #[component]
 fn StintCard(stint: &'static Stint) -> impl IntoView {
     let chips = (!stint.tags.is_empty()).then(|| {
