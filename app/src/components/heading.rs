@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-/// The display-face page `<h1>`: Fraunces, the display size, tight tracking.
+/// The Newsreader page `<h1>` at the restrained 30px title register.
 /// One component shared by [`Page`](super::Page) and the home masthead so the
 /// two front-page headings can't drift in face, size, or tracking.
 #[component]

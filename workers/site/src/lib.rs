@@ -9,7 +9,7 @@ pub mod redirects;
 #[cfg(feature = "ssr")]
 mod server {
     use crate::{cache, feeds, purge, redirects};
-    use app::{app::shell, listing::IndexData, post::PostData};
+    use app::{app::shell, post::PostData, writing::IndexData};
     use authn::verify_bearer;
     use axum::{
         body::Body,
@@ -35,6 +35,7 @@ mod server {
     const VERSION_BINDING: &str = "CF_VERSION_METADATA";
     /// Axum `{param}` form of `content::post_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
+    const ABOUT_ROUTE: &str = "/about";
     /// The pipeline's purge hook; Workers Cache is private to this worker.
     const PURGE_ROUTE: &str = "/__purge";
     // TODO: evaluate Cloudflare Secrets Store for this cross-worker shared secret.
@@ -108,10 +109,11 @@ mod server {
         // router picks the page from the URL.
         let router = Router::new()
             .route(POST_ROUTE, get(post_page))
-            .route(POSTS_PATH, get(redirect_home))
+            .route(POSTS_PATH, get(redirect_posts))
             // The trailing-slash twin: axum matches paths exactly, and the
             // retired listing's links exist in both spellings.
-            .route(&format!("{POSTS_PATH}/"), get(redirect_home))
+            .route(&format!("{POSTS_PATH}/"), get(redirect_posts))
+            .route(ABOUT_ROUTE, get(redirect_about))
             .route(RSS_PATH, get(feed_xml))
             .route(SITEMAP_PATH, get(sitemap_xml))
             .route(PURGE_ROUTE, post(purge_route));
@@ -120,7 +122,13 @@ mod server {
             .fold(router, |r, path| r.route(path, get(listing_page)));
         let mut router = STATIC_PAGES
             .iter()
-            .fold(router, |r, path| r.route(path, get(static_page)))
+            .fold(router, |r, path| {
+                if *path == content::HOME_PATH {
+                    r.route(path, get(home_page))
+                } else {
+                    r.route(path, get(static_page))
+                }
+            })
             .fallback(not_found_page)
             .with_state(state);
 
@@ -278,9 +286,35 @@ mod server {
     /// permanently. Left no-store: a standing redirect costs nothing to
     /// re-answer and needs no purge handle.
     #[worker::send]
-    async fn redirect_home(req: Request<Body>) -> Response<Body> {
+    async fn redirect_posts(req: Request<Body>) -> Response<Body> {
         let location = redirects::posts_redirect_location(req.uri().query());
         (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
+    }
+
+    #[worker::send]
+    async fn redirect_about() -> Response<Body> {
+        (
+            StatusCode::MOVED_PERMANENTLY,
+            [(LOCATION, redirects::about_redirect_location())],
+        )
+            .into_response()
+    }
+
+    /// The home owns static authored copy and a four-title index window. It
+    /// reads that window on a miss but deliberately carries only `site`: the
+    /// route changes on deploy and is outside publish's `views` purge scope.
+    #[worker::send]
+    async fn home_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let index = match load_or_500(load_index(&state.env), "the home post index").await {
+            Ok((index, _)) => index,
+            Err(response) => return response,
+        };
+        let mut response = render_page(&state, req, move || {
+            provide_context(IndexData(index.clone()))
+        })
+        .await;
+        mark_cacheable(&mut response, None, &state.version, SITE_TAG);
+        response
     }
 
     /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha —

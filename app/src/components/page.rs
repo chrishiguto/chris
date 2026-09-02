@@ -8,13 +8,17 @@ pub(crate) fn page_title(page: &str) -> String {
     format!("{page} — {}", content::SITE_TITLE)
 }
 
-/// The page frame every route mounts into: the centered column carrying the
-/// `page-enter` transition every page's mount is pinned to. The home listing
+/// The page frame every route mounts into: a flexible gutter on each side of
+/// the 44rem reading column. The home listing
 /// and the post article compose their own masthead into it directly; [`Page`]
 /// adds the display heading on top for the about and 404 pages.
 #[component]
 pub(crate) fn PageShell(children: Children) -> impl IntoView {
-    view! { <section class="page-enter mx-auto max-w-2xl px-6 py-16">{children()}</section> }
+    view! {
+        <section class="page-grid">
+            <div class="page-column page-enter">{children()}</div>
+        </section>
+    }
 }
 
 /// [`PageShell`] plus a title and the display heading: the about and 404

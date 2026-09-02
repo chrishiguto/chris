@@ -10,18 +10,19 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
-- `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer: adopt the
-  claude.ai/design "chris" design system (Fraunces display + Figtree body + Geist Mono
-  labels via Google Fonts — amended 2026-07-15 from all-Geist — warm-tonal oklch
-  palette declared once via `light-dark()`, role+numeric token names, theme-toggle island,
-  `~/chris` IA with `/about` and a footer, tags reworked to an in-page filter island (its
+- `docs/prds/prd-design-system-migration.md` — PRD — presentation layer, amended by the
+  caderno specification: Newsreader reading type + Geist Mono code, 18/16/14 scale, warm
+  paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
+  veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
+  tags remain an in-page filter island (its
   `?q=` query state per ADR-0012 as amended), computed read time, formatted dates, two-hue
   callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
-  invariants disturbed. Amended 2026-07-16: writing became the home — `/` is a masthead
-  band over the full listing with a topics rail and a reserved (inert) search slot, the
-  `TagFilter` island grew into `WritingIndex`, `/posts` 301s to `/`, and the nav collapses
-  to about-only. Topics: design system, tailwind v4, theming, tokens, fraunces, figtree,
-  geist mono, islands, tags, read time, about page, writing home, prd.
+  invariants disturbed. Amended 2026-09-02: `/` is a compact index home with marginal ghost
+  words, hidden-text marks, title-first dated rows, a career fold, four recent titles and a
+  dated now; the full filter island lives at `/writing`, `/posts` redirects there, `/about`
+  redirects home, and inner-page gutter links follow the new hierarchy. Topics: design
+  system, tailwind v4, theming, tokens, newsreader, geist mono, paper, islands, tags,
+  read time, index home, hidden text, writing archive, prd.
 
 ## ADRs
 
@@ -67,7 +68,9 @@ summary, key topics.
   listings and feeds — the purge scope's shape is unchanged; amended 2026-07-12: ETags pair
   the snapshot sha with the deployed version id from the `[version_metadata]` binding so
   code deploys re-send bodies, sha-less static pages validate on the version alone, and dev
-  builds skip cache decoration entirely).
+  builds skip cache decoration entirely; amended 2026-09-02: `views` covers `/writing` and
+  feeds while the index home carries `site` alone, `/posts` redirects to `/writing`, and
+  `/about` redirects to `/`).
   Topics: caching, purge, cache tags, workers cache, deploys, etags, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
@@ -87,20 +90,20 @@ summary, key topics.
   (ADR-0009's rejected Option 3, unblocked by dropping the fast path); captured for later
   evaluation with tradeoffs and open questions. Topics: simplification, ci reconcile, proposed,
   worker removal, serialization.
-- `docs/adrs/adr-0011-client-side-theming.md` — ADR (Accepted) — theme is a pure client
-  concern: tokens declared once via CSS `light-dark()`, `data-theme` flips `color-scheme`,
-  localStorage persists the choice, an inline pre-paint script prevents flash, a hand-rolled
-  toggle island flips it; server HTML is identical for everyone so Workers Cache sees zero
-  variance. Topics: theming, dark mode, light-dark, islands, caching, css tokens.
+- `docs/adrs/adr-0011-client-side-theming.md` — ADR (Accepted; amended 2026-09-02) — theme
+  follows the system through declared-once CSS `light-dark()` tokens; the explicit override,
+  localStorage, pre-paint script, and toggle island are retired, while identical server HTML
+  keeps Workers Cache variance at zero. Topics: theming, dark mode, light-dark, caching,
+  css tokens.
 - `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
   SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
   (amended 2026-07-10: the island owns the whole filter region — pills, rows, empty state —
   with the listed posts as serialized props, filtering by signal instead of DOM attributes;
   amended 2026-07-14: filter state moves from the URL hash to a multi-tag `?q=rust,wasm`
   query — deep links now fragment the cache key per selection, all entries still under
-  `views`; amended 2026-07-16: writing became the home, so the island and its `?q=` root at
-  `/`, `/posts` `301`s to `/`, and `LISTING_PAGES` shrinks to `/`); `views` tag narrows to
-  listings + feeds; revisit when pagination arrives.
+  `views`; amended 2026-09-02: the filter island and its `?q=` root move to `/writing`,
+  `/posts` `301`s there, `/` becomes the deployment-owned index home, and `/about` redirects
+  to `/`); `views` covers the writing listing + feeds; revisit when pagination arrives.
   Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides

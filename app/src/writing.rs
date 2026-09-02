@@ -1,11 +1,12 @@
-//! The home page `/`: the writing front door. A masthead identity band over
-//! the two-panel writing index (the [`WritingIndex`] island). Drafts are in
-//! the index provided via context but filtered here.
+//! The `/writing` archive. The worker supplies the newest-first index; this
+//! boundary removes drafts before the filter island serializes its props.
 
 use content::IndexEntry;
 use leptos::prelude::*;
 
-use crate::components::{Contacts, Heading, ListedPost, PageShell, WritingIndex};
+use leptos_meta::Title;
+
+use crate::components::{page_title, GutterNav, ListedPost, WritingIndex};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -27,23 +28,8 @@ fn NothingPublished() -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
 }
 
-/// The front-door band: greeting, one voice line, external-only contacts. Nav
-/// owns "about", so the masthead carries no in-app links.
 #[component]
-fn MastheadBand() -> impl IntoView {
-    view! {
-        <header class="border-b border-line pb-10">
-            <Heading>"hey, i’m chris"</Heading>
-            <p class="mt-5 max-w-[58ch] text-lg leading-relaxed text-ink-2">
-                "software engineer. this is everything i’m writing — code, systems, and figuring things out, in english e às vezes em português."
-            </p>
-            <Contacts lead="mt-6" />
-        </header>
-    }
-}
-
-#[component]
-pub fn HomePage() -> impl IntoView {
+pub fn WritingPage() -> impl IntoView {
     let posts = listed_posts();
     // A fixed per-request branch — outside islands nothing re-renders
     // client-side — so no reactive Show, and the island props move instead
@@ -55,9 +41,10 @@ pub fn HomePage() -> impl IntoView {
         view! { <WritingIndex posts=posts /> }.into_any()
     };
     view! {
-        <PageShell>
-            <MastheadBand />
-            {panel}
-        </PageShell>
+        <Title text=page_title("writing") />
+        <section class="page-grid">
+            <GutterNav href=content::HOME_PATH label="home" />
+            <div class="page-column page-enter">{panel}</div>
+        </section>
     }
 }
