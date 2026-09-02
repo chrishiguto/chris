@@ -40,8 +40,9 @@ summary, key topics.
   ride CI (Tier 2 hybrid). Topics: co-located components, rust-analyzer, hybrid pipeline.
 - `docs/adrs/adr-0005-macro-registry-manifest.md` — ADR (Accepted) — #[post_component] proc
   macro: prop conversion, inventory registration, and a component manifest consumed by render
-  dispatch, publish validation, the `xtask check` gate, and a future LSP. Topics: proc macro, registry,
-  manifest, inventory, dx.
+  dispatch, publish validation, the `xtask check` gate, and a future LSP; amended so required
+  `Children` is explicit manifest metadata and empty invocations fail validation. Topics: proc
+  macro, registry, manifest, children, inventory, dx.
 - `docs/adrs/adr-0006-two-worker-topology.md` — ADR (Accepted) — two workers split read/write:
   site (SSR + KV read, no secrets) and pipeline (publish op + secrets); no separate read-API
   worker (amended 2026-07-08: the pipeline lost its webhook/routing/status role to one Actions
@@ -127,8 +128,9 @@ summary, key topics.
 
 - `CONTENT.md` (repo root) — Spec — the authoring format contract: MDX-syntax subset,
   frontmatter fields, prop literal rules, rejected constructs with reasons, the current
-  component vocabulary, and how to add a `#[post_component]`. Topics: authoring, mdx subset,
-  components, props, validation.
+  component vocabulary (including the children-only `Hidden` prose fold), and how to add a
+  `#[post_component]`. Topics: authoring, mdx subset, components, hidden text, props,
+  validation.
 - `README.md` (repo root) — project introduction in the author's voice: the publish-flow
   diagram, the core principle (KV stores meaning / deployed code owns presentation / caches
   are purged), and the target workspace layout tree. Not a spec — the PRD and ADRs above are

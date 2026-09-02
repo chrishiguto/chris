@@ -15,6 +15,11 @@ fn colocated_components_join_the_manifest() {
         .expect("DeployStages discovered from content/blog/ci-code-path/components.rs");
     assert!(stages.prop("total").is_some_and(|p| p.required));
     assert!(!stages.accepts_children);
+
+    let hidden = manifest.get("Hidden").expect("Hidden registered");
+    assert!(hidden.props.is_empty(), "Hidden must remain children-only");
+    assert!(hidden.accepts_children);
+    assert!(hidden.requires_children);
 }
 
 #[test]
