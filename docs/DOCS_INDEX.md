@@ -15,8 +15,9 @@ summary, key topics.
   paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
   veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
   tags remain an in-page filter island (its
-  `?q=` query state per ADR-0012 as amended), computed read time, formatted dates, two-hue
-  callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
+  `?q=` query state per ADR-0012 as amended), computed read time, natural-language post dates,
+  section-marked prose, hairline callouts, ruled code-copy panels, 72rem margin footnotes,
+  and tag-word endings); four hand-rolled islands total, no pipeline
   invariants disturbed. Amended 2026-07-16: writing became the home — `/` is a masthead
   band over the full listing with a topics rail and a reserved (inert) search slot, the
   `TagFilter` island grew into `WritingIndex`, `/posts` 301s to `/`, and the nav collapses
