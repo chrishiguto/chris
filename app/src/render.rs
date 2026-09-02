@@ -20,7 +20,7 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post page-grid">
-            <GutterNav href=content::HOME_PATH label="home" />
+            <GutterNav href=content::HOME_PATH label="writing" />
             <div class="post-content page-enter">
                 <header>
                     <h1>{doc.frontmatter.title.clone()}</h1>

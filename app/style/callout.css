@@ -1,7 +1,5 @@
-/* The Callout component: asides with a small tracked kind-label row in the
-   family hue, flat 1px border, no left-border stripes, ever. Two hue
-   families — note/tip accent, warning/danger danger — with severity read
-   through fill intensity: subtle tint, no tint, danger tint. */
+/* The Callout component: a quiet hairline aside with a small-caps kind label.
+   Color stays in the label; the page remains unfilled paper. */
 
 @layer components {
   .callout {
@@ -11,29 +9,19 @@
     margin-block: 1.5em;
     padding: 0.875rem 1rem;
     border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    background-color: var(--color-paper-2);
-  }
-
-  .callout-warning {
+    border-radius: 0;
     background-color: transparent;
-  }
-
-  .callout-danger {
-    background-color: color-mix(in oklab, var(--color-danger) 8%, var(--color-paper));
   }
 
   .callout-label {
     font-size: 0.875rem;
     font-weight: 500;
     letter-spacing: 0.06em;
-    text-transform: lowercase;
+    font-variant-caps: all-small-caps;
     color: var(--color-accent);
   }
 
-  /* The warning/danger family's labels read danger; severity within the
-     family shows in the fill alone. */
-  .callout-warning .callout-label,
+  /* Danger is the only aside that leaves the site's single accent hue. */
   .callout-danger .callout-label {
     color: var(--color-danger);
   }
