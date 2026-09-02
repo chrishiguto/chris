@@ -17,7 +17,7 @@ fn fixture_tree(name: &str) -> PathBuf {
 #[test]
 fn manifest_exposes_the_real_app_vocabulary() {
     let manifest = app::manifest();
-    for name in ["Callout", "Counter"] {
+    for name in ["Callout", "Counter", "Hidden"] {
         assert!(
             manifest.get(name).is_some(),
             "app's inventory registrations must reach the CLI; missing {name}"
@@ -67,6 +67,24 @@ fn invalid_tree_reports_every_problem() {
         no_index.message.contains("index.mdx"),
         "message: {}",
         no_index.message
+    );
+
+    let hidden_prop = for_file("hidden-with-prop/index.mdx");
+    assert!(
+        hidden_prop
+            .message
+            .contains("unknown prop `title` on `<Hidden>`"),
+        "message: {}",
+        hidden_prop.message
+    );
+
+    let empty_hidden = for_file("empty-hidden/index.mdx");
+    assert!(
+        empty_hidden
+            .message
+            .contains("`<Hidden>` requires children"),
+        "message: {}",
+        empty_hidden.message
     );
 }
 

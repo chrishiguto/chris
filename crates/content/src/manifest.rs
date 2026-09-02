@@ -70,6 +70,8 @@ pub struct ComponentSpec {
     pub name: String,
     pub props: Vec<PropSpec>,
     pub accepts_children: bool,
+    /// `true` when the component declares a required `Children` parameter.
+    pub requires_children: bool,
 }
 
 impl ComponentSpec {

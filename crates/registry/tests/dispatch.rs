@@ -62,6 +62,7 @@ fn manifest_describes_the_registered_signature() {
     let spec = manifest.get("Kitchen").expect("Kitchen in manifest");
 
     assert!(spec.accepts_children);
+    assert!(spec.requires_children);
     let described: Vec<(&str, PropType, bool)> = spec
         .props
         .iter()
@@ -80,6 +81,7 @@ fn manifest_describes_the_registered_signature() {
 
     let leaf = manifest.get("Leaf").expect("Leaf in manifest");
     assert!(!leaf.accepts_children);
+    assert!(!leaf.requires_children);
 }
 
 #[test]
