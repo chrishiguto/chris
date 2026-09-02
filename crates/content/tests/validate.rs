@@ -22,6 +22,7 @@ fn manifest() -> Manifest {
                     },
                 ],
                 accepts_children: true,
+                requires_children: true,
             },
             ComponentSpec {
                 name: "Counter".into(),
@@ -43,6 +44,7 @@ fn manifest() -> Manifest {
                     },
                 ],
                 accepts_children: false,
+                requires_children: false,
             },
         ],
     }
@@ -228,6 +230,17 @@ fn children_on_childless_component_are_rejected() {
             .contains("`<Counter>` does not accept children"),
         "message: {}",
         diags[0].message
+    );
+}
+
+#[test]
+fn required_children_cannot_be_empty() {
+    let diags = diagnostics("<Callout kind=\"note\" />");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.message.contains("`<Callout>` requires children")),
+        "diagnostics: {diags:?}"
     );
 }
 

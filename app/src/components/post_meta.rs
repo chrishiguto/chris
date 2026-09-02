@@ -1,20 +1,10 @@
 use leptos::prelude::*;
 
-/// The article header's meta line: formatted date, then `· N min` when the
-/// read time is known — absent minutes render the date alone.
+/// The article header's meta line: a natural-language date, then `· N min`
+/// when the read time is known. The shared formatter keeps post and index
+/// dates in one vocabulary.
 #[component]
 pub(crate) fn PostMeta(date: String, minutes: Option<u32>) -> impl IntoView {
-    view! {
-        <p class="post-meta">
-            <MetaRow date=date minutes=minutes />
-        </p>
-    }
-}
-
-/// Shared `date · minutes` content for the article meta line and the row
-/// meta; the separator reads a step quieter than either side.
-#[component]
-pub(crate) fn MetaRow(date: String, minutes: Option<u32>) -> impl IntoView {
     let time = minutes.map(|minutes| {
         view! {
             <span class="text-ink-3" aria-hidden="true">
@@ -24,8 +14,10 @@ pub(crate) fn MetaRow(date: String, minutes: Option<u32>) -> impl IntoView {
         }
     });
     view! {
-        <span class="tabular-nums">{format_post_date(&date, true)}</span>
-        {time}
+        <p class="post-meta">
+            <span class="tabular-nums">{format_post_date(&date, true)}</span>
+            {time}
+        </p>
     }
 }
 
@@ -121,6 +113,7 @@ mod tests {
             "",
             "2026-13-01",
             "2026-00-01",
+            "2026-07-00",
             "2026-7-4",
             "2026-07",
         ] {

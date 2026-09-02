@@ -98,11 +98,11 @@ fn home_ships_accessible_ghost_rows_fold_and_prose_marks() {
         "{html}"
     );
     assert!(
-        html.contains("class=\"fold-button\"") && html.contains("aria-expanded=\"false\""),
+        html.contains("class=\"home-fold-button\"") && html.contains("aria-expanded=\"false\""),
         "{html}"
     );
     assert!(
-        html.contains("class=\"fold-content\"") && html.contains("web developer"),
+        html.contains("class=\"home-fold-content\"") && html.contains("web developer"),
         "{html}"
     );
     assert!(

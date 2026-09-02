@@ -457,6 +457,8 @@ impl Converter<'_> {
 
         if has_children && !spec.accepts_children {
             self.error(format!("`<{name}>` does not accept children"), position);
+        } else if !has_children && spec.requires_children {
+            self.error(format!("`<{name}>` requires children"), position);
         }
     }
 

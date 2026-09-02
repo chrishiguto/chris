@@ -287,6 +287,34 @@ fn callout_renders_optional_title_when_given() {
 }
 
 #[test]
+fn hidden_renders_a_server_owned_accessible_fold() {
+    let html = html_of(vec![Node::Component {
+        name: "Hidden".into(),
+        props: BTreeMap::new(),
+        children: vec![Node::Paragraph {
+            children: vec![text("the folded words")],
+        }],
+    }]);
+    assert!(html.contains("class=\"fold\""), "fold root missing: {html}");
+    assert!(
+        html.contains("<button")
+            && html.contains("class=\"fold-trigger\"")
+            && html.contains("aria-expanded=\"false\"")
+            && html.contains("(…)")
+            && html.contains("reveal hidden text"),
+        "accessible ellipsis button missing: {html}"
+    );
+    assert!(
+        html.contains("class=\"fold-content\"><p>the folded words</p>"),
+        "folded prose must ship in the server document: {html}"
+    );
+    assert!(
+        html.contains("document.currentScript") && !html.contains("<leptos-island"),
+        "the fold must enhance without an island: {html}"
+    );
+}
+
+#[test]
 fn counter_island_ssrs_with_initial_value() {
     let html = html_of(vec![Node::Component {
         name: "Counter".into(),
@@ -487,7 +515,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
     }
 }
 
-// Tag pills sit at the article bottom and land on the pre-filtered
+// Tag words sit at the article bottom and land on the pre-filtered
 // listing via the `?q=` filter query.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
@@ -545,7 +573,7 @@ fn post_opens_with_gutter_nav_to_writing() {
     assert!(html.contains("aria-label=\"back to writing\""), "{html}");
 }
 
-// The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
+// The header meta row is italic reading chrome (`.post-meta`): date in words, ink-3
 // separator span, and a read time computed live from the AST the page holds.
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
@@ -594,6 +622,9 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<hr",
         "<br",
         "<kbd>",
+        "class=\"footnote\"",
+        "class=\"footnote-ref\" aria-label=\"footnote\">†</sup>",
+        "class=\"footnote-note\"",
         "class=\"post-tags\"",
         "callout callout-note",
         "callout callout-tip",
@@ -606,6 +637,9 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<span class=\"code-lang\">rust</span>",
         "<span class=\"code-lang\">code</span>",
         "class=\"code-copy\"",
+        "class=\"fold\"",
+        "class=\"fold-trigger\"",
+        "class=\"fold-content\"",
         "<leptos-island",
     ] {
         assert!(html.contains(needle), "kitchen sink missing {needle}");
@@ -614,4 +648,10 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         !html.contains("component-error"),
         "no component may fail dispatch: {html}"
     );
+    for forbidden in ["previous post", "next post", "all writing"] {
+        assert!(
+            !html.contains(forbidden),
+            "post must end on its tag words, not navigation: {html}"
+        );
+    }
 }

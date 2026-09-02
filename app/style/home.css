@@ -121,11 +121,11 @@
     font-style: italic;
   }
 
-  .fold {
+  .home-fold {
     display: contents;
   }
 
-  .fold-button {
+  .home-fold-button {
     padding: 0;
     border: 0;
     color: var(--color-accent);
@@ -134,7 +134,7 @@
     font: inherit;
   }
 
-  .fold-content {
+  .home-fold-content {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -146,11 +146,11 @@
     border: 0;
   }
 
-  .fold.is-open .fold-button {
+  .home-fold.is-open .home-fold-button {
     display: none;
   }
 
-  .fold.is-open .fold-content {
+  .home-fold.is-open .home-fold-content {
     position: static;
     display: flex;
     width: auto;
@@ -293,7 +293,7 @@
       transition: none;
     }
 
-    .fold.is-open .fold-content {
+    .home-fold.is-open .home-fold-content {
       animation: none;
     }
   }

@@ -8,6 +8,7 @@
 @import "./post.css";
 @import "./code-block.css";
 @import "./callout.css";
+@import "./hidden.css";
 
 @source "../src";
 

@@ -63,9 +63,9 @@ const STINTS: &[Stint] = &[
 
 const HOME_SCRIPT: &str = r#"
 document.currentScript.closest('.home-index').addEventListener('click', (event) => {
-  const fold = event.target.closest('.fold-button');
+  const fold = event.target.closest('.home-fold-button');
   if (fold) {
-    const root = fold.closest('.fold');
+    const root = fold.closest('.home-fold');
     root.classList.add('is-open');
     fold.setAttribute('aria-expanded', 'true');
     fold.disabled = true;
