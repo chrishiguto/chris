@@ -6,7 +6,7 @@ use leptos::prelude::*;
 
 use leptos_meta::Title;
 
-use crate::components::{page_title, GutterNav, ListedPost, WritingIndex};
+use crate::components::{page_title, GhostWord, GutterNav, ListedPost, WritingIndex};
 
 /// Per-request index from the site worker, newest-first.
 #[derive(Clone)]
@@ -42,9 +42,14 @@ pub fn WritingPage() -> impl IntoView {
     };
     view! {
         <Title text=page_title("writing") />
-        <section class="page-grid">
+        <section class="page-grid writing-page">
             <GutterNav href=content::HOME_PATH label="home" />
-            <div class="page-column page-enter">{panel}</div>
+            <div class="page-column page-enter">
+                <section class="ghost-section writing-archive">
+                    <GhostWord label="writing" />
+                    {panel}
+                </section>
+            </div>
         </section>
     }
 }

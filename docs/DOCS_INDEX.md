@@ -19,8 +19,9 @@ summary, key topics.
   callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
   invariants disturbed. Amended 2026-09-02: `/` is a compact index home with marginal ghost
   words, hidden-text marks, title-first dated rows, a career fold, four recent titles and a
-  dated now; the full filter island lives at `/writing`, `/posts` redirects there, `/about`
-  redirects home, and inner-page gutter links follow the new hierarchy. Topics: design
+  dated now; the full filter island lives at `/writing` as plain tag words over year-grouped
+  hover-date rows (with its inert search and topics rail retired), `/posts` redirects there,
+  `/about` redirects home, and inner-page gutter links follow the new hierarchy. Topics: design
   system, tailwind v4, theming, tokens, newsreader, geist mono, paper, islands, tags,
   read time, index home, hidden text, writing archive, prd.
 
@@ -103,7 +104,9 @@ summary, key topics.
   query — deep links now fragment the cache key per selection, all entries still under
   `views`; amended 2026-09-02: the filter island and its `?q=` root move to `/writing`,
   `/posts` `301`s there, `/` becomes the deployment-owned index home, and `/about` redirects
-  to `/`); `views` covers the writing listing + feeds; revisit when pagination arrives.
+  to `/`; amended again 2026-09-02: plain tag words replace the topics rail and search slot,
+  and title-first rows group by year with emptied groups hidden); `views` covers the writing
+  listing + feeds; revisit when pagination arrives.
   Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides
