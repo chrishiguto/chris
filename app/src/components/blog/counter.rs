@@ -7,9 +7,9 @@ pub fn Counter(initial: i64) -> impl IntoView {
     let count = RwSignal::new(initial);
 
     view! {
-        <div class="my-6 inline-flex items-center gap-4 rounded-lg border border-line bg-surface-3 p-4">
+        <div class="my-6 inline-flex items-center gap-4 rounded-lg border border-line bg-paper-2 p-4">
             <button
-                class="h-10 w-10 rounded bg-ink text-lg text-surface hover:bg-accent"
+                class="h-10 w-10 rounded bg-ink text-lg text-paper hover:bg-accent"
                 on:click=move |_| count.update(|n| *n -= 1)
             >
                 "−"
@@ -18,7 +18,7 @@ pub fn Counter(initial: i64) -> impl IntoView {
                 {move || count.get()}
             </span>
             <button
-                class="h-10 w-10 rounded bg-ink text-lg text-surface hover:bg-accent"
+                class="h-10 w-10 rounded bg-ink text-lg text-paper hover:bg-accent"
                 on:click=move |_| count.update(|n| *n += 1)
             >
                 "+"

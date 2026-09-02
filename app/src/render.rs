@@ -5,7 +5,7 @@ use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{BackLink, CodeBlock, PostMeta, TagPill, TagRow};
+use crate::components::{CodeBlock, GutterNav, PostMeta, TagPill, TagRow};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // Pills close the article and land on the pre-filtered listing.
@@ -19,19 +19,21 @@ pub fn render_document(doc: &Document) -> impl IntoView {
     let tags = view! { <TagRow pills=pills spacing="" /> };
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
-        <article class="post page-enter mx-auto max-w-2xl px-6">
-            <BackLink />
-            <header>
-                <h1>{doc.frontmatter.title.clone()}</h1>
-                // The same ~200 wpm number the publish plan stamps into the
-                // index, computed live from the AST this page already holds.
-                <PostMeta
-                    date=doc.frontmatter.date.clone()
-                    minutes=Some(reading_minutes(&doc.ast))
-                />
-            </header>
-            <div class="post-body">{render_nodes(&doc.ast)}</div>
-            {tags}
+        <article class="post page-grid">
+            <GutterNav href=content::HOME_PATH label="home" />
+            <div class="post-content page-enter">
+                <header>
+                    <h1>{doc.frontmatter.title.clone()}</h1>
+                    // The same ~200 wpm number the publish plan stamps into the
+                    // index, computed live from the AST this page already holds.
+                    <PostMeta
+                        date=doc.frontmatter.date.clone()
+                        minutes=Some(reading_minutes(&doc.ast))
+                    />
+                </header>
+                <div class="post-body">{render_nodes(&doc.ast)}</div>
+                {tags}
+            </div>
         </article>
     }
 }
