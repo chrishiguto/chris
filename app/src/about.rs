@@ -9,7 +9,7 @@ use crate::components::{page_title, Contacts, Page, SectionLabel};
 pub fn AboutPage() -> impl IntoView {
     view! {
         <Page title=page_title("about") heading="about">
-            <div class="mt-6 max-w-[65ch] space-y-5 text-[1.0625rem] leading-relaxed">
+            <div class="mt-6 max-w-[65ch] space-y-5 text-base leading-relaxed">
                 <p>
                     "i’m christiano higuto — chris. software engineer from brazil, curious by default. i’ve been paid to write code for a while now, and i still think the best part is the moment something finally clicks."
                 </p>

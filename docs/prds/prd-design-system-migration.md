@@ -6,6 +6,19 @@
 > `tokens/*.css`, reference mock at `ui_kits/website/index.html`); every decision here was
 > resolved in a full design interview on 2026-07-09.
 
+> **Amendment (2026-09-02)**: [the caderno specification](https://github.com/chrishiguto/chris/issues/47)
+> supersedes the v2 visual language in staged slices. Its chrome slice makes the site one
+> sheet of warm, low-chroma paper (hue 80) with three ink levels, a wine accent (light
+> `oklch(42% 0.13 15)`, dark `oklch(70% 0.11 15)`) and a static grain. Newsreader becomes
+> the single reading family — 18px body at 1.6, 16px secondary, 14px floor, 30px titles,
+> 22px section headings — with Geist Mono reserved for code. A flexible-gutter / 44rem /
+> flexible-gutter grid replaces the centered bar layout; a blur-and-paper veil replaces
+> the header, post wayfinding becomes a sticky `← home` gutter link, and the one full-width
+> footer carries name, city, `rss`, and `source`. Theme follows the system only: the toggle,
+> stored override, and pre-paint script are removed while declared-once `light-dark()`
+> tokens and zero cache variance remain. Existing home, timeline, writing-filter/search,
+> about, and post content retain their words and shapes until their own caderno slices.
+
 ## Problem Statement
 
 The blog's engineering pipeline is real, but its presentation layer is a placeholder: a

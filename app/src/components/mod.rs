@@ -1,12 +1,11 @@
 //! Site-wide UI components; post-embeddable ones live under [`blog`].
 //! One component per module — this file only wires the re-exports.
 
-pub mod back_link;
 pub mod blog;
 pub mod code_block;
 pub mod contacts;
 pub mod footer;
-pub mod header;
+pub mod gutter_nav;
 pub mod heading;
 pub mod not_found;
 pub mod page;
@@ -15,15 +14,14 @@ pub mod post_meta;
 pub mod section_label;
 pub mod tag_pill;
 pub mod tag_row;
-pub mod theme_toggle;
+pub mod veil;
 pub mod writing_index;
 
-pub use back_link::BackLink;
 pub use code_block::CodeBlock;
 pub use footer::Footer;
-pub use header::Header;
+pub use gutter_nav::GutterNav;
 pub use not_found::NotFound;
-pub use theme_toggle::ThemeToggle;
+pub use veil::Veil;
 pub use writing_index::WritingIndex;
 
 pub(crate) use contacts::Contacts;

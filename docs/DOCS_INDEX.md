@@ -10,18 +10,18 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
-- `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer: adopt the
-  claude.ai/design "chris" design system (Fraunces display + Figtree body + Geist Mono
-  labels via Google Fonts — amended 2026-07-15 from all-Geist — warm-tonal oklch
-  palette declared once via `light-dark()`, role+numeric token names, theme-toggle island,
-  `~/chris` IA with `/about` and a footer, tags reworked to an in-page filter island (its
+- `docs/prds/prd-design-system-migration.md` — PRD — presentation layer, amended by the
+  caderno specification: Newsreader reading type + Geist Mono code, 18/16/14 scale, warm
+  paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
+  veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
+  tags remain an in-page filter island (its
   `?q=` query state per ADR-0012 as amended), computed read time, formatted dates, two-hue
   callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
   invariants disturbed. Amended 2026-07-16: writing became the home — `/` is a masthead
   band over the full listing with a topics rail and a reserved (inert) search slot, the
   `TagFilter` island grew into `WritingIndex`, `/posts` 301s to `/`, and the nav collapses
-  to about-only. Topics: design system, tailwind v4, theming, tokens, fraunces, figtree,
-  geist mono, islands, tags, read time, about page, writing home, prd.
+  to about-only. Topics: design system, tailwind v4, theming, tokens, newsreader,
+  geist mono, paper, islands, tags, read time, about page, writing home, prd.
 
 ## ADRs
 
@@ -87,11 +87,11 @@ summary, key topics.
   (ADR-0009's rejected Option 3, unblocked by dropping the fast path); captured for later
   evaluation with tradeoffs and open questions. Topics: simplification, ci reconcile, proposed,
   worker removal, serialization.
-- `docs/adrs/adr-0011-client-side-theming.md` — ADR (Accepted) — theme is a pure client
-  concern: tokens declared once via CSS `light-dark()`, `data-theme` flips `color-scheme`,
-  localStorage persists the choice, an inline pre-paint script prevents flash, a hand-rolled
-  toggle island flips it; server HTML is identical for everyone so Workers Cache sees zero
-  variance. Topics: theming, dark mode, light-dark, islands, caching, css tokens.
+- `docs/adrs/adr-0011-client-side-theming.md` — ADR (Accepted; amended 2026-09-02) — theme
+  follows the system through declared-once CSS `light-dark()` tokens; the explicit override,
+  localStorage, pre-paint script, and toggle island are retired, while identical server HTML
+  keeps Workers Cache variance at zero. Topics: theming, dark mode, light-dark, caching,
+  css tokens.
 - `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
   SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
   (amended 2026-07-10: the island owns the whole filter region — pills, rows, empty state —
