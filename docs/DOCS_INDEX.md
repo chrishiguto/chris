@@ -10,21 +10,15 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
-- `docs/prds/prd-design-system-migration.md` — PRD — presentation layer, amended by the
-  caderno specification: Newsreader reading type + Geist Mono code, 18/16/14 scale, warm
-  paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
-  veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
-  tags remain an in-page filter island (its
-  `?q=` query state per ADR-0012 as amended), computed read time, natural-language dates,
-  section-marked prose, hairline callouts, ruled code-copy panels, margin footnotes, and
-  tag-word endings); four hand-rolled islands total, no pipeline invariants disturbed.
-  Amended 2026-09-02: `/` is a compact index home with marginal ghost words, hidden-text
-  marks, title-first dated rows, a career fold, four recent titles, and a dated now; the full
-  filter island lives at `/writing` as plain tag words over year-grouped hover-date rows,
-  `/posts` redirects there, `/about` redirects home, and inner-page gutter links follow the
-  new hierarchy. `Hidden` adds the same progressive fold to the authoring vocabulary.
-  Topics: design system, tailwind v4, theming, tokens, newsreader, geist mono, paper,
-  islands, tags, read time, index home, hidden text, writing archive, prd.
+- `docs/prds/prd-design-system-migration.md` — PRD (v3, shipped) — consolidated caderno
+  presentation contract linked to issue #47: warm paper and wine tokens through
+  `light-dark()`, system-only themes, Newsreader reading type + Geist Mono code, static
+  grain, top veil, three-column page frame, exact four-item footer, index home, filterable
+  `/writing` archive, post presentation, word-form dates, hidden-text behaviour and lineage,
+  no new caderno islands (two presentation island types, four island types site-wide),
+  deliberate deletions, verification, and preserved
+  amendment history. Topics: design system, tailwind v4, theming, tokens, newsreader, geist mono,
+  paper, index home, hidden text, writing archive, posts, dates, islands, prd.
 
 ## ADRs
 
@@ -98,7 +92,8 @@ summary, key topics.
   localStorage, pre-paint script, and toggle island are retired, while identical server HTML
   keeps Workers Cache variance at zero. Topics: theming, dark mode, light-dark, caching,
   css tokens.
-- `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted) — `/tags` and `/tags/{tag}`
+- `docs/adrs/adr-0012-tags-in-page-filter.md` — ADR (Accepted; amended 2026-09-02) —
+  `/tags` and `/tags/{tag}`
   SSR routes deleted end-to-end; tag browsing becomes a filter island on the writing page
   (amended 2026-07-10: the island owns the whole filter region — pills, rows, empty state —
   with the listed posts as serialized props, filtering by signal instead of DOM attributes;

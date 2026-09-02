@@ -204,6 +204,15 @@ pub fn HomePage() -> impl IntoView {
                     </p>
                     <p class="last-touched tabular-nums">"last touched 2 september 2026"</p>
                 </section>
+                <p class="mt-8 text-sm text-ink-3">
+                    "hidden text borrows from " <a class="plink" href="https://igorbedesqui.com/">
+                        "igorbedesqui.com"
+                    </a> ", who credits " <a class="plink" href="https://ped.ro/">
+                        "ped.ro"
+                    </a> " and " <a class="plink" href="https://lfe.org/">
+                        "lfe.org"
+                    </a> "."
+                </p>
                 <script>{HOME_SCRIPT}</script>
             </div>
         </div>
