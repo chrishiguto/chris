@@ -1,8 +1,8 @@
-//! The home listing renders from the worker-provided index context; drafts
-//! filter at render time, and the tag-filter island wraps the rows.
+//! The writing route renders from worker-provided index context; drafts
+//! filter at its SSR boundary before the tag-filter island wraps the rows.
 #![cfg(feature = "ssr")]
 
-use app::listing::{HomePage, IndexData};
+use app::writing::{IndexData, WritingPage};
 use common::{ssr, tag_containing};
 use content::{Frontmatter, IndexEntry};
 use leptos::prelude::provide_context;
@@ -30,16 +30,16 @@ fn tagged(slug: &str, title: &str, date: &str, tags: &[&str]) -> IndexEntry {
     entry
 }
 
-fn home_html(index: Vec<IndexEntry>) -> String {
+fn writing_html(index: Vec<IndexEntry>) -> String {
     ssr(
         move || provide_context(IndexData(index)),
-        || leptos::view! { <HomePage /> },
+        || leptos::view! { <WritingPage /> },
     )
 }
 
 #[test]
-fn home_lists_rows_in_the_post_row_shape() {
-    let html = home_html(vec![
+fn writing_lists_rows_in_the_post_row_shape() {
+    let html = writing_html(vec![
         tagged("newer", "the newer post", "2026-03-01", &["rust", "wasm"]),
         entry("older", "the older post", "2026-01-01"),
     ]);
@@ -65,7 +65,9 @@ fn home_lists_rows_in_the_post_row_shape() {
         "the hover arrow must ship in the row markup: {html}"
     );
     assert!(
-        html.contains("<span class=\"post-row-meta\"><span>mar 01, 2026</span></span>"),
+        html.contains(
+            "<span class=\"post-row-meta\"><span class=\"tabular-nums\">1 march 2026</span></span>"
+        ),
         "{html}"
     );
     let newer = html.find("/posts/newer").unwrap();
@@ -77,7 +79,7 @@ fn home_lists_rows_in_the_post_row_shape() {
 fn post_rows_render_the_description_only_when_present() {
     let mut described = entry("has-desc", "Described", "2026-02-01");
     described.description = Some("one honest line about the post".into());
-    let html = home_html(vec![described, entry("bare", "Bare", "2026-01-01")]);
+    let html = writing_html(vec![described, entry("bare", "Bare", "2026-01-01")]);
     assert!(
         html.contains("<span class=\"post-row-desc\">one honest line about the post</span>"),
         "{html}"
@@ -95,16 +97,17 @@ fn post_rows_render_the_description_only_when_present() {
 fn post_rows_show_read_time_only_when_present() {
     let mut timed = entry("timed", "Timed", "2026-02-01");
     timed.reading_minutes = Some(4);
-    let html = home_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
+    let html = writing_html(vec![timed, entry("legacy", "Legacy", "2026-01-01")]);
     assert!(
-        html.contains("<span class=\"post-row-meta\"><span>feb 01, 2026</span>")
-            && html.contains("<span>4 min</span>"),
+        html.contains(
+            "<span class=\"post-row-meta\"><span class=\"tabular-nums\">1 february 2026</span>"
+        ) && html.contains("<span>4 min</span>"),
         "{html}"
     );
     // The timed row's meta reads `date · minutes`, the separator hidden from
     // assistive tech. Scope to the region between date and minutes so the
     // writing header's own `·` can't be mistaken for the row separator.
-    let date_at = html.find("feb 01, 2026").expect("date missing");
+    let date_at = html.find("1 february 2026").expect("date missing");
     let min_at = html.find("4 min").expect("minutes missing");
     assert!(date_at < min_at, "date must precede minutes: {html}");
     let between = &html[date_at..min_at];
@@ -114,56 +117,33 @@ fn post_rows_show_read_time_only_when_present() {
     );
     // The minutes-less row shows the date alone — no dangling separator.
     assert!(
-        html.contains("<span class=\"post-row-meta\"><span>jan 01, 2026</span></span>"),
+        html.contains("<span class=\"post-row-meta\"><span class=\"tabular-nums\">1 january 2026</span></span>"),
         "{html}"
     );
 }
 
 #[test]
-fn home_filters_drafts() {
+fn writing_filters_drafts() {
     let mut draft = entry("wip", "Not yet", "2026-05-01");
     draft.draft = true;
-    let html = home_html(vec![draft, entry("live", "Live", "2026-04-01")]);
+    let html = writing_html(vec![draft, entry("live", "Live", "2026-04-01")]);
     assert!(!html.contains("wip"), "drafts must not be listed: {html}");
     assert!(html.contains("/posts/live"), "{html}");
 }
 
 #[test]
-fn home_with_empty_index_says_so() {
-    let html = home_html(Vec::new());
+fn writing_with_empty_index_says_so() {
+    let html = writing_html(Vec::new());
     assert!(
         html.contains("nothing published yet"),
         "empty index needs a readable state, not a blank page: {html}"
     );
 }
 
-#[test]
-fn home_greets_with_masthead_and_external_contacts() {
-    let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
-    assert!(
-        html.contains("hey, i’m chris"),
-        "the masthead greets: {html}"
-    );
-    // External-only contacts sharing the about page's contact-link component;
-    // the nav owns "about", so the masthead carries no in-app links.
-    assert!(
-        html.contains("mailto:hi@chris.dev"),
-        "the email contact ships: {html}"
-    );
-    assert!(
-        html.contains("github.com/chris"),
-        "the github contact ships: {html}"
-    );
-    assert!(
-        !html.contains(">the writing<") && !html.contains(">about me<"),
-        "the masthead carries no in-app writing/about links: {html}"
-    );
-}
-
 // The writing header carries the listed total (drafts excluded) and the feed
 // link — "writing (N) · rss".
 #[test]
-fn home_writing_header_counts_the_listed_archive() {
+fn writing_writing_header_counts_the_listed_archive() {
     let mut draft = entry("wip", "Not yet", "2026-05-01");
     draft.draft = true;
     let index: Vec<_> = std::iter::once(draft)
@@ -175,7 +155,7 @@ fn home_writing_header_counts_the_listed_archive() {
             )
         }))
         .collect();
-    let html = home_html(index);
+    let html = writing_html(index);
     assert!(
         html.contains("writing (4)"),
         "the header count must be the real listed total, drafts excluded: {html}"
@@ -187,10 +167,9 @@ fn home_writing_header_counts_the_listed_archive() {
     );
 }
 
-// Writing is the home: the complete list shows — no recent-posts teaser, no
-// "read all" link.
+// The dedicated archive keeps the complete list.
 #[test]
-fn home_lists_every_listed_post() {
+fn writing_lists_every_listed_post() {
     let index: Vec<_> = (0..5)
         .map(|i| {
             entry(
@@ -200,7 +179,7 @@ fn home_lists_every_listed_post() {
             )
         })
         .collect();
-    let html = home_html(index);
+    let html = writing_html(index);
     for i in 0..5 {
         assert!(
             html.contains(&format!("/posts/post-{i}")),
@@ -209,7 +188,7 @@ fn home_lists_every_listed_post() {
     }
     assert!(
         !html.contains("read all"),
-        "the home lists every post — no teaser link: {html}"
+        "the archive lists every post — no teaser link: {html}"
     );
 }
 
@@ -217,8 +196,8 @@ fn home_lists_every_listed_post() {
 // affordances stay live — but with no filtering wired yet. It must not be
 // disabled, or the focus states the design wants can never fire.
 #[test]
-fn home_renders_the_reserved_search_slot() {
-    let html = home_html(vec![entry("post", "A post", "2026-01-01")]);
+fn writing_renders_the_reserved_search_slot() {
+    let html = writing_html(vec![entry("post", "A post", "2026-01-01")]);
     let search = tag_containing(&html, "type=\"search\"");
     assert!(
         !search.contains("disabled"),
@@ -228,10 +207,10 @@ fn home_renders_the_reserved_search_slot() {
 
 // The filter island owns the pill rail and the list, with the listed posts as
 // its props: pills are the post-pill shape, deduped and sorted, linking the
-// `?q=` filter contract rooted at the home listing.
+// `?q=` filter contract rooted at the writing listing.
 #[test]
-fn home_wraps_sorted_filter_pills_in_the_island() {
-    let html = home_html(vec![
+fn writing_wraps_sorted_filter_pills_in_the_island() {
+    let html = writing_html(vec![
         tagged("newer", "the newer post", "2026-03-01", &["wasm", "rust"]),
         tagged("older", "the older post", "2026-01-01", &["rust"]),
     ]);
@@ -244,7 +223,7 @@ fn home_wraps_sorted_filter_pills_in_the_island() {
         island.contains("newer") && island.contains("older"),
         "the listed posts ride as island props: {html}"
     );
-    let pill = tag_containing(&html, "href=\"/?q=rust\"");
+    let pill = tag_containing(&html, "href=\"/writing?q=rust\"");
     assert!(pill.contains("class=\"tag\""), "{html}");
     let hash = tag_containing(&html, "class=\"tag-hash\"");
     assert!(
@@ -252,12 +231,12 @@ fn home_wraps_sorted_filter_pills_in_the_island() {
         "pills carry the post-pill hash glyph: {html}"
     );
     assert_eq!(
-        html.matches("/?q=rust").count(),
+        html.matches("/writing?q=rust").count(),
         1,
         "pills dedupe across posts: {html}"
     );
-    let rust = html.find("/?q=rust").unwrap();
-    let wasm = html.find("/?q=wasm").unwrap();
+    let rust = html.find("/writing?q=rust").unwrap();
+    let wasm = html.find("/writing?q=wasm").unwrap();
     assert!(rust < wasm, "pills sort alphabetically: {html}");
 }
 
@@ -265,17 +244,17 @@ fn home_wraps_sorted_filter_pills_in_the_island() {
 fn filter_pills_skip_draft_only_tags() {
     let mut draft = tagged("wip", "Not yet", "2026-05-01", &["secret", "rust"]);
     draft.draft = true;
-    let html = home_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
+    let html = writing_html(vec![draft, tagged("live", "Live", "2026-04-01", &["rust"])]);
     assert!(!html.contains("secret"), "{html}");
-    assert!(html.contains("/?q=rust"), "{html}");
+    assert!(html.contains("/writing?q=rust"), "{html}");
 }
 
 // The empty-state line is island state shown only when a filter leaves no
 // rows; the server render never ships it, so no-JS readers can't see it
 // under the full list.
 #[test]
-fn home_ssr_omits_the_filter_empty_state() {
-    let html = home_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
+fn writing_ssr_omits_the_filter_empty_state() {
+    let html = writing_html(vec![tagged("a", "A", "2026-01-01", &["rust"])]);
     assert!(
         !html.contains("nothing here yet"),
         "the empty state must not ship in the server render: {html}"
@@ -285,8 +264,8 @@ fn home_ssr_omits_the_filter_empty_state() {
 // A tagless index drops the whole rail column with its divider, not just
 // the pills: the list runs full width instead of sitting beside dead space.
 #[test]
-fn home_without_tags_has_no_filter_row() {
-    let html = home_html(vec![entry("plain", "Plain", "2026-01-01")]);
+fn writing_without_tags_has_no_filter_row() {
+    let html = writing_html(vec![entry("plain", "Plain", "2026-01-01")]);
     assert!(!html.contains("post-tags"), "{html}");
     assert!(!html.contains("<aside"), "no tags, no rail column: {html}");
     assert!(
@@ -306,8 +285,8 @@ fn tag_routes_fall_through_to_the_404_page() {
 }
 
 #[test]
-fn home_without_index_context_still_renders() {
+fn writing_without_index_context_still_renders() {
     // A missing IndexData context must degrade to the empty state, never panic.
-    let html = ssr(|| (), || leptos::view! { <HomePage /> });
+    let html = ssr(|| (), || leptos::view! { <WritingPage /> });
     assert!(html.contains("nothing published yet"), "{html}");
 }

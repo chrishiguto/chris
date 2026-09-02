@@ -56,18 +56,18 @@ fn footer_carries_only_the_signature_and_destinations() {
 }
 
 #[test]
-fn post_wayfinding_is_a_plain_home_link_not_an_island() {
+fn post_wayfinding_is_a_plain_writing_link_not_an_island() {
     let html = common::ssr(
         || {},
-        || view! { <GutterNav href=content::HOME_PATH label="home" /> },
+        || view! { <GutterNav href=content::WRITING_PATH label="writing" /> },
     );
     assert!(
         html.starts_with("<nav"),
         "wayfinding is semantic nav: {html}"
     );
     assert!(
-        html.contains("href=\"/\"") && html.contains("← home"),
-        "post wayfinding returns home: {html}"
+        html.contains("href=\"/writing\"") && html.contains("← writing"),
+        "post wayfinding returns to writing: {html}"
     );
     assert!(
         !html.contains("leptos-island"),
@@ -96,7 +96,7 @@ fn chrome_wraps_every_page_including_404() {
 
 #[test]
 fn every_page_mounts_content_in_the_middle_column() {
-    for path in ["/", "/about", "/nowhere"] {
+    for path in ["/", "/writing", "/nowhere"] {
         let html = common::app_at(path);
         assert!(
             html.contains("page-grid"),
