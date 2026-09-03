@@ -307,6 +307,12 @@ tag routes and their components are deleted.
 > reached main — it lived on the closed PR #46). Post wayfinding says `← writing`, while
 > the archive says `← home`.
 
+> **Amendment (2026-09-02)**: `/writing` is the archive form of the home's index. A short
+> post-count/feed line and plain tag words precede title-only hover-date rows grouped by
+> year, newest first. Filtering hides empty year groups while retaining ADR-0012's union,
+> shareable `?q=`, deep-link, and no-JS contracts. The inert search field, topics rail,
+> clamp, and show-all markup are deleted rather than restyled.
+
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island

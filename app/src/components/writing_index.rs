@@ -5,33 +5,27 @@ use leptos::prelude::*;
 use wasm_bindgen::JsValue;
 use web_sys::UrlSearchParams;
 
-use crate::components::{ListedPost, PostList, SectionLabel, TagPill, TagRow};
+use super::post_meta::{format_post_date, post_year};
+use crate::components::{HoverDateRow, ListedPost};
 
-/// The writing front door's whole body: the post list under a
-/// `writing (N) · rss` header and a reserved search slot, with the topics
-/// rail beside it whenever a post carries a tag — a tagless index renders
-/// the list full-width, no leftover column or divider. It is one island so
-/// pill clicks toggle row visibility through plain signal state; filtering
-/// is one behavior of the index, not its whole job. The selection mirrors
-/// the `?q=` query — shareable, restored on load, and never navigated to
-/// (clicks move the URL by `replaceState`), so the server keeps rendering
-/// the one unfiltered listing whatever the query says. Restore keeps only
-/// tags a listed post carries, so a stale deep link degrades to the full
-/// list instead of blanking the front door. Without JS the pills are inert
-/// links and the complete list stays visible.
-///
-/// The search field above the list is a reserved slot: it renders the real
-/// field's look but is inert until text search ships as its own feature.
+struct YearGroup {
+    year: String,
+    posts: Vec<ListedPost>,
+}
+
+/// The complete writing archive and its multi-tag union filter. The server
+/// render is always the full list; hydration restores only known `?q=` tags
+/// and mirrors later changes with `replaceState`, never navigation. Without
+/// JS the tag words are inert links to the same `?q=` URLs.
 #[island]
 pub fn WritingIndex(posts: Vec<ListedPost>) -> impl IntoView {
     let total = posts.len();
-
     let tags: BTreeSet<String> = posts
         .iter()
         .flat_map(|post| post.tags.iter().cloned())
         .collect();
-
     let active = RwSignal::new(BTreeSet::<String>::new());
+
     // Deep links land pre-filtered; effects never run during SSR. Unknown
     // tags drop here, so no selection can ever hide every row.
     Effect::new({
@@ -48,178 +42,131 @@ pub fn WritingIndex(posts: Vec<ListedPost>) -> impl IntoView {
         });
     };
 
-    let pills: Vec<_> = tags
+    // Inert links at rest; once hydrated each word is a toggle, so it carries
+    // the pressed state a multi-select filter needs (`aria-current` would
+    // claim one current item).
+    let tag_words = tags
         .iter()
         .map(|tag| {
             let is_active = Signal::derive({
                 let tag = tag.clone();
                 move || active.with(|active| active.contains(&tag))
             });
-            let on_select = Callback::new({
+            let on_select = {
                 let tag = tag.clone();
-                move |()| select(tag.clone())
-            });
-            view! { <TagPill tag=tag.clone() active=is_active on_select=on_select /> }
+                move |ev: leptos::ev::MouseEvent| {
+                    ev.prevent_default();
+                    select(tag.clone());
+                }
+            };
+            view! {
+                <li>
+                    <a
+                        class="writing-tag"
+                        class:writing-tag-active=move || is_active.get()
+                        role="button"
+                        aria-pressed=move || if is_active.get() { "true" } else { "false" }
+                        href=content::tag_filter_path(tag)
+                        on:click=on_select
+                    >
+                        {tag.clone()}
+                    </a>
+                </li>
+            }
         })
-        .collect();
+        .collect_view();
 
-    // The union semantics live here alone: a row hides when it carries
-    // none of the selection.
-    let hides = move |tags: &[String]| {
-        active.with(|active| !active.is_empty() && !tags.iter().any(|tag| active.contains(tag)))
-    };
-
-    // The restore intersection keeps the selection inside the listed tags,
-    // so nothing can empty the list; the guard stays should that loosen.
+    // The union semantics live in `hides` alone, applied at every scope: a
+    // row hides when it carries none of the selection, a year when none of
+    // its rows' tags is selected, the page when no listed tag is. The restore
+    // intersection keeps the selection inside the listed tags, so nothing can
+    // empty the list; the page-level guard stays should that loosen.
     let all_tags: Vec<String> = tags.into_iter().collect();
-    let none_visible = move || hides(&all_tags);
+    let none_visible = move || hides(active, &all_tags);
 
-    let rows: Vec<_> = posts
+    let years = year_groups(posts)
         .into_iter()
-        .map(|post| {
-            let tags = post.tags.clone();
-            (post, Some(Signal::derive(move || hides(&tags))))
+        .map(|group| {
+            let group_tags: Vec<String> = group
+                .posts
+                .iter()
+                .flat_map(|post| post.tags.iter().cloned())
+                .collect();
+            let rows = group
+                .posts
+                .into_iter()
+                .map(|post| {
+                    let ListedPost {
+                        slug,
+                        title,
+                        date,
+                        tags,
+                    } = post;
+                    let href = content::post_path(&slug);
+                    let date = format_post_date(&date, false);
+                    view! {
+                        <li hidden=move || hides(active, &tags)>
+                            <HoverDateRow date=date href=href>
+                                {title}
+                            </HoverDateRow>
+                        </li>
+                    }
+                })
+                .collect_view();
+            view! {
+                <section class="writing-year" hidden=move || hides(active, &group_tags)>
+                    <h3 class="writing-year-label tabular-nums">{group.year}</h3>
+                    <ul class="writing-year-rows hover-date-list">{rows}</ul>
+                </section>
+            }
         })
-        .collect();
+        .collect_view();
 
-    let panel = view! {
-        <WritingHeader total=total />
-        <div class="mt-4">
-            <SearchField />
-        </div>
-        <PostList rows=rows spacing="mt-6" />
-        <Show when=none_visible>
-            <p class="mt-8 text-sm text-ink-3">"nothing here yet"</p>
-        </Show>
-    };
-    if pills.is_empty() {
-        view! { <div class="mt-10">{panel}</div> }.into_any()
-    } else {
-        view! {
-            <div class="mt-10 grid gap-12 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] md:gap-0">
-                <aside class="md:sticky md:top-24 md:self-start md:pr-10">
-                    <TopicsRail pills=pills />
-                </aside>
-                <div class="min-w-0 md:border-l md:border-line md:pl-10">{panel}</div>
-            </div>
-        }
-        .into_any()
-    }
-}
-
-/// Above this many tags the rail clamps to a few rows behind a gradient fade
-/// and a no-JS "show all". Below it the pills wrap freely — the fade would
-/// otherwise float over blank space. Today's tag set sits well under it.
-const RAIL_CLAMP: usize = 12;
-
-/// The topics rail: the clean section label over the tag pills. The caller
-/// guards the tagless case; the empty return here keeps the rail total.
-#[component]
-fn TopicsRail<V: IntoView + 'static>(pills: Vec<V>) -> impl IntoView {
-    let n = pills.len();
-    if n == 0 {
-        return None;
-    }
-    let body = if n > RAIL_CLAMP {
-        view! { <ClampedTopics pills=pills n=n /> }.into_any()
-    } else {
-        view! { <TagRow pills=pills spacing="mt-3" /> }.into_any()
-    };
-    Some(view! {
-        <SectionLabel>"topics"</SectionLabel>
-        {body}
-    })
-}
-
-/// Both clamp-toggle faces share one look — plus a visible ring while the
-/// hidden checkbox holds keyboard focus; each face adds its visibility pair.
-const TOGGLE_LABEL_CLASS: &str = "mt-2 cursor-pointer text-xs text-ink-2 hover:text-ink \
-     peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 \
-     peer-focus-visible:outline-(--focus-ring)";
-
-/// Pills clamped to a few rows; a gradient overlay pinned to the clip's
-/// bottom edge fades the cut so no half-row juts out, and a checkbox-peer
-/// "show all" lifts clamp and overlay entirely (no JS, no expanded ceiling).
-#[component]
-fn ClampedTopics<V: IntoView + 'static>(pills: Vec<V>, n: usize) -> impl IntoView {
     view! {
-        <div class="relative mt-3">
-            <input type="checkbox" id="topics-more" class="peer sr-only" />
-            <TagRow
-                pills=pills
-                spacing="mt-0 max-h-[11rem] overflow-hidden peer-checked:max-h-none"
-            />
-            <div class="pointer-events-none absolute inset-x-0 top-[7rem] h-16 bg-gradient-to-t from-paper to-transparent peer-checked:hidden"></div>
-            <label
-                for="topics-more"
-                class=format!("{TOGGLE_LABEL_CLASS} block peer-checked:hidden")
-            >
-                {format!("show all {n} ↓")}
-            </label>
-            <label
-                for="topics-more"
-                class=format!("{TOGGLE_LABEL_CLASS} hidden peer-checked:block")
-            >
-                "show less ↑"
-            </label>
-        </div>
-    }
-}
-
-/// The writing header: the clean label with the post count, then the rss
-/// link — "writing (N) · rss".
-#[component]
-fn WritingHeader(total: usize) -> impl IntoView {
-    view! {
-        <div class="flex items-baseline gap-2 text-sm">
-            <SectionLabel>{format!("writing ({total})")}</SectionLabel>
-            <span class="text-ink-3" aria-hidden="true">
-                "·"
-            </span>
-            <a href=RSS_PATH class="plink">
+        <p class="writing-intro">
+            {format!("{total} {} · ", if total == 1 { "post" } else { "posts" })}
+            <a class="plink" href=RSS_PATH>
                 "rss"
             </a>
-        </div>
+        </p>
+        <ul class="writing-tags" aria-label="filter by tag">
+            {tag_words}
+        </ul>
+        <div class="writing-years">{years}</div>
+        <Show when=none_visible>
+            <p class="writing-empty">"nothing here yet"</p>
+        </Show>
     }
 }
 
-/// The reserved search slot: the pill-shaped, icon-led field. It keeps its
-/// resting and focus affordances — on focus the magnifier warms to accent and
-/// a discrete hairline draws, the global focus ring suppressed — but no
-/// filtering is wired: typing is inert until text search ships as its own
-/// feature. The recessed fill is the second paper step; the magnifier and
-/// placeholder read `ink-2` for contrast.
-#[component]
-fn SearchField() -> impl IntoView {
-    view! {
-        <label class="group relative block">
-            <span class="sr-only">"filter writing"</span>
-            <svg
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-2 transition-colors group-focus-within:text-accent"
-            >
-                <circle cx="11" cy="11" r="7"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-                type="search"
-                placeholder="filter writing…"
-                class="w-full appearance-none rounded-full border border-transparent bg-paper-2 py-2.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-2 transition-colors focus:border-line focus:outline-none focus-visible:outline-none"
-            />
-        </label>
-    }
+fn hides(active: RwSignal<BTreeSet<String>>, tags: &[String]) -> bool {
+    active.with(|active| hidden_by(active, tags))
 }
 
-/// The active selection: every tag the URL's filter query names; the
-/// browser's own query parser does the decoding.
+/// Union semantics: with a selection, anything carrying none of it hides;
+/// with no selection, nothing does.
+fn hidden_by(active: &BTreeSet<String>, tags: &[String]) -> bool {
+    !active.is_empty() && !tags.iter().any(|tag| active.contains(tag))
+}
+
+/// The index arrives newest-first, so a year's posts are consecutive: fold
+/// runs of the same year into one group, in that order.
+fn year_groups(posts: Vec<ListedPost>) -> Vec<YearGroup> {
+    posts
+        .into_iter()
+        .fold(Vec::<YearGroup>::new(), |mut groups, post| {
+            let year = post_year(&post.date);
+            match groups.last_mut() {
+                Some(group) if group.year == year => group.posts.push(post),
+                _ => groups.push(YearGroup {
+                    year: year.to_string(),
+                    posts: vec![post],
+                }),
+            }
+            groups
+        })
+}
+
 fn query_tags() -> BTreeSet<String> {
     let Ok(params) = window()
         .location()
@@ -260,5 +207,62 @@ fn replace_query(tags: &BTreeSet<String>) {
     };
     if let Ok(history) = window().history() {
         let _ = history.replace_state_with_url(&JsValue::NULL, "", Some(&url));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeSet;
+
+    use super::{hidden_by, year_groups, ListedPost};
+
+    fn post(slug: &str, date: &str, tags: &[&str]) -> ListedPost {
+        ListedPost {
+            slug: slug.into(),
+            title: slug.into(),
+            date: date.into(),
+            tags: tags.iter().map(|tag| tag.to_string()).collect(),
+        }
+    }
+
+    fn selection(tags: &[&str]) -> BTreeSet<String> {
+        tags.iter().map(|tag| tag.to_string()).collect()
+    }
+
+    #[test]
+    fn union_filter_hides_only_rows_carrying_none_of_the_selection() {
+        let rust = ["rust".to_string()];
+        assert!(
+            !hidden_by(&selection(&[]), &rust),
+            "no selection hides nothing"
+        );
+        assert!(!hidden_by(&selection(&["rust", "wasm"]), &rust));
+        assert!(hidden_by(&selection(&["wasm"]), &rust));
+        assert!(
+            hidden_by(&selection(&["wasm"]), &[]),
+            "an untagged row hides under any selection"
+        );
+    }
+
+    #[test]
+    fn newest_first_posts_fold_into_year_groups_in_order() {
+        let groups = year_groups(vec![
+            post("new", "2026-07-04", &[]),
+            post("mid", "2026-01-01", &[]),
+            post("old", "2025-02-01", &[]),
+        ]);
+        let shape: Vec<(&str, Vec<&str>)> = groups
+            .iter()
+            .map(|group| {
+                (
+                    group.year.as_str(),
+                    group.posts.iter().map(|post| post.slug.as_str()).collect(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            shape,
+            vec![("2026", vec!["new", "mid"]), ("2025", vec!["old"])]
+        );
     }
 }

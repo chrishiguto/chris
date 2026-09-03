@@ -1,0 +1,81 @@
+/* The archive keeps the home's title-first row vocabulary, adding only
+   filter words and year structure. */
+
+@layer components {
+  .writing-archive > .ghost-word {
+    top: 3rem;
+  }
+
+  .writing-intro {
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+    font-style: italic;
+  }
+
+  .writing-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .writing-tag {
+    color: var(--color-ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .writing-tag::before {
+    content: "#";
+    margin-right: 0.12em;
+    color: var(--color-ink-3);
+  }
+
+  .writing-tag:hover,
+  .writing-tag-active,
+  .writing-tag-active::before {
+    color: var(--color-accent);
+  }
+
+  .writing-years {
+    display: flex;
+    flex-direction: column;
+    gap: 1.8rem;
+    margin-top: 2.5rem;
+  }
+
+  .writing-year {
+    display: grid;
+    grid-template-columns: 4rem minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+
+  .writing-year-label {
+    color: var(--color-ink-3);
+    font-size: var(--text-xs);
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .writing-year-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .writing-empty {
+    margin-top: 2rem;
+    color: var(--color-ink-3);
+    font-size: var(--text-sm);
+    font-style: italic;
+  }
+
+  @media (max-width: 42rem) {
+    .writing-year {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.45rem;
+    }
+  }
+}
