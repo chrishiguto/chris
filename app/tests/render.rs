@@ -526,7 +526,10 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
         "tag list missing: {html}"
     );
     for tag in ["rust", "wasm"] {
-        let link = tag_containing(&html, &format!("href=\"/?q={tag}\""));
+        let link = tag_containing(
+            &html,
+            &format!("href=\"{}\"", content::tag_filter_path(tag)),
+        );
         assert!(
             link.starts_with("<a") && !link.contains("class=\"tag\""),
             "`{tag}` must be a plain word linking the filtered listing: {html}"

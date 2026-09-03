@@ -13,7 +13,6 @@ pub mod not_found;
 pub mod page;
 pub mod post_list;
 pub mod post_meta;
-pub mod tag_pill;
 pub mod tag_row;
 pub mod writing_index;
 
@@ -30,5 +29,4 @@ pub(crate) use heading::Heading;
 pub(crate) use page::{page_title, Page};
 pub(crate) use post_list::ListedPost;
 pub(crate) use post_meta::PostMeta;
-pub(crate) use tag_pill::TagPill;
 pub(crate) use tag_row::TagRow;
