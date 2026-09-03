@@ -10,16 +10,18 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
-- `docs/prds/prd-design-system-migration.md` — PRD — presentation layer, amended by the
-  caderno specification: Newsreader reading type + Geist Mono code, 18/16/14 scale, warm
-  paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
-  veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
-  tags remain an in-page filter island (its
-  `?q=` query state per ADR-0012 as amended), computed read time, formatted dates, two-hue
-  callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
-  invariants disturbed. Amended 2026-09-02: `/` is a compact index home with marginal ghost
-  words, hidden-text marks, title-first dated rows, a career fold, four recent titles and a
-  dated now; the full filter island lives at `/writing` as plain tag words over year-grouped
+- `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer, amended
+  2026-09-02 by the caderno specification's chrome slice: Newsreader reading type + Geist
+  Mono code, 18/16/14 scale, warm paper and wine tokens declared once via `light-dark()`,
+  system-only theming (toggle, stored override, and pre-paint script deleted), paper grain,
+  a veil instead of a header (no nav bar, no logo), a three-column page grid, sticky gutter
+  wayfinding on inner pages, and one footer (name, city, `rss`, `source`). Tags remain an
+  in-page filter island (its `?q=` query state per ADR-0012 as amended); computed read time,
+  formatted dates, two-hue callouts, and the code-copy island stay; two hand-rolled islands
+  remain (`WritingIndex`, `CopyButton`), no pipeline invariants disturbed. Amended
+  2026-09-02 by the home slice: `/` is a compact index home with marginal ghost words,
+  hidden-text marks, title-first dated rows, a career fold, four recent titles and a dated
+  now; the full filter island lives at `/writing` as plain tag words over year-grouped
   hover-date rows (with its inert search and topics rail retired), `/posts` redirects there,
   `/about` redirects home, and inner-page gutter links follow the new hierarchy. Topics: design
   system, tailwind v4, theming, tokens, newsreader, geist mono, paper, islands, tags,

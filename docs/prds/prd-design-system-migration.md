@@ -17,7 +17,9 @@
 > footer carries name, city, `rss`, and `source`. Theme follows the system only: the toggle,
 > stored override, and pre-paint script are removed while declared-once `light-dark()`
 > tokens and zero cache variance remain. Existing home, timeline, writing-filter/search,
-> about, and post content retain their words and shapes until their own caderno slices.
+> about, and post content retain their words and shapes until their own caderno slices;
+> with the nav bar gone, `/about` stays routed but unlinked until the home slice folds it
+> into `/` and redirects the route (#49).
 
 ## Problem Statement
 
@@ -301,8 +303,9 @@ tag routes and their components are deleted.
 > above 64rem and become small italic labels below it; visually hidden headings preserve the
 > document outline. The latest four listed post titles lead to a complete archive at
 > `/writing`, where the existing filter island now lives. `/posts` redirects there and
-> `/about` redirects to `/`; the about component and timeline presentation are retired.
-> Post wayfinding says `← writing`, while the archive says `← home`.
+> `/about` redirects to `/`; the about component is retired (the timeline home never
+> reached main — it lived on the closed PR #46). Post wayfinding says `← writing`, while
+> the archive says `← home`.
 
 > **Amendment (2026-09-02)**: `/writing` is the archive form of the home's index. A short
 > post-count/feed line and plain tag words precede title-only hover-date rows grouped by
@@ -346,6 +349,11 @@ the routes change — the `views` tag now projects listings and feeds only.
 > **Amendment (2026-07-15)**: `Konami` is deleted (user story 22) and `BackLink` joined
 > earlier (user story 18) — the inventory is `ThemeToggle`, `TagFilter`, `CopyButton`,
 > `BackLink`.
+
+> **Amendment (2026-09-02)**: the caderno chrome slice deletes `ThemeToggle` (theme
+> follows the system, ADR-0011 as amended) and `BackLink` (a plain sticky gutter link
+> replaces history-based back) — the inventory is `WritingIndex` (grown from `TagFilter`)
+> and `CopyButton`.
 
 ## Architectural Decisions
 

@@ -42,7 +42,6 @@
      pill keeps this look under the cursor. */
   a.tag.tag-active {
     color: var(--color-accent);
-    background-color: transparent;
     border-color: var(--color-accent);
   }
 }

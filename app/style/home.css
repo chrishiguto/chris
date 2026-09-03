@@ -2,7 +2,6 @@
 
 @layer components {
   .home-index-content {
-    grid-column: 2;
     padding-block: 7.5rem 4rem;
   }
 
@@ -49,8 +48,11 @@
     position: absolute;
     top: 0;
     right: calc(100% + 2rem);
-    color: color-mix(in oklch, var(--color-ink) 17%, transparent);
-    font-size: 1.875rem;
+    color: light-dark(
+      color-mix(in oklch, var(--color-ink) 17%, transparent),
+      color-mix(in oklch, var(--color-ink) 24%, transparent)
+    );
+    font-size: var(--text-3xl);
     font-style: normal;
     font-weight: 300;
     letter-spacing: 0.02em;
@@ -135,6 +137,15 @@
   }
 
   .fold-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  /* Once the script has readied a fold, its content is clipped like
+     `sr-only` — still in the accessibility tree, out of sight — until opened.
+     Without the script nothing is clipped, so no-JS readers see it all. */
+  .fold.is-ready:not(.is-open) .fold-content {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -151,16 +162,6 @@
   }
 
   .fold.is-open .fold-content {
-    position: static;
-    display: flex;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip: auto;
-    flex-direction: column;
-    gap: 0.3rem;
-    white-space: normal;
     animation: fold-in 260ms var(--ease-out-expo) both;
   }
 
@@ -251,12 +252,6 @@
     color: var(--color-ink-3);
     font-size: var(--text-xs);
     font-style: italic;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .ghost-word {
-      color: color-mix(in oklch, var(--color-ink) 24%, transparent);
-    }
   }
 
   @media (max-width: 63.999rem) {

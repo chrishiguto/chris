@@ -1,6 +1,6 @@
 //! Pure redirect decisions; the worker shim attaches only status and header.
 
-use content::{HOME_PATH, WRITING_PATH};
+use content::WRITING_PATH;
 
 /// The retired `/posts` listing's landing spot: the writing archive, with
 /// the whole query carried over verbatim so old `?q=` deep links land
@@ -10,10 +10,4 @@ pub fn posts_redirect_location(query: Option<&str>) -> String {
         Some(query) if !query.is_empty() => format!("{WRITING_PATH}?{query}"),
         _ => WRITING_PATH.to_string(),
     }
-}
-
-/// About's authored content moved to the home; bookmarks land permanently
-/// on the new canonical location.
-pub fn about_redirect_location() -> &'static str {
-    HOME_PATH
 }

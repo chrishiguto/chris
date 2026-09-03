@@ -7,9 +7,9 @@ use leptos::prelude::*;
 #[component]
 pub fn Footer() -> impl IntoView {
     view! {
-        <footer class="site-footer">
+        <footer class="border-t border-line text-xs text-ink-3">
             <div class="page-grid">
-                <div class="footer-content">
+                <div class="col-start-2 flex flex-wrap items-baseline justify-between gap-6 py-5">
                     <span>"christiano higuto · são paulo"</span>
                     <span>
                         <a href=content::RSS_PATH>"rss"</a>

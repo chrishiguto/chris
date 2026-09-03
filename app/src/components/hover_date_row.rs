@@ -2,12 +2,14 @@ use leptos::prelude::*;
 
 /// A title-first row whose already-reserved date slides into view on hover
 /// or keyboard focus. Keeping the date in flow prevents interaction reflow.
+/// A row without an `href` is a focusable span so the date is reachable by
+/// keyboard; a fold that clips rows out of sight takes them out of the tab
+/// order itself.
 #[component]
 pub fn HoverDateRow(
     date: String,
     #[prop(optional)] href: Option<String>,
     #[prop(default = false)] current: bool,
-    #[prop(default = true)] focusable: bool,
     children: Children,
 ) -> impl IntoView {
     let words = children().into_any();
@@ -27,14 +29,11 @@ pub fn HoverDateRow(
             </a>
         }
         .into_any(),
-        None => {
-            let tabindex = if focusable { "0" } else { "-1" };
-            view! {
-                <span class="hover-date-row" tabindex=tabindex>
-                    {content}
-                </span>
-            }
-            .into_any()
+        None => view! {
+            <span class="hover-date-row" tabindex="0">
+                {content}
+            </span>
         }
+        .into_any(),
     }
 }
