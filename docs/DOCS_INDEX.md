@@ -24,8 +24,7 @@ summary, key topics.
   full listing with a topics rail and a reserved (inert) search slot, the `TagFilter`
   island grew into `WritingIndex`, `/posts` 301s to `/`. `/about` stays routed but unlinked
   until the home slice folds it in. Topics: design system, tailwind v4, theming, tokens,
-  newsreader,
-  geist mono, paper, islands, tags, read time, about page, writing home, prd.
+  newsreader, geist mono, paper, islands, tags, read time, about page, writing home, prd.
 
 ## ADRs
 
