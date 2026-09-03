@@ -1,15 +1,18 @@
 use leptos::prelude::*;
 
-/// One-way progressive disclosure. The folded content remains in the HTML
-/// and accessibility tree; CSS clips it visually until the tiny script adds
-/// the open state. This stays server markup, not a hydration island.
+/// One-way progressive disclosure. The folded content ships in full and is
+/// visible until a script marks the fold ready (`is-ready`): only then does
+/// CSS clip it like `sr-only` — still in the accessibility tree, out of
+/// sight — and unhide the button that opens it (`is-open`). No JavaScript,
+/// no fold: the reader simply sees everything. `label` is the button's
+/// spoken name.
 #[component]
-pub fn Fold(children: Children) -> impl IntoView {
+pub fn Fold(label: &'static str, children: Children) -> impl IntoView {
     view! {
         <div class="fold">
-            <button class="fold-button" type="button" aria-expanded="false">
+            <button class="fold-button" type="button" aria-expanded="false" hidden>
                 <span aria-hidden="true">"(…)"</span>
-                <span class="sr-only">"show earlier work"</span>
+                <span class="sr-only">{label}</span>
             </button>
             <div class="fold-content">{children()}</div>
         </div>

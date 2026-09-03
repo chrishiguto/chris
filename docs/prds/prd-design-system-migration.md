@@ -303,8 +303,9 @@ tag routes and their components are deleted.
 > above 64rem and become small italic labels below it; visually hidden headings preserve the
 > document outline. The latest four listed post titles lead to a complete archive at
 > `/writing`, where the existing filter island now lives. `/posts` redirects there and
-> `/about` redirects to `/`; the about component and timeline presentation are retired.
-> Post wayfinding says `← writing`, while the archive says `← home`.
+> `/about` redirects to `/`; the about component is retired (the timeline home never
+> reached main — it lived on the closed PR #46). Post wayfinding says `← writing`, while
+> the archive says `← home`.
 
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code

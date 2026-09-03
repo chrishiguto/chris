@@ -74,21 +74,13 @@ pub fn format_post_date(iso: &str, include_year: bool) -> String {
         )
 }
 
-/// Career ranges read as prose rather than compact data.
-pub fn format_year_range(start: u16, end: Option<u16>) -> String {
-    match end {
-        Some(end) => format!("{start} to {end}"),
-        None => format!("since {start}"),
-    }
-}
-
 fn digits(part: &str, len: usize) -> bool {
     part.len() == len && part.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{format_post_date, format_year_range};
+    use super::format_post_date;
 
     #[test]
     fn dates_format_with_every_english_month_name() {
@@ -105,12 +97,6 @@ mod tests {
         assert_eq!(format_post_date("2026-07-04", true), "4 july 2026");
         assert_eq!(format_post_date("2026-01-01", true), "1 january 2026");
         assert_eq!(format_post_date("2026-12-31", true), "31 december 2026");
-    }
-
-    #[test]
-    fn ranges_distinguish_current_and_closed_work() {
-        assert_eq!(format_year_range(2025, None), "since 2025");
-        assert_eq!(format_year_range(2022, Some(2025)), "2022 to 2025");
     }
 
     // Display must never panic on stored data; anything off-shape passes through.

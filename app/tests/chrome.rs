@@ -9,7 +9,7 @@ mod common;
 
 #[test]
 fn veil_is_inert_and_replaces_the_bar() {
-    for path in ["/", "/about", "/nowhere"] {
+    for path in ["/", "/writing", "/nowhere"] {
         let html = common::app_at(path);
         let veil = common::tag_containing(&html, "site-veil");
         assert!(
