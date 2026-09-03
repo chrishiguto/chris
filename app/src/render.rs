@@ -5,22 +5,31 @@ use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{CodeBlock, GutterNav, PostMeta, TagPill, TagRow};
+use crate::components::{CodeBlock, GutterNav, PostMeta, TagRow};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
-    // Pills close the article and land on the pre-filtered listing.
-    let pills: Vec<_> = doc
+    // The article ends on its tag words — plain italic links, not the
+    // listing's pills — each landing on the pre-filtered listing.
+    let words: Vec<_> = doc
         .frontmatter
         .tags
         .iter()
-        .cloned()
-        .map(|tag| view! { <TagPill tag=tag /> })
+        .map(|tag| {
+            let href = content::tag_filter_path(tag);
+            view! {
+                <li>
+                    <a class="plink text-xs italic text-ink-2" href=href>
+                        {tag.clone()}
+                    </a>
+                </li>
+            }
+        })
         .collect();
-    let tags = view! { <TagRow pills=pills spacing="" /> };
+    let tags = view! { <TagRow pills=words spacing="gap-3.5 border-t border-line pt-6" /> };
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post page-grid">
-            <GutterNav href=content::HOME_PATH label="home" />
+            <GutterNav href=content::HOME_PATH label="writing" />
             <div class="post-content page-enter">
                 <header>
                     <h1>{doc.frontmatter.title.clone()}</h1>

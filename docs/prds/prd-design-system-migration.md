@@ -311,6 +311,19 @@ component-error style re-points at `danger`.
 > **Amendment (2026-07-15)**: the label row is a small tracked sans `kind` — no `//`
 > prefix, no mono (user story 10).
 
+> **Amendment (2026-09-02)**: the post now carries the caderno idiom end to end. The
+> gutter link reads `← writing`; its 30px/500 title sits over a 14px italic meta line whose
+> date reads naturally (`4 july 2026`). Bare rendered headings gain wine section signs from
+> the prose sheet (a pseudo-element, so the kitchen-sink read verifies them, not the SSR
+> seam). Callouts are unfilled hairline blocks with small-caps labels (only danger leaves
+> the accent hue), and code rests on paper-2 behind a 2px left rule while retaining its
+> language label and copy island. Footnotes are authored as the inline `<Footnote note="…">`
+> post component wrapping the marked phrase; it emits the dagger `.footnote-ref` and the
+> `.footnote-note`, all text remains in SSR HTML, and CSS moves the note into the right
+> gutter at 72rem and returns it inline below that. Articles end on plain italic tag words
+> (not the listing's pills) linking to the filtered writing listing, with no end navigation.
+> The AST node mapping remains unchanged.
+
 **Content crate**: `IndexEntry` gains optional `reading_minutes`, following the
 `description` precedent exactly (additive serde, skip-when-absent, no schema bump, absent
 values simply don't render). Two pure functions join the crate: an AST word-counter

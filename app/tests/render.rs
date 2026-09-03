@@ -467,7 +467,7 @@ fn render_document_wraps_body_in_article_with_header() {
     );
     assert!(html.contains("<h1>Hello, KV</h1>"), "title missing: {html}");
     assert!(
-        html.contains("jul 04, 2026"),
+        html.contains("4 july 2026"),
         "formatted date missing: {html}"
     );
     assert!(html.contains("<p>body text</p>"), "body missing: {html}");
@@ -487,22 +487,27 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
     }
 }
 
-// Tag pills sit at the article bottom and land on the pre-filtered
-// listing via the `?q=` filter query.
+// Tag words sit at the article bottom as plain links — no pill chrome, no
+// hash — and land on the pre-filtered listing via the `?q=` filter query.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
-        html.contains("<ul class=\"post-tags\">"),
+        tag_containing(&html, "post-tags").starts_with("<ul"),
         "tag list missing: {html}"
     );
     for tag in ["rust", "wasm"] {
+        let link = tag_containing(&html, &format!("href=\"/?q={tag}\""));
         assert!(
-            html.contains(&format!("<a href=\"/?q={tag}\" class=\"tag\">")),
-            "`{tag}` pill must link to the filtered listing: {html}"
+            link.starts_with("<a") && !link.contains("class=\"tag\""),
+            "`{tag}` must be a plain word linking the filtered listing: {html}"
         );
     }
+    assert!(
+        !html.contains("tag-hash"),
+        "post tag words carry no hash: {html}"
+    );
     let body = html.find("post-body").expect("post body missing");
     let tags = html.find("post-tags").expect("tag list missing");
     assert!(tags > body, "tags must follow the article body: {html}");
@@ -522,14 +527,17 @@ fn post_omits_empty_tag_list() {
     );
 }
 
-// Post wayfinding is a stable home link in semantic gutter nav. It is plain
+// Post wayfinding is a stable writing link in semantic gutter nav. It is plain
 // SSR markup: no history behavior and no island payload.
 #[test]
-fn post_opens_with_gutter_nav_to_home() {
+fn post_opens_with_gutter_nav_to_writing() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
-    let link = tag_containing(&html, "← home");
-    assert!(link.starts_with("<a"), "the way out must link home: {html}");
+    let link = tag_containing(&html, "← writing");
+    assert!(
+        link.starts_with("<a"),
+        "the way out must link to writing: {html}"
+    );
     let back = html.find("href=\"/\"").unwrap();
     assert!(
         html[..back].contains("<nav") && !html.contains("<leptos-island"),
@@ -539,19 +547,19 @@ fn post_opens_with_gutter_nav_to_home() {
         back < html.find("<header").expect("header missing"),
         "the back link must sit above the header: {html}"
     );
-    assert!(html.contains("aria-label=\"back to home\""), "{html}");
+    assert!(html.contains("aria-label=\"back to writing\""), "{html}");
 }
 
-// The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
+// The header meta row is italic reading chrome (`.post-meta`): date in words, ink-3
 // separator span, and a read time computed live from the AST the page holds.
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
-        html.contains("<p class=\"post-meta\"><span>jul 04, 2026</span>")
+        html.contains("<p class=\"post-meta\"><span>4 july 2026</span>")
             && html.contains("<span>1 min</span>"),
-        "meta row must read `jul 04, 2026 · 1 min`: {html}"
+        "meta row must read `4 july 2026 · 1 min`: {html}"
     );
     let sep = tag_containing(&html, "·");
     assert!(
@@ -560,7 +568,7 @@ fn post_header_renders_formatted_date_and_read_time() {
     );
     let sep_at = html.find("·").unwrap();
     assert!(
-        html.find("jul 04, 2026").unwrap() < sep_at && sep_at < html.find("1 min").unwrap(),
+        html.find("4 july 2026").unwrap() < sep_at && sep_at < html.find("1 min").unwrap(),
         "the meta row must read `date · minutes`: {html}"
     );
 }
@@ -591,7 +599,11 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<hr",
         "<br",
         "<kbd>",
-        "class=\"post-tags\"",
+        "class=\"footnote-ref\"",
+        "aria-label=\"footnote\"",
+        "†</sup>",
+        "class=\"footnote-note\">On narrower pages",
+        "class=\"post-tags ",
         "callout callout-note",
         "callout callout-tip",
         "callout callout-warning",
@@ -610,5 +622,12 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     assert!(
         !html.contains("component-error"),
         "no component may fail dispatch: {html}"
+    );
+    // The post ends on its tag words: the tag row closes the content column,
+    // so any end-of-post navigation would have to follow it.
+    assert!(
+        html.trim_end().ends_with("</ul></div></article>")
+            && html.rfind("post-tags").unwrap() > html.rfind("post-body").unwrap(),
+        "the tag row must be the article's last block: {html}"
     );
 }
