@@ -4,11 +4,14 @@
    error surface. */
 
 @layer components {
-  /* Width/centering come from utilities on the article; only rhythm lives here. */
+  /* The article is the page grid itself so the gutter nav can share its row;
+     the padding sits on the grid, not the column, so both start at one height. */
   .post {
     padding-block: 8rem 5rem;
-    font-size: 1.125rem;
-    line-height: 1.6;
+  }
+
+  .post-content {
+    grid-column: 2;
   }
 
   .post header {
@@ -17,7 +20,6 @@
 
   .post header h1 {
     margin: 0 0 0.75rem;
-    font-family: var(--font-display);
     font-size: 1.875rem;
     font-weight: 500;
     letter-spacing: -0.01em;
@@ -54,12 +56,11 @@
     text-wrap: balance;
   }
 
-  /* Section headings carry the display face; the small ranks stay sans so
+  /* Titling ranks tighten their tracking; the small ranks keep body tracking so
      they read as labels, not titles. */
   .post-body h1,
   .post-body h2,
   .post-body h3 {
-    font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
 
@@ -161,13 +162,13 @@
     border-top: 1px solid var(--color-line);
   }
 
-  /* A footnote is authored as one marked span containing `.footnote-ref`
-     and `.footnote-note`. Its complete text remains in the SSR document;
-     only placement changes when the right gutter can hold it. */
+  /* The `<Footnote>` post component emits the dagger and the note after the
+     marked phrase. Both stay in the SSR document; only placement changes when
+     the right gutter can hold the note. The dagger holds the 14px floor. */
   .footnote-ref {
     margin-inline-start: 0.1em;
     color: var(--color-accent);
-    font-size: 0.75em;
+    font-size: var(--text-xs);
     line-height: 0;
     vertical-align: super;
   }
@@ -186,6 +187,9 @@
     content: ")";
   }
 
+  /* 72rem, not the 64rem gutter-nav breakpoint: the note needs 2rem of offset
+     plus 11rem of width past the 44rem column, which the 64rem gutters cannot
+     hold but 72rem's 14rem ones can. The note hangs off `.post-body`. */
   @media (min-width: 72rem) {
     .footnote-note {
       position: absolute;
@@ -200,28 +204,6 @@
     .footnote-note::after {
       content: none;
     }
-  }
-
-  /* The article closes on unboxed tag words. Listing filter tags retain
-     their shared interactive treatment outside this post-owned scope. */
-  .post-content > .post-tags {
-    gap: 0.875rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid var(--color-line);
-  }
-
-  .post-content > .post-tags .tag {
-    gap: 0;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    color: var(--color-ink-2);
-    font-size: 0.875rem;
-    font-style: italic;
-  }
-
-  .post-content > .post-tags .tag-hash {
-    display: none;
   }
 
   /* Bad KV data must fail loudly; deliberately jarring in both modes. */

@@ -17,7 +17,9 @@
 > footer carries name, city, `rss`, and `source`. Theme follows the system only: the toggle,
 > stored override, and pre-paint script are removed while declared-once `light-dark()`
 > tokens and zero cache variance remain. Existing home, timeline, writing-filter/search,
-> about, and post content retain their words and shapes until their own caderno slices.
+> about, and post content retain their words and shapes until their own caderno slices;
+> with the nav bar gone, `/about` stays routed but unlinked until the home slice folds it
+> into `/` and redirects the route (#49).
 
 ## Problem Statement
 
@@ -312,13 +314,15 @@ component-error style re-points at `danger`.
 > **Amendment (2026-09-02)**: the post now carries the caderno idiom end to end. The
 > gutter link reads `← writing`; its 30px/500 title sits over a 14px italic meta line whose
 > date reads naturally (`4 july 2026`). Bare rendered headings gain wine section signs from
-> the prose sheet. Callouts are unfilled hairline blocks with small-caps labels (only danger
-> leaves the accent hue), and code rests on paper-2 behind a 2px left rule while retaining
-> its language label and copy island. A `.footnote` span contains the marked phrase, dagger
-> `.footnote-ref`, and `.footnote-note`: all text remains in SSR HTML, with CSS moving the
-> note into the right gutter at 72rem and returning it inline below that. Articles end on
-> unboxed tag words linking to the filtered writing listing, with no end navigation. The
-> AST node mapping remains unchanged.
+> the prose sheet (a pseudo-element, so the kitchen-sink read verifies them, not the SSR
+> seam). Callouts are unfilled hairline blocks with small-caps labels (only danger leaves
+> the accent hue), and code rests on paper-2 behind a 2px left rule while retaining its
+> language label and copy island. Footnotes are authored as the inline `<Footnote note="…">`
+> post component wrapping the marked phrase; it emits the dagger `.footnote-ref` and the
+> `.footnote-note`, all text remains in SSR HTML, and CSS moves the note into the right
+> gutter at 72rem and returns it inline below that. Articles end on plain italic tag words
+> (not the listing's pills) linking to the filtered writing listing, with no end navigation.
+> The AST node mapping remains unchanged.
 
 **Content crate**: `IndexEntry` gains optional `reading_minutes`, following the
 `description` precedent exactly (additive serde, skip-when-absent, no schema bump, absent
@@ -340,6 +344,11 @@ the routes change — the `views` tag now projects listings and feeds only.
 > **Amendment (2026-07-15)**: `Konami` is deleted (user story 22) and `BackLink` joined
 > earlier (user story 18) — the inventory is `ThemeToggle`, `TagFilter`, `CopyButton`,
 > `BackLink`.
+
+> **Amendment (2026-09-02)**: the caderno chrome slice deletes `ThemeToggle` (theme
+> follows the system, ADR-0011 as amended) and `BackLink` (a plain sticky gutter link
+> replaces history-based back) — the inventory is `WritingIndex` (grown from `TagFilter`)
+> and `CopyButton`.
 
 ## Architectural Decisions
 

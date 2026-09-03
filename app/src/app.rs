@@ -6,14 +6,14 @@ use leptos_router::{
 };
 
 use crate::about::AboutPage;
-use crate::components::{Footer, NotFound, Veil};
+use crate::components::{Footer, NotFound};
 use crate::listing::HomePage;
 use crate::post::PostPage;
 
 /// Newsreader carries every reading voice; Geist Mono is reserved for code.
 /// The variable axes ship in the URL so browsers receive italic, optical-size,
 /// and the complete 300–700 weight range without local axis overrides.
-pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400..700&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap";
+pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap";
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // cargo-leptos targets id="leptos" on the link below for CSS hot-reload.
@@ -53,8 +53,10 @@ pub fn App() -> impl IntoView {
         <Title text=content::SITE_TITLE />
 
         <Router>
-            <div class="site-shell">
-                <Veil />
+            <div class="flex min-h-dvh flex-col">
+                // The top edge is a blur-and-paper veil, deliberately inert: it
+                // dissolves scrolling text without becoming a navigation surface.
+                <div class="site-veil" aria-hidden="true"></div>
                 <main class="flex-1">
                     <Routes fallback=|| view! { <NotFound /> }>
                         <Route path=StaticSegment("") view=HomePage />

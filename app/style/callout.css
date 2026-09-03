@@ -9,8 +9,6 @@
     margin-block: 1.5em;
     padding: 0.875rem 1rem;
     border: 1px solid var(--color-line);
-    border-radius: 0;
-    background-color: transparent;
   }
 
   .callout-label {
