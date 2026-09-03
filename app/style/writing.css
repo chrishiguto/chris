@@ -72,12 +72,6 @@
     font-style: italic;
   }
 
-  @media (max-width: 63.999rem) {
-    .writing-archive > .ghost-word {
-      margin-bottom: 0.65rem;
-    }
-  }
-
   @media (max-width: 42rem) {
     .writing-year {
       grid-template-columns: minmax(0, 1fr);

@@ -46,7 +46,7 @@ pub fn WritingPage() -> impl IntoView {
     };
     view! {
         <Title text=page_title("writing") />
-        <section class="page-grid writing-page">
+        <section class="page-grid">
             <GutterNav href=content::HOME_PATH label="home" />
             <div class="page-column page-enter">
                 <section class="ghost-section writing-archive">
