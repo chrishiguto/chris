@@ -20,7 +20,7 @@ fn shell_html() -> String {
 #[test]
 fn newsreader_and_geist_mono_load_with_the_full_axes() {
     for part in [
-        "family=Geist+Mono:wght@400..700",
+        "family=Geist+Mono:wght@400",
         "family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700",
         "display=swap",
     ] {

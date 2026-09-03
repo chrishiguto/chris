@@ -2,24 +2,19 @@
 //! gutter wayfinding on inner pages. All of it is server-rendered.
 #![cfg(feature = "ssr")]
 
-use app::components::{Footer, GutterNav, Veil};
+use app::components::{Footer, GutterNav};
 use leptos::view;
 
 mod common;
 
 #[test]
 fn veil_is_inert_and_replaces_the_bar() {
-    let html = common::ssr(|| {}, || view! { <Veil /> });
-    assert!(
-        html.contains("class=\"site-veil\"") && html.contains("aria-hidden=\"true\""),
-        "the decorative veil must stay out of interaction and accessibility: {html}"
-    );
-
     for path in ["/", "/about", "/nowhere"] {
         let html = common::app_at(path);
+        let veil = common::tag_containing(&html, "site-veil");
         assert!(
-            html.contains("site-veil"),
-            "`{path}` needs the veil: {html}"
+            veil.starts_with("<div") && veil.contains("aria-hidden=\"true\""),
+            "`{path}` needs the decorative veil, out of interaction and accessibility: {html}"
         );
         for retired in ["site-nav", "nav-logo", "nav-link", "theme-toggle"] {
             assert!(
