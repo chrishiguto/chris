@@ -47,6 +47,7 @@ fn home_renders_the_index_sections_in_order() {
     let writing = html.find(">writing</span>").unwrap();
     let now = html.find(">now</span>").unwrap();
     let touched = html.find("last touched 2 september 2026").unwrap();
+    let credit = html.find("hidden text borrows from").unwrap();
     let footer = html.find("<footer").unwrap();
     assert!(
         name < intro
@@ -54,11 +55,23 @@ fn home_renders_the_index_sections_in_order() {
             && work < writing
             && writing < now
             && now < touched
-            && touched < footer,
+            && touched < credit
+            && credit < footer,
         "{html}"
     );
     assert!(html.contains("mailto:chrisshiguto@gmail.com"), "{html}");
     assert!(html.contains("github.com/chrishiguto/chris"), "{html}");
+    for lineage in ["igorbedesqui.com", "ped.ro", "lfe.org"] {
+        assert!(
+            html.contains(lineage),
+            "home missing `{lineage}` credit: {html}"
+        );
+    }
+    assert!(!html.contains('—'), "home copy contains an em dash: {html}");
+    assert!(
+        html.contains("4 july") && !html.contains("2026-07-04"),
+        "visible post dates must read as words: {html}"
+    );
     assert!(
         !html.contains("post-row-desc"),
         "home has no post descriptions: {html}"

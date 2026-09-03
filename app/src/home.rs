@@ -61,26 +61,10 @@ const STINTS: &[Stint] = &[
     },
 ];
 
-/// The home's only script: readies the folds (until then their content is
-/// simply visible), opens them one-way while keeping keyboard focus on the
-/// revealed rows, and lets a tap toggle the honest edit where hover cannot.
+/// The home's only script: a tap toggles the honest edit where hover cannot.
+/// The career fold is the shared [`Fold`], run by the shell's fold script.
 const HOME_SCRIPT: &str = r#"
-const home = document.currentScript.closest('.home-index');
-home.querySelectorAll('.fold').forEach((fold) => {
-  fold.classList.add('is-ready');
-  fold.querySelector('.fold-button').hidden = false;
-  fold.querySelectorAll('.hover-date-row').forEach((row) => { row.tabIndex = -1; });
-});
-home.addEventListener('click', (event) => {
-  const button = event.target.closest('.fold-button');
-  if (button) {
-    const fold = button.closest('.fold');
-    fold.classList.add('is-open');
-    button.setAttribute('aria-expanded', 'true');
-    const rows = fold.querySelectorAll('.hover-date-row');
-    rows.forEach((row) => { row.tabIndex = 0; });
-    if (rows[0]) rows[0].focus();
-  }
+document.currentScript.closest('.home-index').addEventListener('click', (event) => {
   const edit = event.target.closest('.honest-edit');
   if (edit) edit.classList.toggle('is-revealed');
 });
@@ -219,6 +203,15 @@ pub fn HomePage() -> impl IntoView {
                     </p>
                     <p class="last-touched tabular-nums">"last touched 2 september 2026"</p>
                 </section>
+                <p class="mt-8 text-sm text-ink-3">
+                    "hidden text borrows from " <a class="plink" href="https://igorbedesqui.com/">
+                        "igorbedesqui.com"
+                    </a> ", who credits " <a class="plink" href="https://ped.ro/">
+                        "ped.ro"
+                    </a> " and " <a class="plink" href="https://lfe.org/">
+                        "lfe.org"
+                    </a> "."
+                </p>
                 <script>{HOME_SCRIPT}</script>
             </div>
         </div>

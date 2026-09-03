@@ -455,8 +455,16 @@ impl Converter<'_> {
             }
         }
 
-        if has_children && !spec.accepts_children {
-            self.error(format!("`<{name}>` does not accept children"), position);
+        // A plain Leptos `Children` parameter is required, so accepting
+        // children and requiring them are the same fact: an empty invocation
+        // fails here, before render dispatch.
+        if has_children != spec.accepts_children {
+            let complaint = if has_children {
+                "does not accept children"
+            } else {
+                "requires children"
+            };
+            self.error(format!("`<{name}>` {complaint}"), position);
         }
     }
 

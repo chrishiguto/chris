@@ -48,6 +48,23 @@ fn footer_carries_only_the_signature_and_destinations() {
         !html.contains("built slowly") && !html.contains("purpose"),
         "the retired tagline must stay gone: {html}"
     );
+    assert_eq!(
+        html.matches("href=").count(),
+        2,
+        "footer has extra destinations: {html}"
+    );
+}
+
+// The copy pass: no em dash anywhere a reader lands, chrome included.
+#[test]
+fn rendered_pages_contain_no_em_dash() {
+    for path in ["/", "/writing", "/nowhere"] {
+        let html = common::app_at(path);
+        assert!(
+            !html.contains('—'),
+            "`{path}` copy contains an em dash: {html}"
+        );
+    }
 }
 
 #[test]

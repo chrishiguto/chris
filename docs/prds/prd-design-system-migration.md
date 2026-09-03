@@ -1,479 +1,273 @@
-# PRD: Design-System Migration (v2 presentation layer)
-
-> Companion documents: `docs/adrs/adr-0011-client-side-theming.md`,
-> `docs/adrs/adr-0012-tags-in-page-filter.md` — summarized inline below. The design source
-> is the claude.ai/design project `a9bc2927-53d3-4e51-9268-1606e6c253b1` (tokens under
-> `tokens/*.css`, reference mock at `ui_kits/website/index.html`); every decision here was
-> resolved in a full design interview on 2026-07-09.
-
-> **Amendment (2026-09-02)**: [the caderno specification](https://github.com/chrishiguto/chris/issues/47)
-> supersedes the v2 visual language in staged slices. Its chrome slice makes the site one
-> sheet of warm, low-chroma paper (hue 80) with three ink levels, a wine accent (light
-> `oklch(42% 0.13 15)`, dark `oklch(70% 0.11 15)`) and a static grain. Newsreader becomes
-> the single reading family — 18px body at 1.6, 16px secondary, 14px floor, 30px titles,
-> 22px section headings — with Geist Mono reserved for code. A flexible-gutter / 44rem /
-> flexible-gutter grid replaces the centered bar layout; a blur-and-paper veil replaces
-> the header, post wayfinding becomes a sticky `← home` gutter link, and the one full-width
-> footer carries name, city, `rss`, and `source`. Theme follows the system only: the toggle,
-> stored override, and pre-paint script are removed while declared-once `light-dark()`
-> tokens and zero cache variance remain. Existing home, timeline, writing-filter/search,
-> about, and post content retain their words and shapes until their own caderno slices;
-> with the nav bar gone, `/about` stays routed but unlinked until the home slice folds it
-> into `/` and redirects the route (#49).
-
-## Problem Statement
-
-The blog's engineering pipeline is real, but its presentation layer is a placeholder: a
-generic serif theme (Lora/Libre Baskerville, blue accent) that reflects no identity, has no
-user-facing theme control, no about page, and a tag-browsing IA (`/tags`, `/tags/{tag}`)
-that treats post metadata as standalone pages nobody visits.
-
-A complete design system already exists — purpose-built for this site in claude.ai/design:
-a warm-tonal near-monochrome palette with one dusty-rose accent, Geist/Geist Mono
-typography, a lowercase terminal-flavored voice (`~/chris` wordmark, `// note` labels,
-`$ ls` empty states), restrained micro-motion, and mocks for home, writing, post, and about
-screens. It is authored as a static React/CSS mock and must be translated into this
-codebase's actual stack — Leptos 0.8 islands, Tailwind v4, SSR on Workers behind a
-tag-purged edge cache — without disturbing the content-pipeline invariants (KV stores
-meaning, deployed code owns presentation, caches are purged).
-
-## Solution
-
-Adapt, not clone: extract the design system's tokens and visual language into the existing
-Tailwind v4 `@theme` layer, rebuild the site chrome and pages to the design's shape on the
-existing SSR foundation, and add exactly four small islands for the interactivity the
-design calls for (theme toggle, tag filter, code copy, easter egg). The React mock is
-scaffolding and is discarded.
-
-Concretely: Geist everywhere (sans prose/headings, mono chrome) served from Google Fonts;
-the warm palette converted to oklch and declared once via `light-dark()`; a persistent
-light/dark toggle with no flash and zero cache variance; a redesigned IA — `~/chris`
-wordmark, "writing"/"about" nav, terminal breadcrumb on post pages, a footer, a new static
-`/about` page, home showing the latest three posts; tags reworked from standalone SSR pages
-into in-page client-side filtering with URL-hash state; computed read time and formatted
-dates in listings and post meta; callouts restyled to two hue families with mono `// kind`
-labels; code blocks gaining a chrome bar and copy button; and the design's motion grammar
-(fade-up stagger, sliding link underlines, cursor blink) applied site-wide with
-`prefers-reduced-motion` honored.
-
-## Success Metrics
-
-- The kitchen-sink post renders every AST node type and every callout kind correctly in
-  **both** themes — the QA gate before shipping each slice.
-- No flash of the wrong theme on any load; an explicit theme choice survives across visits;
-  with no choice made, the site follows the system preference.
-- Workers Cache behavior is unchanged: one cached response per URL, no new variance, the
-  same `site`/`views`/`post:{slug}` tag scheme (minus the deleted tag pages).
-- `just size` stays green with no new warnings — the four islands together add only a small
-  wasm delta.
-- `just check` and `just test` pass throughout; a content-only publish still works
-  end-to-end untouched.
-- Old `/tags*` URLs return 404 (deliberate); `/about` is routed, cached under the `site`
-  tag, and sitemapped.
-
-## User Stories
-
-**Readers — theme**
-
-1. As a reader, I want the site to follow my OS light/dark preference by default, so that
-   it looks right without any action.
-2. As a reader, I want a theme toggle in the header, so that I can override the system
-   preference.
-3. As a reader, I want my theme choice remembered, so that the site stays how I set it on
-   every visit.
-4. As a returning reader, I want no flash of the wrong theme while a page loads, so that
-   navigation feels stable.
-
-**Readers — reading experience**
-
-5. As a reader, I want body text in a clean sans face at a comfortable measure (~65ch,
-   17px), so that long posts are pleasant to read.
-6. As a reader, I want structural chrome (nav, dates, tags, labels, code) in a mono face,
-   so that the terminal voice of the site is consistent.
-
-   > **Amendment (2026-07-15)**: reversed with the type-pairing swap — the terminal voice
-   > retired. Geist Mono narrows to actual code (code panels, inline code, the renderer's
-   > error chip); nav, dates, tags, labels, and the footer read the body sans with weight
-   > and tracking doing the label work. The `$ cat about.md` prompt, the `$ ls` empty
-   > state, and the konami egg are deleted with it (stories 10 and 22, Pages, and the
-   > islands inventory below).
-7. As a reader, I want each post to show a formatted date and an estimated read time, so
-   that I can decide when to read it.
-8. As a reader, I want code blocks with a header bar naming the language, so that I can
-   orient before reading code.
-9. As a reader, I want a copy button on code blocks with visible "copied" feedback, so that
-   I can grab a snippet in one click.
-10. As a reader, I want callouts whose kind is visible at a glance (`// note`, `// tip`,
-    `// warning`, `// danger`) with severity readable through intensity, so that asides
-    don't shout in four rainbow colors.
-
-    > **Amendment (2026-07-15)**: the labels drop the `//` comment prefix and the mono
-    > face with the terminal voice (story 6); the kind renders as a small tracked sans
-    > label in the family hue. The two-hue-family contract stands.
-11. As a reader with `prefers-reduced-motion` set, I want transform animations disabled,
-    so that the site respects my settings.
-
-**Readers — navigation and IA**
-
-12. As a reader, I want a home page that introduces the author and shows the latest three
-    posts with a link to everything, so that I can start reading immediately.
-13. As a reader, I want the post count in the "read all posts" link, so that I know the
-    size of the archive.
-14. As a reader, I want a writing page listing every post with title, description, date,
-    and read time, so that I can scan the archive in one place.
-15. As a reader, I want to filter the writing page by tag instantly, without a page load,
-    so that browsing by topic feels immediate.
-16. As a reader, I want a filtered view to have a shareable URL (`/posts#rust`), so that I
-    can link someone to a topic.
-17. As a reader, I want tag pills on a post to take me to the writing page pre-filtered on
-    that tag, so that I can find related posts.
-18. As a reader on a post page, I want a terminal breadcrumb (`~/chris/posts/{slug}`) and a
-    "back to all posts" link, so that I always know where I am and how to get back.
-
-    > **Amendment (2026-07-12)**: the breadcrumb ships in the article body (see Chrome
-    > below) and replaces the "back to all posts" link — two stacked up-navigation rows
-    > read as clutter, and the breadcrumb's linked `posts` segment is the way back.
-
-    > **Amendment (2026-07-14)**: the breadcrumb is deleted. The site is one level deep,
-    > so every segment duplicated something already on screen: the root echoed the bar's
-    > home link, `posts` echoed the `writing` nav link, and the slug sat above the real
-    > title. Wayfinding is the bar's job — the nav marks the writing section as current
-    > on post pages (see Chrome). Removing it also decoupled the AST renderer from URL
-    > knowledge: it renders content, never navigation.
-
-    > **Amendment (2026-07-15)**: a `← back` control opens the article again — but as
-    > history navigation, not a breadcrumb. The island calls `history.back()` when the
-    > referrer is same-origin, returning the reader to whatever they left (a filtered
-    > listing, home, another post); direct visits, external referrers, and no-JS readers
-    > follow its href to `/posts` instead. Unlike the breadcrumb it duplicates nothing on
-    > screen and names no part of the page's own URL, so the renderer stays decoupled
-    > from URL knowledge.
-19. As a reader, I want an about page with a short bio, what the author is currently into,
-    and contact links, so that I can learn who writes this.
-20. As a reader, I want a footer on every page, so that the site feels finished and signed.
-21. As a reader who hits a dead URL, I want a 404 page in the site's own voice, so that
-    even errors feel designed.
-22. As a curious reader, I want the konami code hinted in the footer to actually do
-    something, so that the site rewards attention.
-
-    > **Amendment (2026-07-15)**: deleted — the hint read as clutter once the terminal
-    > voice retired (story 6), and an unhinted egg is dead weight. The island, toast,
-    > and blink keyframe went with it; the footer is the signature line alone.
-
-**Readers — degraded modes**
-
-23. As a no-JS reader, I want the full post list, all post content, and both nav variants
-    to render server-side, so that nothing essential requires wasm.
-24. As a no-JS reader, I want the site to follow my system theme, so that the missing
-    toggle costs me nothing.
-25. As a feed subscriber, I want titles and content in the feed to match the site exactly
-    (no CSS-only casing tricks), so that the feed is not a second-class rendering.
-
-**Author**
-
-26. As the author, I want lowercase to be an authoring convention rather than a CSS
-    transform, so that acronyms (CI, KV, MDX) keep their casing when I choose and the tab
-    title, feed, and page never disagree.
-27. As the author, I want read time computed from the AST at publish, so that I never
-    author or maintain it.
-28. As the author, I want dates authored as ISO and formatted for display, so that sorting
-    stays lexicographic while readers see `jul 04, 2026`.
-29. As the author, I want the callout contract unchanged (`kind` + optional `title`), so
-    that no existing post needs edits.
-30. As the author, I want frontmatter unchanged (no new required fields), so that the
-    authoring contract in CONTENT.md stays stable.
-
-**Operator**
-
-31. As the operator, I want theming to add zero server variance, so that the edge cache
-    stays one-response-per-URL.
-32. As the operator, I want the tag-route deletion to shrink the routed/sitemapped/purged
-    surface, so that the pipeline gets simpler, not just different.
-33. As the operator, I want the wasm size gate to stay green, so that islands never
-    threaten the Workers limit.
-34. As the operator, I want pure logic (word count, date formatting, index building) tested
-    natively, so that `just test` covers the new behavior without a browser.
-35. As the operator, I want the docs (ADR-0008's `views` description, DOCS_INDEX) amended
-    in the same change, so that specs stay authoritative.
-
-## Implementation Decisions
-
-**Token layer** (Tailwind v4 `@theme`, in the app's stylesheet):
-
-- Colors convert from the design's hex to oklch and are declared once via `light-dark()`;
-  `data-theme` on the root flips `color-scheme` (ADR-0011). Naming is role + numeric
-  suffix: `surface`/`surface-2`/`surface-3`, `ink`/`ink-2`/`ink-3`, `line`/`line-2`,
-  `accent`/`accent-2`/`accent-subtle`, `danger`. Selection and focus-ring stay plain
-  (non-utility) custom properties. The four `--hue-*` callout tokens are deleted.
-- Non-color namespaces keep Tailwind's default token names, re-valued to the design scale:
-  text `xs 12 / sm 13 / base 16 / lg 18 / xl 22 / 2xl 28 / 3xl 38 / 4xl 52`; leading
-  `tight 1.15 / snug 1.4 / normal 1.55 / relaxed 1.75`; tracking `tight −0.02em /
-  wide 0.06em`; `--shadow-sm`/`--shadow-md` re-valued warm (colors via `light-dark()`
-  inside the value); `--ease-out`/`--ease-in-out` re-valued and `--ease-out-expo` added;
-  a `fade-up` keyframe under `--animate-*`. Radii already match Tailwind defaults
-  (`md/lg/xl/full`); the spacing scale is untouched. The 17px/65ch reading measure lives
-  with the prose rules.
-- The serif/heading font stacks are deleted; `--font-sans` (Geist) and `--font-mono`
-  (Geist Mono) remain.
-
-  > **Amendment (2026-07-15)**: the type stack reopened after a design audit flagged
-  > single-family Geist as the era's default generated look. `--font-display` — Fraunces,
-  > its SOFT/WONK axes pinned in the fonts URL so the served face is pre-tuned — joins the
-  > tokens and carries page headings, post titles, and prose h1–h3 at a new clamped
-  > `--text-display` size (36→56px, line-height 1.08, −0.01em); `--font-sans` re-points at
-  > Figtree; Geist Mono stays the label/mono voice unchanged. The pairing — soft
-  > high-contrast serif display, geometric sans body, mono labels — follows a reference
-  > the author supplied; the palette and voice are untouched. Prose h4–h6 stay sans so
-  > small ranks read as labels, not titles.
-
-**Document shell**: Geist + Geist Mono load from Google Fonts (`display=swap`) via a
-`leptos_meta` stylesheet plus preconnect — the self-hosted faces, `@font-face` blocks, and
-font preloads are removed. A blocking inline head script applies the stored theme before
-the stylesheet (ADR-0011). The base document title becomes `~/chris`.
-
-> **Amendment (2026-07-15)**: the loaded families are now Fraunces + Figtree + Geist Mono
-> (see the token-layer amendment); the loading strategy is unchanged.
-
-> **Amendment (2026-07-15)**: the base title widened into the site's name everywhere it
-> appears: page titles suffix `— ~/chris` (posts, about, articles, and both 404s, which
-> now share `404 — ~/chris`), and the Atom feed's title says `~/chris` too — all reading
-> one `SITE_TITLE` constant in the content crate, so tab, page, and feed can't drift.
-
-**Chrome**: the header carries the `~/chris` wordmark, lowercase mono nav
-("writing" → `/posts`, "about" → `/about`), the active-link accent underline, and the
-`ThemeToggle` island; on post pages it switches to the breadcrumb variant
-(`~/chris/posts/{slug}`) from route awareness — real path segments, not the mock's fake
-"blog". A footer renders on every page (copyright line + konami hint) and hosts the konami
-island. The toast easter egg ships with the hint as a package.
-
-> **Amendment (2026-07-10)**: "switches to the breadcrumb variant" shipped as the whole bar
-> switching — the mono nav disappeared on post pages, leaving `/about` unreachable and
-> nothing that reads as navigation. Only the wordmark gives way to the breadcrumb now; the
-> nav links and toggle render on every page.
-
-> **Amendment (2026-07-12)**: the breadcrumb left the bar entirely. Mixing it into the
-> header coupled it to the wordmark — which stays the site's mark (eventually an image),
-> not a path root. The bar now carries the wordmark on every page, and the post article
-> opens with the breadcrumb (`~/chris / posts / {slug}`) in the body, replacing the
-> "back to all posts" link.
-
-> **Amendment (2026-07-14)**: the wordmark became the image it was headed toward: the bar
-> links home through the round logo, one fixed-color SVG per theme (their discs
-> tone-match each theme's surface, so the mark can't be re-filled from tokens), both
-> shipped in the HTML with CSS showing the one matching the effective scheme — the same
-> mechanism as the toggle glyphs, keeping one response per URL. The `~/chris` text left
-> the bar; it lives on in the tab title and the about prompt. The post breadcrumb is
-> deleted the same day (see user story 18), making the bar the only navigation chrome:
-> exact routes mark their nav link `aria-current="page"`, post pages mark `writing`
-> `aria-current="true"` — the current section, not the current page.
-
-**Pages**: home becomes greeting + intro (with animated-underline links) + "latest writing"
-+ three most recent + "read all {n} posts →". The writing page is the pill row (tag-filter
-island, ADR-0012) over the server-rendered post list, each row in the design's PostRow
-shape (title with hover arrow, mono date · read time, truncated description, `data-tags`).
-`/about` is a new hardcoded component — prompt motif, prose, "currently" list, contact
-block (github + linkedin + email, all mocked until real URLs exist) — cached under the
-`site` tag and sitemapped as a static page.
-
-> **Amendment (2026-07-15)**: the prompt motif is deleted with the terminal voice
-> (user story 6); the page opens on the display-face heading. The 404 page restyles into the same voice. Both
-tag routes and their components are deleted.
-
-> **Amendment (2026-07-16)**: writing became the home (prototype variant "F"). `/` is now
-> the writing front door — a full-width masthead band (greeting + one voice line +
-> external-only contacts, each marked `↗`; no in-app links) over a two-panel split: a topics
-> rail of tag pills on the left, and the post list on the right under a `writing (N) · rss`
-> header, with a reserved (inert) search field above it. The old "greeting + latest three +
-> read-all" home and the separate `/posts` writing page are both gone; the home lists every
-> post directly. Consequently the nav collapses to **about only** — the logo carries you home,
-> so no nav link is current off `/about` (user story 18's `writing`-as-section marking retires
-> with the link). `/posts` `301`s to `/` (see ADR-0012's 2026-07-16 amendment); post pages
-> stay at `/posts/{slug}`. The shared `section_label` moves to `text-sm`/semibold/`ink-2` to
-> clear WCAG AA (the old `text-xs`/`ink-3` failed it), and a new `--input-fill` token backs
-> the search field's recessed fill. Text search itself is a reserved slot here — a separate
-> feature, not built in this slice. The `TagFilter` island is renamed `WritingIndex` in the
-> inventory above: it now owns the whole writing-index body (rail, header, search, list), and
-> filtering is one behavior of it rather than its whole job.
-
-> **Amendment (2026-09-02)**: the home is now the caderno index from the settled demo:
-> a two-line name and two short paragraphs (with inline contact/code links, pencil text,
-> and an honest edit), followed by a two-column `work`/`writing` spread, a one-way fold over
-> the three oldest stints, and a dated `now`. Both columns use title-first focusable rows
-> whose in-flow dates reveal without reflow. Decorative ghost words occupy the outer gutters
-> above 64rem and become small italic labels below it; visually hidden headings preserve the
-> document outline. The latest four listed post titles lead to a complete archive at
-> `/writing`, where the existing filter island now lives. `/posts` redirects there and
-> `/about` redirects to `/`; the about component is retired (the timeline home never
-> reached main — it lived on the closed PR #46). Post wayfinding says `← writing`, while
-> the archive says `← home`.
-
-> **Amendment (2026-09-02)**: `/writing` is the archive form of the home's index. A short
-> post-count/feed line and plain tag words precede title-only hover-date rows grouped by
-> year, newest first. Filtering hides empty year groups while retaining ADR-0012's union,
-> shareable `?q=`, deep-link, and no-JS contracts. The inert search field, topics rail,
-> clamp, and show-all markup are deleted rather than restyled.
-
-**Post presentation**: article header shows title, then a mono meta row (formatted date ·
-read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
-blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island
-that reads the adjacent code text from the DOM — the code is never serialized twice.
-
-> **Amendment (2026-07-10)**: the copy button is now part of a `CodeBlock` component and
-> takes the source as a prop instead of reading the adjacent DOM — component cohesion wins
-> over the never-serialized-twice rule, whose cost gzip absorbs (the prop sits right next
-> to the rendered copy).
-Callouts keep all four kinds and the optional title but collapse to two hue families
-(note/tip → accent; warning/danger → danger) with a mono `// kind` label row; the
-component-error style re-points at `danger`.
-
-> **Amendment (2026-07-15)**: the label row is a small tracked sans `kind` — no `//`
-> prefix, no mono (user story 10).
-
-**Content crate**: `IndexEntry` gains optional `reading_minutes`, following the
-`description` precedent exactly (additive serde, skip-when-absent, no schema bump, absent
-values simply don't render). Two pure functions join the crate: an AST word-counter
-(~200 wpm, code blocks excluded) and an English month-name date formatter (no chrono
-dependency). Route constants lose everything tag-shaped; the listing-pages set drops
-`/tags`; a static-pages notion adds `/about` for the sitemap.
-
-**Publish crate**: populates `reading_minutes` when building index entries; the post page
-computes the same number live from the AST it already holds.
-
-**Workers**: the site worker's sitemap drops tag pages and adds `/about`; its router serves
-`/about` under the `site` cache tag. The pipeline worker's purge-scope expectations follow
-the routes change — the `views` tag now projects listings and feeds only.
-
-**Islands inventory** (the complete list, all hand-rolled, no new dependencies):
-`ThemeToggle`, `TagFilter`, `CopyButton`, `Konami`.
-
-> **Amendment (2026-07-15)**: `Konami` is deleted (user story 22) and `BackLink` joined
-> earlier (user story 18) — the inventory is `ThemeToggle`, `TagFilter`, `CopyButton`,
-> `BackLink`.
-
-> **Amendment (2026-09-02)**: the caderno chrome slice deletes `ThemeToggle` (theme
-> follows the system, ADR-0011 as amended) and `BackLink` (a plain sticky gutter link
-> replaces history-based back) — the inventory is `WritingIndex` (grown from `TagFilter`)
-> and `CopyButton`.
-
-## Architectural Decisions
-
-### Client-side theming with zero server variance
-
-**Decision**: Theme is a pure client concern — tokens declared once via `light-dark()`,
-`data-theme` flips `color-scheme`, localStorage persists, an inline pre-paint script
-prevents flash; the server renders identical HTML for everyone.
-
-**Context**: Every response is edge-cached and shared (ADR-0008); a theme toggle must not
-fragment the cache.
-
-**Key Drivers**:
-
-- One cached response per URL is load-bearing for the whole read path.
-- No flash of the wrong theme on load.
-- System preference must win until the user explicitly chooses.
-
-**Considered Options**:
-
-1. Client-side `data-theme` + `light-dark()`: chosen.
-2. Cookie + SSR theming: fragments the cache or kills it with `Vary`.
-3. `prefers-color-scheme` only: no user control.
-4. Duplicated dark token blocks (design-literal): triple declarations for the same result.
-
-**Chosen Option**: Option 1, because it is the only model where theming costs the caching
-architecture nothing.
-
-**Trade-offs**:
-
-- Good: cache untouched; each color declared once; choice persists.
-- Good: no-flash by construction (pre-paint script).
-- Bad: old browsers without `light-dark()` get light only; no-JS gets system theme only.
-
-**See also**: `docs/adrs/adr-0011-client-side-theming.md`.
-
-### Tags move into the writing page; SSR tag routes deleted
-
-**Decision**: Delete `/tags` and `/tags/{tag}` end-to-end; tag browsing becomes a filter
-island over the server-rendered post list with URL-hash state (`/posts#rust`).
-
-**Context**: Tags are post metadata with no standalone-page value, and the writing page
-already server-renders every post — the filter's data set is the DOM itself.
-
-**Key Drivers**:
-
-- Instant filtering is the design's interaction model.
-- No index data serialized to the client; no rendering logic duplicated in wasm.
-- Cache-key space must not grow (hash never reaches the server).
-
-**Considered Options**:
-
-1. SSR tag pages with pill links: filter costs a navigation; keeps useless pages.
-2. Filter island + delete routes: chosen.
-3. Island and routes both: two sources of truth.
-4. Island owns list rendering via serialized props: data shipped twice, markup in wasm.
-
-**Chosen Option**: Option 2, because the SSR HTML already contains everything the filter
-needs, and deletion shrinks the routed/purged surface instead of growing it.
-
-> **Amendment (2026-07-10)**: re-chosen as option 4 — the island owns the whole filter
-> region (pills, rows, empty state) with the listed posts as serialized props, so
-> filtering is signal state instead of DOM-attribute manipulation, and `data-tags` is
-> gone from the row markup. The hash contract and the no-JS SSR baseline stand. See
-> ADR-0012's amendment for the reasoning and measured costs.
-
-**Trade-offs**:
-
-- Good: instant, shareable, cache-invisible filtering; smaller pipeline surface.
-- Bad: old tag URLs 404 (accepted — staging content, no redirects owed).
-- Bad: revisit when pagination arrives; a one-page client filter stops being complete.
-
-**See also**: `docs/adrs/adr-0012-tags-in-page-filter.md`.
-
-## Testing Decisions
-
-- **What makes a good test**: external behavior only — the rendered contract and the pure
-  functions, never island DOM mechanics or CSS.
-
-  > **Amendment (2026-07-14)**: "never CSS" is refined to never CSS *values*. The suite
-  > keeps structural stylesheet contracts a compiler can't check — the `@import` bundle
-  > holds together, every class the components emit keeps a selector (and the converse
-  > via the kitchen-sink fixture), color tokens stay declared-once via `light-dark()`,
-  > and the shell orders the theme script ahead of stylesheets. Visual treatments,
-  > scales, and rule contents stay out of tests entirely: pinning them made the suite a
-  > second copy of the stylesheet, maintained in lockstep. How things look is the
-  > kitchen-sink QA read in both themes.
-- **Which modules will be tested**: the content crate's word counter, date formatter, and
-  routes changes (native unit tests beside the existing routes tests); the publish crate's
-  index building with `reading_minutes` (extending its existing pure tests); listing
-  components after the tag-route deletion (the existing router-free component-prop pattern);
-  serde round-trips proving absent `reading_minutes` behaves like the `description`
-  precedent.
-- **Prior art**: the routes-module unit tests and the router-free `TagListing` prop pattern
-  are the templates; islands follow the Counter precedent — behavior verified manually
-  through the kitchen-sink QA read in both themes, not through a browser harness.
-
-## Out of Scope
-
-- **Syntax highlighting** — both the design and the current CSS are deliberately plain
-  mono; a future highlighting pass is a `CodeBlock` presentation concern (ADR-0002 keeps
-  it swappable).
-- **Pagination** — the writing page renders all posts until that stops being reasonable;
-  the tag-filter model is revisited then (ADR-0012).
-- **A `lang` frontmatter field** — considered for the design's en/pt-br badges and
-  rejected; no per-post language metadata, English-only date formatting.
-- **Self-hosted fonts** — the CDN + `display=swap` choice deliberately reverses the v1
-  self-hosted/`optional` strategy; revisit only if the swap flash ever bothers.
-- **Redirects for deleted tag URLs**, real contact URLs and email (mocked until domains
-  and handles exist), fence-metadata filename labels (no parser extensions), search,
-  comments, analytics, and ADR-0010's worker deletion.
-
-## Further Notes
-
-- Implementation lands as three PRs, each gated on `just check` + `just test` +
-  `just size` and a kitchen-sink read in both themes: (1) design-system core — tokens,
-  fonts, prose/callout/code restyle, no pipeline touch; (2) IA + islands — header,
-  breadcrumb, footer, about, home, theme toggle, copy button, konami, motion, date
-  formatting; (3) tags rework + read time — the only content/pipeline PR.
-- ADR-0008's `views`-tag description and the AGENTS.md architecture summary are amended
-  inline in PR 3, per the specs-are-authoritative rule.
-- The current two posts are disposable staging content; nothing in this migration edits
-  them, and the lowercase voice applies to future writing as an authoring convention.
+# PRD: Caderno presentation layer (v3)
+
+**Status**: Shipped (2026-09-02)
+
+**Related**: [caderno specification, issue #47](https://github.com/chrishiguto/chris/issues/47),
+`docs/adrs/adr-0008-cache-and-purge.md`,
+`docs/adrs/adr-0011-client-side-theming.md`, and
+`docs/adrs/adr-0012-tags-in-page-filter.md`
+
+This document is the consolidated contract for the site that shipped. The amendment
+history remains at the end so the reasons for retired paths are durable, but a reader does
+not need to replay that history to reconstruct the current presentation.
+
+## Problem statement
+
+The engineering pipeline was specific to this site, but the presentation looked like a
+generic application: a header bar, explicit theme controls, card and chip surfaces, a
+terminal-flavoured voice, and separate pages for information that belongs together. The
+site needs to read as one quiet notebook while preserving the runtime-content boundary:
+KV stores meaning, deployed code owns presentation, and the same HTML is shared from the
+edge cache.
+
+## Goals
+
+- Make every route feel like one sheet of warm paper in either system theme.
+- Keep reading primary: restrained typography, a narrow measure, minimal chrome, and no
+  decorative surface that competes with prose.
+- Make `/` a compact authored index and `/writing` the complete, filterable archive.
+- Offer hidden-text techniques at home and in authored posts without making core content
+  depend on JavaScript.
+- Keep all dates reader-facing and natural, while ISO dates remain the storage contract.
+- Preserve identical server HTML per URL and the existing content, cache, and publish
+  architecture.
+
+## Design contract
+
+### Tokens and themes
+
+Tailwind v4 remains the styling system. Inline utilities are the default; named classes
+exist only for shared design vocabulary, multi-state behaviour, pseudo-elements, or
+unclassed rendered prose.
+
+Every colour is declared once through `light-dark()`, with `color-scheme: light dark` on
+the root. The palette is a low-chroma warm paper family around hue 80, three ink levels,
+and one wine accent: `oklch(42% 0.13 15)` in light mode and
+`oklch(70% 0.11 15)` in dark mode. Danger callouts alone use the danger hue. Selection,
+focus, rules, and shadows derive from the same roles rather than adding independent
+colours.
+
+Theme follows the operating system only. There is no toggle, stored preference,
+`data-theme`, pre-paint script, cookie, or server variance. A fixed, pointer-inert
+pseudo-element adds static alpha-only fractal grain over the page, at lower opacity in
+dark mode. Reduced-motion preferences remove nonessential transitions.
+
+### Type
+
+Newsreader is the single reading family. The Google Fonts request includes roman and
+italic optical-size axes plus weights 300 through 700. Geist Mono is reserved for code.
+The working scale is:
+
+- body: 18px at 1.6;
+- secondary text: 16px;
+- minimum text: 14px;
+- post title: 30px;
+- section heading: 22px;
+- reading measure: 44rem.
+
+Large headings tighten tracking; quiet labels use weight, italic, or spacing rather than
+an all-caps terminal idiom. Numerals that align across rows use tabular figures.
+
+### Page frame and chrome
+
+The wide-screen frame is flexible gutter / 44rem content / flexible gutter. Gutter
+elements occupy the outer columns and fold inline below their breakpoint. The shell is a
+minimum-viewport-height flex column so short pages still end at the viewport footer.
+
+There is no header or logo. A sticky, pointer-inert six-rem veil at the top blurs by 6px
+and fades from paper to transparent, giving scrolling text a soft page edge without
+putting controls over it. Inner pages use a semantic sticky gutter link: `← home` on the
+writing archive and `← writing` on posts. On narrow screens the link moves above the
+page content.
+
+The footer is one edge-to-edge hairline with its content aligned to the reading column.
+It contains exactly the author's name and city on the left, then `rss` and `source` on the
+right. There is no tagline, navigation list, theme control, or easter egg. Non-home
+document titles use `{page} · ~/chris`; the home title is `~/chris`.
+
+### Home
+
+Route `/` is deployment-owned and cached under `site`. It renders, in order:
+
+1. a two-line name: author, then role and city;
+2. two short introduction paragraphs with inline email and source links;
+3. a two-column `work` and `writing` index;
+4. a dated `now` paragraph;
+5. a quiet colophon line crediting the hidden-text lineage;
+6. the global footer.
+
+The introduction, career, and now copy deliberately remain placeholders for the author
+to replace. They live in code, so editing them is a deploy rather than a content publish.
+The work column shows role and company only until a row is hovered or focused. It keeps
+the date in flow and reveals it with opacity and an eight-pixel slide, so nothing else
+moves. The present stint uses the accent. A one-way fold contains the three oldest
+entries. The writing column lists the latest four published titles and ends with
+`all writing (N)`; it never includes descriptions or cards.
+
+Each home section has a real visually hidden heading plus a decorative ghost word. At
+64rem and wider, ghost words sit vertically in the outer gutters, with the writing word
+mirrored on the right. Below that width they become small italic labels above the
+section.
+
+`/about` redirects permanently to `/`. There is no separate about page.
+
+### Writing archive
+
+Route `/writing` is the complete archive and is cached under `views`. A sticky `← home`
+link precedes a post-count and feed line, then plain tag words and title-first rows grouped
+newest-first by year. Each row reserves its word-form date in flow and reveals it on hover
+or focus. No description, search field, topics rail, cards, or pills remain.
+
+The `WritingIndex` island owns the complete archive region and receives listed posts as
+serialized props. Multi-tag state lives in a sorted comma-separated `q` query, for example
+`/writing?q=rust,wasm`; selection uses union semantics. Tag-word clicks use `replaceState`
+without navigation, unknown tags are discarded, and empty year groups disappear with
+their rows. Server rendering always emits the complete unfiltered archive, so no-JS
+readers retain every post. Query variants share the same body contract and `views` cache
+tag.
+
+`/posts` redirects permanently to `/writing`, preserving its query. `/tags` and
+`/tags/{tag}` do not exist. Post tag links target the filtered writing route.
+
+### Post
+
+Post routes remain `/posts/{slug}` and use `post:{slug}` cache tags. A post begins with a
+sticky `← writing` gutter link, then a 30px medium title and a 14px italic meta line. The
+meta line contains a natural-language date and, when known, `· N min`.
+
+Rendered headings receive a wine section sign. Callouts are unfilled hairline blocks with
+small-caps kind labels; note, tip, and warning use the accent, while danger uses the danger
+hue. Code sits on `paper-2` behind a two-pixel left rule, with its language label and the
+existing copy island.
+
+A registered `<Footnote note="…">` post component wraps the marked phrase and emits the
+dagger reference and the note, all in server HTML. At 72rem and wider CSS moves the note
+into the right gutter; below that it returns inline in italic. Section signs are a
+pseudo-element, so the kitchen-sink read verifies them rather than the SSR seam. Posts end with unboxed tag words and no next/previous or end-of-post navigation.
+The AST renderer remains unaware of routes.
+
+### Hidden text
+
+Three treatments let prose be read at different depths:
+
+- A fold is a real button containing an accent ellipsis. Activating it once reveals the
+  already-rendered text in place with a short fade and two-pixel rise. One shared `Fold`
+  serves the home's career list and, registered as the children-only `Hidden` component,
+  post prose; the app shell's one fold script readies every fold and keeps keyboard focus
+  inside what it reveals. Without JavaScript the button stays hidden and the content is
+  simply visible.
+- Pencil text is quiet ink with a dotted underline and darkens after a short hover delay.
+- An honest edit keeps the struck phrase in flow and positions the candid insertion above
+  it. Hover, focus, or touch reveals the insertion without shifting the line.
+
+Folded text remains in the document for assistive technology, buttons carry their
+expanded state, and reduced motion disables reveal transitions. The implementation is
+inspired by [igorbedesqui.com](https://igorbedesqui.com/), whose lineage points to
+[ped.ro](https://ped.ro/) and [lfe.org](https://lfe.org/); the home colophon carries the
+same credit.
+
+### Dates and copy
+
+Frontmatter remains ISO `YYYY-MM-DD` for validation and sorting. Displayed dates always
+read as words:
+
+- `4 july` inside a year group, and on the home's four-title window (the year is implied
+  by recency; see the open question below);
+- `4 july 2026` in standalone post metadata;
+- `since 2022` for an open career range;
+- `2021 to 2022` for a closed career range.
+
+Malformed stored dates pass through instead of panicking. Site copy is lowercase except
+where an authored proper name or acronym requires otherwise. Chrome and home copy use no
+em dash. The retired tagline stays deleted.
+
+### Runtime boundaries and islands
+
+This is a presentation-layer change. The parser, AST, snapshot layout, coordinator,
+publish flow, cache tags, and purge mechanism do not change. `/` carries `site`;
+`/writing` and feeds carry `views`; posts carry `post:{slug}`. Redirects are uncached route
+responses as specified by the worker. Because `/` carries `site` alone, its four-title
+window and `all writing (N)` count refresh on deploy, not on publish (ADR-0008 as amended);
+tagging the home with `views` too is the one-line change if that trade proves wrong.
+
+The caderno presentation adds no new islands. Its two interactive island types are:
+
+- `WritingIndex`, for archive filtering and URL state;
+- `CopyButton`, for code-copy feedback.
+
+The full shipped registry has four island types: those two, the global `Counter`, and the
+co-located counter used by `ci-code-path`. Folds and honest edits are progressive
+enhancement over server HTML: one delegated fold script in the shell, and a small home
+script for the honest-edit tap. Everything else is server-rendered HTML and CSS.
+
+## Success and verification
+
+- Every route is readable without JavaScript and receives identical HTML for the same URL.
+- Light and dark system themes have no wrong-theme flash and preserve readable contrast.
+- Home, writing, post, 404, redirects, feed, and sitemap follow the route and copy contracts
+  above.
+- The kitchen-sink post exercises every AST node, every callout kind, footnotes, and the
+  `Hidden` component; it is read top to bottom in both system themes after visual changes.
+- Tests assert rendered structure, accessible roles, copy, routes, and pure formatters.
+  They do not pin visual CSS values.
+- `just check`, `just test`, `just build`, and the worker size gate remain green.
+
+## Deletions
+
+The following are intentionally retired, with no compatibility layer:
+
+- the header bar, logo, nav links, theme toggle, stored theme, and pre-paint script;
+- Fraunces and Figtree, display-size type tokens, and the terminal voice;
+- the konami island, toast, footer hint, and footer tagline;
+- the separate about page and the old writing-as-home layout (the card timeline explored
+  on the closed PR #46 never reached main);
+- `/tags` pages, tag cards and pills, the topics rail, reserved search field, and clamp;
+- the breadcrumb and history-based back-link island;
+- filled callout cards, code chrome bar, boxed post tags, and end navigation.
+
+## Out of scope
+
+- Replacing the placeholder introduction, career history, or now paragraph.
+- Text search, pagination, comments, analytics, or a theme override.
+- Self-hosting fonts.
+- Authoring pencil or honest-edit marks from MDX; `Footnote` and `Hidden` are the only
+  additions to the component vocabulary.
+- Any content-pipeline, KV-schema, publish-flow, or cache-tag redesign.
+
+## Amendment history
+
+This v3 text consolidates the amendments below. They remain here to explain why old code
+and screenshots differ from the shipped contract.
+
+- **2026-07-10:** the tag filter moved from DOM mutation to a `WritingIndex`-owned region
+  with serialized props. `CodeBlock` began passing source to its copy island instead of
+  reading adjacent DOM. Header navigation remained present on post pages while the early
+  bar design was still live.
+- **2026-07-12:** the post breadcrumb moved out of the header, then served as the article's
+  sole upward route. This also kept navigation out of the AST renderer.
+- **2026-07-14:** a theme-specific image logo replaced the text wordmark; exact-route
+  current-page semantics shipped. The breadcrumb was then deleted as redundant. Tag filter
+  state moved from one hash tag to a multi-tag `?q=` query with union semantics, accepting
+  uniform cache-key variants under `views`. Document titles and feed title converged on the
+  shared `~/chris` constant.
+- **2026-07-15:** a design audit replaced all-Geist with Fraunces display, Figtree body,
+  and Geist Mono labels; the terminal prompt, comment-prefix labels, and konami egg were
+  removed. A history-aware `← back` island replaced the breadcrumb. Callout labels became
+  tracked sans text, and the about and 404 copy left the terminal motif.
+- **2026-07-16:** the writing listing temporarily became `/`, with a masthead, topics rail,
+  reserved search field, and all posts. `/posts` redirected home and the nav collapsed to
+  about only. This was prototype variant F and is superseded.
+- **2026-09-02, caderno chrome:** issue #47 replaced the v2 visual language with warm paper,
+  wine, Newsreader, static grain, the three-column page grid, top veil, gutter navigation,
+  system-only theming, and the four-item footer.
+- **2026-09-02, home:** the settled index home replaced writing-as-home; `/writing` became
+  the full archive, `/about` redirected home, and `/posts` redirected to writing. Ghost
+  words, hover dates, a career fold, pencil text, honest edits, and the dated now section
+  shipped.
+- **2026-09-02, writing and post:** the archive dropped its search and topics structures
+  for plain tag words and year groups. Posts adopted the caderno title, meta, section sign,
+  hairline callout, ruled code, margin-footnote, and tag-ending treatments.
+- **2026-09-02, authoring:** the registered children-only `Hidden` component brought the
+  fold to post prose and the kitchen-sink fixture. System-only theming amended ADR-0011;
+  the final route/filter shape amended ADR-0012; the home/archive cache split amended
+  ADR-0008.

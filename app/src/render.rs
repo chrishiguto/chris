@@ -5,18 +5,29 @@ use content::{reading_minutes, Document, Node};
 use leptos::attr::custom::custom_attribute;
 use leptos::prelude::*;
 
-use crate::components::{CodeBlock, GutterNav, PostMeta, TagPill, TagRow};
+use crate::components::{CodeBlock, GutterNav, PostMeta};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
-    // Pills close the article and land on the pre-filtered listing.
-    let pills: Vec<_> = doc
-        .frontmatter
-        .tags
-        .iter()
-        .cloned()
-        .map(|tag| view! { <TagPill tag=tag /> })
-        .collect();
-    let tags = view! { <TagRow pills=pills spacing="" /> };
+    // The article ends on its tag words, each landing on the archive
+    // pre-filtered; no tags, no row.
+    let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
+        let words: Vec<_> = doc
+            .frontmatter
+            .tags
+            .iter()
+            .map(|tag| {
+                let href = content::tag_filter_path(tag);
+                view! {
+                    <li>
+                        <a class="plink text-xs italic text-ink-2" href=href>
+                            {tag.clone()}
+                        </a>
+                    </li>
+                }
+            })
+            .collect();
+        view! { <ul class="post-tags">{words}</ul> }
+    });
     // Prose sits in `.post-body` so its element selectors never hit the chrome.
     view! {
         <article class="post page-grid">
