@@ -42,10 +42,12 @@
   --color-danger: var(--danger);
 }
 
-/* Three readable registers: 18px body, 16px secondary, 14px floor. */
+/* Three readable registers: 18px body (`base`), 16px secondary (`sm`), 14px floor
+   (`xs`), plus 22px section headings (`xl`) and the 30px title (`3xl`). The rest of
+   Tailwind's ladder is pinned to those same values on purpose: an unpinned `text-lg`
+   or `text-4xl` would resolve to Tailwind's defaults and escape the scale. */
 
 @theme {
-  --font-display: "Newsreader", "Georgia", serif;
   --font-sans: "Newsreader", "Georgia", serif;
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
 
@@ -65,8 +67,6 @@
   --text-3xl--line-height: 1.15;
   --text-4xl: 1.875rem;
   --text-4xl--line-height: 1.15;
-  --text-display: 1.875rem;
-  --text-display--line-height: 1.15;
 
   --leading-tight: 1.15;
   --leading-snug: 1.4;
@@ -100,7 +100,6 @@
 @layer base {
   body {
     min-width: 20rem;
-    min-height: 100dvh;
     background-color: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);

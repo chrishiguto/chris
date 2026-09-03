@@ -1,12 +1,7 @@
-/* The paper edge, three-column page frame, gutter wayfinding, and footer. */
+/* The paper edge, the three-column page frame, and gutter wayfinding. Single-state
+   layout (the shell column, the footer) rides utilities in the view. */
 
 @layer components {
-  .site-shell {
-    display: flex;
-    min-height: 100dvh;
-    flex-direction: column;
-  }
-
   .site-veil {
     position: sticky;
     top: 0;
@@ -26,13 +21,10 @@
     grid-template-columns: minmax(1.5rem, 1fr) minmax(0, 44rem) minmax(1.5rem, 1fr);
   }
 
-  .page-column,
-  .post-content,
-  .footer-content {
-    grid-column: 2;
-  }
-
+  /* The reading column every routed page mounts into; the post article places
+     its own content in the same column from post.css. */
   .page-column {
+    grid-column: 2;
     padding-block: 8rem 5rem;
   }
 
@@ -41,21 +33,6 @@
     margin-bottom: 1.5rem;
     font-size: var(--text-sm);
     color: var(--color-ink-2);
-  }
-
-  .site-footer {
-    border-top: 1px solid var(--color-line);
-    color: var(--color-ink-3);
-    font-size: var(--text-xs);
-  }
-
-  .footer-content {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1.5rem;
-    padding-block: 1.25rem;
   }
 
   @media (min-width: 64rem) {
