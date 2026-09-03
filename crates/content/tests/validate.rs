@@ -22,7 +22,6 @@ fn manifest() -> Manifest {
                     },
                 ],
                 accepts_children: true,
-                requires_children: true,
             },
             ComponentSpec {
                 name: "Counter".into(),
@@ -44,7 +43,6 @@ fn manifest() -> Manifest {
                     },
                 ],
                 accepts_children: false,
-                requires_children: false,
             },
         ],
     }

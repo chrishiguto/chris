@@ -16,7 +16,6 @@ pub struct RegisteredComponent {
     pub name: &'static str,
     pub props: &'static [PropInfo],
     pub accepts_children: bool,
-    pub requires_children: bool,
     /// Converts string-keyed props and pre-rendered children into a typed
     /// component call.
     pub render: fn(&BTreeMap<String, PropValue>, AnyView) -> Result<AnyView, DispatchError>,
@@ -50,7 +49,6 @@ pub fn manifest() -> Manifest {
                 })
                 .collect(),
             accepts_children: c.accepts_children,
-            requires_children: c.requires_children,
         })
         .collect();
     // Inventory iteration order is link-dependent; sort for determinism.

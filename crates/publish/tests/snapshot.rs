@@ -11,7 +11,6 @@ fn manifest() -> Manifest {
                 required: true,
             }],
             accepts_children: true,
-            requires_children: true,
         }],
     }
 }

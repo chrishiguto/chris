@@ -177,7 +177,6 @@ fn expand(component: &ItemFn) -> Result<proc_macro2::TokenStream, Error> {
                     name: #name_str,
                     props: &[#(#prop_infos),*],
                     accepts_children: #accepts_children,
-                    requires_children: #accepts_children,
                     render: __render,
                 }
             }
