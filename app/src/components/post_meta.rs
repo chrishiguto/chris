@@ -1,8 +1,8 @@
 use leptos::prelude::*;
 
-/// The article header's meta line: a natural-language date, then `· N min`
-/// when the read time is known. The shared formatter keeps post and index
-/// dates in one vocabulary.
+/// The article header's meta line: the date in words, then `· N min` when
+/// the read time is known — absent minutes render the date alone. The
+/// separator reads a step quieter than either side.
 #[component]
 pub(crate) fn PostMeta(date: String, minutes: Option<u32>) -> impl IntoView {
     let time = minutes.map(|minutes| {
@@ -66,11 +66,13 @@ pub fn format_post_date(iso: &str, include_year: bool) -> String {
         )
 }
 
-/// Career ranges read as prose rather than compact data.
-pub fn format_year_range(start: u16, end: Option<u16>) -> String {
-    match end {
-        Some(end) => format!("{start} to {end}"),
-        None => format!("since {start}"),
+/// The year a stored date falls in, for grouping. Same policy as
+/// [`format_post_date`]: anything off-shape passes through unchanged rather
+/// than growing an invented label.
+pub fn post_year(iso: &str) -> &str {
+    match iso.get(..4) {
+        Some(year) if digits(year, 4) && iso.as_bytes().get(4) == Some(&b'-') => year,
+        _ => iso,
     }
 }
 
@@ -80,7 +82,7 @@ fn digits(part: &str, len: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_post_date, format_year_range};
+    use super::{format_post_date, post_year};
 
     #[test]
     fn dates_format_with_every_english_month_name() {
@@ -100,9 +102,11 @@ mod tests {
     }
 
     #[test]
-    fn ranges_distinguish_current_and_closed_work() {
-        assert_eq!(format_year_range(2025, None), "since 2025");
-        assert_eq!(format_year_range(2022, Some(2025)), "2022 to 2025");
+    fn years_come_from_well_formed_dates_only() {
+        assert_eq!(post_year("2026-07-04"), "2026");
+        for raw in ["someday", "2026", "20260704", "abcd-07-04"] {
+            assert_eq!(post_year(raw), raw);
+        }
     }
 
     // Display must never panic on stored data; anything off-shape passes through.

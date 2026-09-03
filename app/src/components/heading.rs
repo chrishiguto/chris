@@ -1,9 +1,8 @@
 use leptos::prelude::*;
 
-/// The Newsreader page `<h1>` at the restrained 30px title register.
-/// One component shared by [`Page`](super::Page) and the home masthead so the
-/// two front-page headings can't drift in face, size, or tracking.
+/// The page `<h1>` at the 30px title register, for pages that render
+/// through [`Page`](super::Page) (today the 404).
 #[component]
 pub(crate) fn Heading(children: Children) -> impl IntoView {
-    view! { <h1 class="font-display text-display font-semibold tracking-[-0.01em]">{children()}</h1> }
+    view! { <h1 class="text-3xl font-semibold tracking-[-0.01em]">{children()}</h1> }
 }

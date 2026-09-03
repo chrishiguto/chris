@@ -57,9 +57,9 @@ fn writing_groups_newest_first_rows_by_year() {
         entry("middle", "middle title", "2025-11-03"),
         entry("old", "old title", "2025-02-01"),
     ]);
-    let y2026 = html.find(">2026</h2>").unwrap();
+    let y2026 = html.find(">2026</h3>").unwrap();
     let new = html.find("/posts/new").unwrap();
-    let y2025 = html.find(">2025</h2>").unwrap();
+    let y2025 = html.find(">2025</h3>").unwrap();
     let middle = html.find("/posts/middle").unwrap();
     let old = html.find("/posts/old").unwrap();
     assert!(
@@ -95,7 +95,11 @@ fn writing_renders_sorted_inert_tag_words_for_no_js() {
     let wasm = html.find("href=\"/writing?q=wasm\"").unwrap();
     assert!(rust < wasm, "tag words sort and dedupe: {html}");
     assert_eq!(html.matches("/writing?q=rust").count(), 1, "{html}");
-    assert!(html.contains("class=\"writing-tag\""), "{html}");
+    let word = tag_containing(&html, "class=\"writing-tag\"");
+    assert!(
+        word.contains("role=\"button\"") && word.contains("aria-pressed=\"false\""),
+        "tag words are toggles with a pressed state: {html}"
+    );
     assert!(
         !html.contains("class=\"tag\""),
         "filter controls are words, not pills: {html}"

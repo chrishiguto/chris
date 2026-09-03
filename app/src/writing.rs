@@ -12,14 +12,18 @@ use crate::components::{page_title, GhostWord, GutterNav, ListedPost, WritingInd
 #[derive(Clone)]
 pub struct IndexData(pub Vec<IndexEntry>);
 
+impl IndexData {
+    /// The entries a reader may see, newest first: drafts never leave this
+    /// boundary, on any page.
+    pub fn listed(self) -> impl Iterator<Item = IndexEntry> {
+        self.0.into_iter().filter(IndexEntry::is_listed)
+    }
+}
+
 fn listed_posts() -> Vec<ListedPost> {
     use_context::<IndexData>()
-        .map(|data| data.0)
+        .map(|data| data.listed().map(Into::into).collect())
         .unwrap_or_default()
-        .into_iter()
-        .filter(|entry| entry.is_listed())
-        .map(Into::into)
-        .collect()
 }
 
 /// Shown when the index carries no published post.
@@ -42,7 +46,7 @@ pub fn WritingPage() -> impl IntoView {
     };
     view! {
         <Title text=page_title("writing") />
-        <section class="page-grid writing-page">
+        <section class="page-grid">
             <GutterNav href=content::HOME_PATH label="home" />
             <div class="page-column page-enter">
                 <section class="ghost-section writing-archive">

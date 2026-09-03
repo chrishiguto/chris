@@ -2,7 +2,6 @@
 
 @layer components {
   .home-index-content {
-    grid-column: 2;
     padding-block: 7.5rem 4rem;
   }
 
@@ -49,8 +48,11 @@
     position: absolute;
     top: 0;
     right: calc(100% + 2rem);
-    color: color-mix(in oklch, var(--color-ink) 17%, transparent);
-    font-size: 1.875rem;
+    color: light-dark(
+      color-mix(in oklch, var(--color-ink) 17%, transparent),
+      color-mix(in oklch, var(--color-ink) 24%, transparent)
+    );
+    font-size: var(--text-3xl);
     font-style: normal;
     font-weight: 300;
     letter-spacing: 0.02em;
@@ -121,11 +123,11 @@
     font-style: italic;
   }
 
-  .home-fold {
+  .fold {
     display: contents;
   }
 
-  .home-fold-button {
+  .fold-button {
     padding: 0;
     border: 0;
     color: var(--color-accent);
@@ -134,7 +136,16 @@
     font: inherit;
   }
 
-  .home-fold-content {
+  .fold-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  /* Once the script has readied a fold, its content is clipped like
+     `sr-only` — still in the accessibility tree, out of sight — until opened.
+     Without the script nothing is clipped, so no-JS readers see it all. */
+  .fold.is-ready:not(.is-open) .fold-content {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -146,21 +157,11 @@
     border: 0;
   }
 
-  .home-fold.is-open .home-fold-button {
+  .fold.is-open .fold-button {
     display: none;
   }
 
-  .home-fold.is-open .home-fold-content {
-    position: static;
-    display: flex;
-    width: auto;
-    height: auto;
-    margin: 0;
-    overflow: visible;
-    clip: auto;
-    flex-direction: column;
-    gap: 0.3rem;
-    white-space: normal;
+  .fold.is-open .fold-content {
     animation: fold-in 260ms var(--ease-out-expo) both;
   }
 
@@ -253,12 +254,6 @@
     font-style: italic;
   }
 
-  @media (prefers-color-scheme: dark) {
-    .ghost-word {
-      color: color-mix(in oklch, var(--color-ink) 24%, transparent);
-    }
-  }
-
   @media (max-width: 63.999rem) {
     .ghost-word,
     .ghost-word-outer {
@@ -293,7 +288,7 @@
       transition: none;
     }
 
-    .home-fold.is-open .home-fold-content {
+    .fold.is-open .fold-content {
       animation: none;
     }
   }

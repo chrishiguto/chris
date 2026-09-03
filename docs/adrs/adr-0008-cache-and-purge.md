@@ -140,8 +140,11 @@ to `/writing`; `/posts` becomes a permanent redirect to that archive. The `views
 therefore `/writing` (including its `?q=` variants), `/rss.xml`, and `/sitemap.xml`. The new
 index home is cached under `site` alone: its authored identity, work, and now copy change on
 deploy. It reads the current index on a cache miss only to render a four-title window, but
-does not join the publish purge scope; a deploy refreshes that window. `/about` also becomes
-a permanent redirect to `/` and is no longer cached or sitemapped.
+does not join the publish purge scope; a deploy refreshes that window. This is a deliberate
+trade against the visible-instantly contract above: a publish can leave the home's four
+titles and its `all writing (N)` count behind until the next deploy or the `s-maxage`
+expiry. `/about` also becomes a permanent redirect to `/` and is no longer cached or
+sitemapped.
 
 *Amendment (2026-07-12, deploy-aware ETags):* the snapshot-sha ETag survived code deploys —
 browsers revalidating at `max-age=0` got a 304 against the unchanged validator and kept HTML

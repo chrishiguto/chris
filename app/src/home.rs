@@ -4,7 +4,7 @@
 use content::IndexEntry;
 use leptos::prelude::*;
 
-use crate::components::post_meta::{format_post_date, format_year_range};
+use crate::components::post_meta::format_post_date;
 use crate::components::{Fold, GhostWord, HoverDateRow};
 use crate::writing::IndexData;
 
@@ -61,71 +61,88 @@ const STINTS: &[Stint] = &[
     },
 ];
 
+/// The home's only script: readies the folds (until then their content is
+/// simply visible), opens them one-way while keeping keyboard focus on the
+/// revealed rows, and lets a tap toggle the honest edit where hover cannot.
 const HOME_SCRIPT: &str = r#"
-document.currentScript.closest('.home-index').addEventListener('click', (event) => {
-  const fold = event.target.closest('.home-fold-button');
-  if (fold) {
-    const root = fold.closest('.home-fold');
-    root.classList.add('is-open');
-    fold.setAttribute('aria-expanded', 'true');
-    fold.disabled = true;
-    root.querySelectorAll('.hover-date-row').forEach((row) => row.tabIndex = 0);
+const home = document.currentScript.closest('.home-index');
+home.querySelectorAll('.fold').forEach((fold) => {
+  fold.classList.add('is-ready');
+  fold.querySelector('.fold-button').hidden = false;
+  fold.querySelectorAll('.hover-date-row').forEach((row) => { row.tabIndex = -1; });
+});
+home.addEventListener('click', (event) => {
+  const button = event.target.closest('.fold-button');
+  if (button) {
+    const fold = button.closest('.fold');
+    fold.classList.add('is-open');
+    button.setAttribute('aria-expanded', 'true');
+    const rows = fold.querySelectorAll('.hover-date-row');
+    rows.forEach((row) => { row.tabIndex = 0; });
+    if (rows[0]) rows[0].focus();
   }
   const edit = event.target.closest('.honest-edit');
   if (edit) edit.classList.toggle('is-revealed');
 });
 "#;
 
+/// Career ranges read as prose: `since 2022` for the open stint, `2019 to
+/// 2020` for a closed one.
+fn format_year_range(start: u16, end: Option<u16>) -> String {
+    match end {
+        Some(end) => format!("{start} to {end}"),
+        None => format!("since {start}"),
+    }
+}
+
 fn listed_posts() -> Vec<IndexEntry> {
     use_context::<IndexData>()
-        .map(|data| data.0)
+        .map(|data| data.listed().collect())
         .unwrap_or_default()
-        .into_iter()
-        .filter(IndexEntry::is_listed)
-        .collect()
+}
+
+/// A polite phrase that hover, focus, or a tap strikes through while the
+/// honest one is written above the line. The insertion is decorative for
+/// assistive tech; the polite phrase stays the readable text.
+#[component]
+fn HonestEdit(original: &'static str, honest: &'static str) -> impl IntoView {
+    view! {
+        <span class="honest-edit" tabindex="0">
+            <span class="honest-original">{original}</span>
+            <span class="honest-insertion" aria-hidden="true">
+                {honest}
+            </span>
+        </span>
+    }
 }
 
 #[component]
-fn WorkRow(stint: &'static Stint, #[prop(default = false)] folded: bool) -> impl IntoView {
+fn WorkRow(stint: &'static Stint) -> impl IntoView {
     let date = format_year_range(stint.start, stint.end);
-    let words = match stint.honest {
-        Some(honest) => view! {
-            <span class="honest-edit" tabindex="0">
-                <span class="honest-original">{stint.role}</span>
-                <span class="honest-insertion" aria-hidden="true">
-                    {honest}
-                </span>
-            </span>
-            " at "
-            {stint.company}
-        }
-        .into_any(),
-        None => view! {
-            {stint.role}
-            " at "
-            {stint.company}
-        }
-        .into_any(),
+    let role = match stint.honest {
+        Some(honest) => view! { <HonestEdit original=stint.role honest=honest /> }.into_any(),
+        None => stint.role.into_any(),
     };
     view! {
-        <HoverDateRow date=date current=stint.end.is_none() focusable=!folded>
-            {words}
+        <HoverDateRow date=date current=stint.end.is_none()>
+            {role}
+            " at "
+            {stint.company}
         </HoverDateRow>
     }
-    .into_any()
 }
 
 #[component]
 fn Work() -> impl IntoView {
     view! {
-        <section class="ghost-section home-index-section">
+        <section class="ghost-section">
             <GhostWord label="work" />
             <div class="hover-date-list">
                 {STINTS[..3].iter().map(|stint| view! { <WorkRow stint=stint /> }).collect_view()}
-                <Fold>
+                <Fold label="show earlier work">
                     {STINTS[3..]
                         .iter()
-                        .map(|stint| view! { <WorkRow stint=stint folded=true /> })
+                        .map(|stint| view! { <WorkRow stint=stint /> })
                         .collect_view()}
                 </Fold>
             </div>
@@ -150,7 +167,7 @@ fn Writing(posts: Vec<IndexEntry>) -> impl IntoView {
         })
         .collect_view();
     view! {
-        <section class="ghost-section ghost-section-outer home-index-section">
+        <section class="ghost-section">
             <GhostWord label="writing" outer=true />
             <div class="hover-date-list">{rows}</div>
             <a class="all-writing" href=content::WRITING_PATH>
@@ -184,12 +201,10 @@ pub fn HomePage() -> impl IntoView {
                         </p>
                         <p>
                             "this is my notebook for code, systems, and "
-                            <span class="honest-edit" tabindex="0">
-                                <span class="honest-original">"figuring things out"</span>
-                                <span class="honest-insertion" aria-hidden="true">
-                                    "getting things wrong in public"
-                                </span>
-                            </span> ", in english e às vezes em português."
+                            <HonestEdit
+                                original="figuring things out"
+                                honest="getting things wrong in public"
+                            /> ", in english e às vezes em português."
                         </p>
                     </div>
                 </header>
@@ -218,4 +233,15 @@ pub fn HomePage() -> impl IntoView {
         </div>
     }
     .into_any()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_year_range;
+
+    #[test]
+    fn ranges_distinguish_current_and_closed_work() {
+        assert_eq!(format_year_range(2025, None), "since 2025");
+        assert_eq!(format_year_range(2022, Some(2025)), "2022 to 2025");
+    }
 }

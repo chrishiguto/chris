@@ -110,12 +110,13 @@ fn home_ships_accessible_ghost_rows_fold_and_prose_marks() {
         html.contains("hover-date-row-date-current\">since 2022"),
         "{html}"
     );
+    let button = tag_containing(&html, "fold-button");
     assert!(
-        html.contains("class=\"home-fold-button\"") && html.contains("aria-expanded=\"false\""),
-        "{html}"
+        button.contains("aria-expanded=\"false\"") && button.contains(" hidden"),
+        "the fold button ships hidden until the script readies the fold, so no-JS readers see the content in place: {html}"
     );
     assert!(
-        html.contains("class=\"home-fold-content\"") && html.contains("web developer"),
+        html.contains("class=\"fold-content\"") && html.contains("web developer"),
         "{html}"
     );
     assert!(
