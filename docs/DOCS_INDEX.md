@@ -10,17 +10,19 @@ summary, key topics.
   publishing, with success metrics, user stories, module design, KV schema, publish flows, and
   embedded ADR summaries. Topics: leptos, cloudflare-workers, ssr, blog, content
   pipeline, kv, mdx, prd.
-- `docs/prds/prd-design-system-migration.md` — PRD — presentation layer, amended by the
-  caderno specification: Newsreader reading type + Geist Mono code, 18/16/14 scale, warm
-  paper and wine tokens declared once via `light-dark()`, system-only theming, paper grain,
-  veil instead of a header, three-column page grid, gutter wayfinding, and one footer;
-  tags remain an in-page filter island (its
-  `?q=` query state per ADR-0012 as amended), computed read time, formatted dates, two-hue
-  callouts, code-copy island, motion grammar); four hand-rolled islands total, no pipeline
-  invariants disturbed. Amended 2026-07-16: writing became the home — `/` is a masthead
-  band over the full listing with a topics rail and a reserved (inert) search slot, the
-  `TagFilter` island grew into `WritingIndex`, `/posts` 301s to `/`, and the nav collapses
-  to about-only. Topics: design system, tailwind v4, theming, tokens, newsreader,
+- `docs/prds/prd-design-system-migration.md` — PRD — v2 presentation layer, amended
+  2026-09-02 by the caderno specification's chrome slice: Newsreader reading type + Geist
+  Mono code, 18/16/14 scale, warm paper and wine tokens declared once via `light-dark()`,
+  system-only theming (toggle, stored override, and pre-paint script deleted), paper grain,
+  a veil instead of a header (no nav bar, no logo), a three-column page grid, sticky gutter
+  wayfinding on posts, and one footer (name, city, `rss`, `source`). Tags remain an in-page
+  filter island (its `?q=` query state per ADR-0012 as amended); computed read time,
+  formatted dates, two-hue callouts, and the code-copy island stay; two hand-rolled islands
+  remain (`WritingIndex`, `CopyButton`), no pipeline invariants disturbed. Amended
+  2026-07-16: writing became the home — `/` is a masthead band over the full listing with a
+  topics rail and a reserved (inert) search slot, the `TagFilter` island grew into
+  `WritingIndex`, `/posts` 301s to `/`. `/about` stays routed but unlinked until the home
+  slice folds it in. Topics: design system, tailwind v4, theming, tokens, newsreader,
   geist mono, paper, islands, tags, read time, about page, writing home, prd.
 
 ## ADRs
