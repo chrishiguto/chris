@@ -515,22 +515,27 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
     }
 }
 
-// Tag words sit at the article bottom and land on the pre-filtered
-// listing via the `?q=` filter query.
+// Tag words sit at the article bottom as plain links — no pill chrome, no
+// hash — and land on the pre-filtered listing via the `?q=` filter query.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
     let html = strip_markers(render_document(&doc).to_html());
     assert!(
-        html.contains("<ul class=\"post-tags\">"),
+        tag_containing(&html, "post-tags").starts_with("<ul"),
         "tag list missing: {html}"
     );
     for tag in ["rust", "wasm"] {
+        let link = tag_containing(&html, &format!("href=\"/?q={tag}\""));
         assert!(
-            html.contains(&format!("<a href=\"/writing?q={tag}\" class=\"tag\">")),
-            "`{tag}` pill must link to the filtered listing: {html}"
+            link.starts_with("<a") && !link.contains("class=\"tag\""),
+            "`{tag}` must be a plain word linking the filtered listing: {html}"
         );
     }
+    assert!(
+        !html.contains("tag-hash"),
+        "post tag words carry no hash: {html}"
+    );
     let body = html.find("post-body").expect("post body missing");
     let tags = html.find("post-tags").expect("tag list missing");
     assert!(tags > body, "tags must follow the article body: {html}");
@@ -622,10 +627,11 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<hr",
         "<br",
         "<kbd>",
-        "class=\"footnote\"",
-        "class=\"footnote-ref\" aria-label=\"footnote\">†</sup>",
-        "class=\"footnote-note\"",
-        "class=\"post-tags\"",
+        "class=\"footnote-ref\"",
+        "aria-label=\"footnote\"",
+        "†</sup>",
+        "class=\"footnote-note\">On narrower pages",
+        "class=\"post-tags ",
         "callout callout-note",
         "callout callout-tip",
         "callout callout-warning",
@@ -648,10 +654,11 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         !html.contains("component-error"),
         "no component may fail dispatch: {html}"
     );
-    for forbidden in ["previous post", "next post", "all writing"] {
-        assert!(
-            !html.contains(forbidden),
-            "post must end on its tag words, not navigation: {html}"
-        );
-    }
+    // The post ends on its tag words: the tag row closes the content column,
+    // so any end-of-post navigation would have to follow it.
+    assert!(
+        html.trim_end().ends_with("</ul></div></article>")
+            && html.rfind("post-tags").unwrap() > html.rfind("post-body").unwrap(),
+        "the tag row must be the article's last block: {html}"
+    );
 }

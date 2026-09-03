@@ -116,6 +116,7 @@ Posts are data, not programs. The parser rejects, with file/line diagnostics:
 |---|---|---|---|
 | `<Callout>` | `kind` (string, required), `title` (string, optional) | markdown | Highlighted aside |
 | `<Counter>` | `initial` (integer, required) | none | Interactive island demo |
+| `<Footnote>` | `note` (string, required) | markdown | Inline: wraps the phrase a margin note belongs to; the note hangs in the right gutter on wide screens and folds inline below that |
 | `<Hidden>` | none | markdown (required) | One-way, accessible prose fold opened by an accent ellipsis |
 
 `Hidden` keeps a digression in the server document while letting a reader

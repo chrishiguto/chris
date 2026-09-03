@@ -17,7 +17,7 @@ fn fixture_tree(name: &str) -> PathBuf {
 #[test]
 fn manifest_exposes_the_real_app_vocabulary() {
     let manifest = app::manifest();
-    for name in ["Callout", "Counter", "Hidden"] {
+    for name in ["Callout", "Counter", "Footnote", "Hidden"] {
         assert!(
             manifest.get(name).is_some(),
             "app's inventory registrations must reach the CLI; missing {name}"

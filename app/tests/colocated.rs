@@ -19,7 +19,6 @@ fn colocated_components_join_the_manifest() {
     let hidden = manifest.get("Hidden").expect("Hidden registered");
     assert!(hidden.props.is_empty(), "Hidden must remain children-only");
     assert!(hidden.accepts_children);
-    assert!(hidden.requires_children);
 }
 
 #[test]

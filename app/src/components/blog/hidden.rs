@@ -3,6 +3,8 @@ use registry::post_component;
 
 /// Progressive disclosure for post prose. The server ships the complete
 /// child tree; the tiny enhancement only changes its visual presentation.
+/// Opening hides the trigger, so focus moves onto the revealed prose rather
+/// than falling to the document.
 #[post_component]
 #[component]
 pub fn Hidden(children: Children) -> impl IntoView {
@@ -13,7 +15,7 @@ pub fn Hidden(children: Children) -> impl IntoView {
                 class="fold-trigger"
                 aria-expanded="false"
                 hidden
-                onclick="this.setAttribute('aria-expanded','true');this.parentElement.classList.add('fold-open')"
+                onclick="this.setAttribute('aria-expanded','true');this.parentElement.classList.add('fold-open');var c=this.parentElement.querySelector('.fold-content');c.tabIndex=-1;c.focus()"
             >
                 <span aria-hidden="true">"(…)"</span>
                 <span class="sr-only">"reveal hidden text"</span>

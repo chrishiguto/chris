@@ -36,8 +36,8 @@ summary, key topics.
   ride CI (Tier 2 hybrid). Topics: co-located components, rust-analyzer, hybrid pipeline.
 - `docs/adrs/adr-0005-macro-registry-manifest.md` — ADR (Accepted) — #[post_component] proc
   macro: prop conversion, inventory registration, and a component manifest consumed by render
-  dispatch, publish validation, the `xtask check` gate, and a future LSP; amended so required
-  `Children` is explicit manifest metadata and empty invocations fail validation. Topics: proc
+  dispatch, publish validation, the `xtask check` gate, and a future LSP; amended 2026-09-02 so
+  a component that accepts children requires them and empty invocations fail validation. Topics: proc
   macro, registry, manifest, children, inventory, dx.
 - `docs/adrs/adr-0006-two-worker-topology.md` — ADR (Accepted) — two workers split read/write:
   site (SSR + KV read, no secrets) and pipeline (publish op + secrets); no separate read-API

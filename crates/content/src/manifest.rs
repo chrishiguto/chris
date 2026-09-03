@@ -69,9 +69,9 @@ impl Manifest {
 pub struct ComponentSpec {
     pub name: String,
     pub props: Vec<PropSpec>,
+    /// A plain `Children` parameter: the component both accepts and requires
+    /// markdown children, so an empty invocation fails validation.
     pub accepts_children: bool,
-    /// `true` when the component declares a required `Children` parameter.
-    pub requires_children: bool,
 }
 
 impl ComponentSpec {
