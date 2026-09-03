@@ -2,13 +2,12 @@
 /* One sheet per concern; this file owns fonts, tokens, the base layer, and
    the shared link and motion primitives. */
 @import "./chrome.css";
+@import "./fold.css";
 @import "./writing.css";
 @import "./home.css";
-@import "./tags.css";
 @import "./post.css";
 @import "./code-block.css";
 @import "./callout.css";
-@import "./hidden.css";
 
 @source "../src";
 

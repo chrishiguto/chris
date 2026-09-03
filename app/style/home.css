@@ -123,57 +123,15 @@
     font-style: italic;
   }
 
-  .fold {
+  /* The career fold: its rows join the list's flex column as siblings. */
+  .hover-date-list > .fold {
     display: contents;
   }
 
-  .fold-button {
-    padding: 0;
-    border: 0;
-    color: var(--color-accent);
-    background: transparent;
-    cursor: pointer;
-    font: inherit;
-  }
-
-  .fold-content {
+  .hover-date-list .fold-content {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
-  }
-
-  /* Once the script has readied a fold, its content is clipped like
-     `sr-only` — still in the accessibility tree, out of sight — until opened.
-     Without the script nothing is clipped, so no-JS readers see it all. */
-  .fold.is-ready:not(.is-open) .fold-content {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-
-  .fold.is-open .fold-button {
-    display: none;
-  }
-
-  .fold.is-open .fold-content {
-    animation: fold-in 260ms var(--ease-out-expo) both;
-  }
-
-  @keyframes fold-in {
-    from {
-      opacity: 0;
-      transform: translateY(2px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
   }
 
   .pencil {
@@ -288,8 +246,5 @@
       transition: none;
     }
 
-    .fold.is-open .fold-content {
-      animation: none;
-    }
   }
 }

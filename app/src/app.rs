@@ -5,7 +5,7 @@ use leptos_router::{
     ParamSegment, StaticSegment,
 };
 
-use crate::components::{Footer, NotFound};
+use crate::components::{fold::FOLD_SCRIPT, Footer, NotFound};
 use crate::home::HomePage;
 use crate::post::PostPage;
 use crate::writing::WritingPage;
@@ -65,6 +65,7 @@ pub fn App() -> impl IntoView {
                     </Routes>
                 </main>
                 <Footer />
+                <script>{FOLD_SCRIPT}</script>
             </div>
         </Router>
     }

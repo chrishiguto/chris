@@ -296,21 +296,22 @@ fn hidden_renders_a_server_owned_accessible_fold() {
         }],
     }]);
     assert!(html.contains("class=\"fold\""), "fold root missing: {html}");
+    let button = tag_containing(&html, "fold-button");
     assert!(
-        html.contains("<button")
-            && html.contains("class=\"fold-trigger\"")
-            && html.contains("aria-expanded=\"false\"")
+        button.starts_with("<button")
+            && button.contains("aria-expanded=\"false\"")
+            && button.contains(" hidden")
             && html.contains("(…)")
             && html.contains("reveal hidden text"),
-        "accessible ellipsis button missing: {html}"
+        "accessible ellipsis button, hidden until the shell's fold script readies it: {html}"
     );
     assert!(
         html.contains("class=\"fold-content\"><p>the folded words</p>"),
         "folded prose must ship in the server document: {html}"
     );
     assert!(
-        html.contains("document.currentScript") && !html.contains("<leptos-island"),
-        "the fold must enhance without an island: {html}"
+        !html.contains("<script") && !html.contains("<leptos-island"),
+        "the fold is server markup the shell script enhances — no island, no inline script: {html}"
     );
 }
 
@@ -634,7 +635,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "aria-label=\"footnote\"",
         "†</sup>",
         "class=\"footnote-note\">On narrower pages",
-        "class=\"post-tags ",
+        "class=\"post-tags\"",
         "callout callout-note",
         "callout callout-tip",
         "callout callout-warning",
@@ -647,7 +648,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<span class=\"code-lang\">code</span>",
         "class=\"code-copy\"",
         "class=\"fold\"",
-        "class=\"fold-trigger\"",
+        "class=\"fold-button\"",
         "class=\"fold-content\"",
         "<leptos-island",
     ] {

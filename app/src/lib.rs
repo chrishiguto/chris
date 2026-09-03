@@ -2,7 +2,6 @@
 #![recursion_limit = "256"]
 
 pub mod app;
-mod classed;
 pub mod components;
 pub mod home;
 pub mod post;
