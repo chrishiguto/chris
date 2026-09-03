@@ -149,7 +149,7 @@ fn ClampedTopics<V: IntoView + 'static>(pills: Vec<V>, n: usize) -> impl IntoVie
                 pills=pills
                 spacing="mt-0 max-h-[11rem] overflow-hidden peer-checked:max-h-none"
             />
-            <div class="pointer-events-none absolute inset-x-0 top-[7rem] h-16 bg-gradient-to-t from-surface to-transparent peer-checked:hidden"></div>
+            <div class="pointer-events-none absolute inset-x-0 top-[7rem] h-16 bg-gradient-to-t from-paper to-transparent peer-checked:hidden"></div>
             <label
                 for="topics-more"
                 class=format!("{TOGGLE_LABEL_CLASS} block peer-checked:hidden")
@@ -185,9 +185,9 @@ fn WritingHeader(total: usize) -> impl IntoView {
 
 /// The reserved search slot: the pill-shaped, icon-led field. It keeps its
 /// resting and focus affordances — on focus the magnifier warms to accent and
-/// a discrete `line-2` border draws, the global focus ring suppressed — but no
+/// a discrete hairline draws, the global focus ring suppressed — but no
 /// filtering is wired: typing is inert until text search ships as its own
-/// feature. The recessed fill is the `input-fill` token; the magnifier and
+/// feature. The recessed fill is the second paper step; the magnifier and
 /// placeholder read `ink-2` for contrast.
 #[component]
 fn SearchField() -> impl IntoView {
@@ -212,7 +212,7 @@ fn SearchField() -> impl IntoView {
             <input
                 type="search"
                 placeholder="filter writing…"
-                class="w-full appearance-none rounded-full border border-transparent bg-input-fill py-2.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-2 transition-colors focus:border-line-2 focus:outline-none focus-visible:outline-none"
+                class="w-full appearance-none rounded-full border border-transparent bg-paper-2 py-2.5 pl-11 pr-4 text-sm text-ink placeholder:text-ink-2 transition-colors focus:border-line focus:outline-none focus-visible:outline-none"
             />
         </label>
     }

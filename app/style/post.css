@@ -4,11 +4,14 @@
    error surface. */
 
 @layer components {
-  /* Width/centering come from utilities on the article; only rhythm lives here. */
+  /* The article is the page grid itself so the gutter nav can share its row;
+     the padding sits on the grid, not the column, so both start at one height. */
   .post {
-    padding-block: 3rem 5rem;
-    font-size: 1.0625rem;
-    line-height: 1.75;
+    padding-block: 8rem 5rem;
+  }
+
+  .post-content {
+    grid-column: 2;
   }
 
   .post header {
@@ -16,9 +19,8 @@
   }
 
   .post header h1 {
-    margin: 1.5rem 0 0.75rem;
-    font-family: var(--font-display);
-    font-size: var(--text-display);
+    margin: 0 0 0.75rem;
+    font-size: 1.875rem;
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.08;
@@ -31,7 +33,8 @@
     display: flex;
     align-items: baseline;
     gap: 0.5rem;
-    font-size: 0.8125rem;
+    font-size: 1rem;
+    font-style: italic;
     color: var(--color-ink-2);
   }
 
@@ -52,12 +55,11 @@
     text-wrap: balance;
   }
 
-  /* Section headings carry the display face; the small ranks stay sans so
+  /* Titling ranks tighten their tracking; the small ranks keep body tracking so
      they read as labels, not titles. */
   .post-body h1,
   .post-body h2,
   .post-body h3 {
-    font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
 
@@ -68,20 +70,17 @@
     letter-spacing: -0.02em;
   }
 
-  .post-body h1 {
-    font-size: 1.75rem;
-  }
-
+  .post-body h1,
   .post-body h2 {
-    font-size: 1.75rem;
-  }
-
-  .post-body h3 {
     font-size: 1.375rem;
   }
 
+  .post-body h3 {
+    font-size: 1.25rem;
+  }
+
   .post-body h4 {
-    font-size: 1.0625rem;
+    font-size: 1.125rem;
   }
 
   .post-body h5,
@@ -104,7 +103,7 @@
   .post-body code {
     font-family: var(--font-mono);
     font-size: 0.875em;
-    background-color: var(--color-surface-2);
+    background-color: var(--color-paper-2);
     border: 1px solid var(--color-line);
     border-radius: 0.25rem;
     padding: 0.125em 0.375em;
@@ -158,7 +157,7 @@
     font-family: var(--font-mono);
     font-size: 0.875em;
     color: var(--color-danger);
-    background-color: color-mix(in oklab, var(--color-danger) 12%, var(--color-surface));
+    background-color: color-mix(in oklab, var(--color-danger) 12%, var(--color-paper));
     border: 1px dashed var(--color-danger);
     border-radius: 0.25rem;
     padding: 0.125em 0.5em;

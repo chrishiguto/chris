@@ -15,7 +15,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--color-ink-2);
     background-color: transparent;
@@ -42,7 +42,6 @@
      pill keeps this look under the cursor. */
   a.tag.tag-active {
     color: var(--color-accent);
-    background-color: var(--color-accent-subtle);
     border-color: var(--color-accent);
   }
 }
