@@ -86,3 +86,10 @@ feeds only (there are no tag pages left to project the index).
 > unchanged: server render is the full unfiltered list, pill clicks `replaceState` and never
 > navigate, and every deep-linked `?q=` entry is the same SSR body under the `views` tag.
 > Old `/posts?q=` links land filtered via the redirect; old `/posts` links land on `/`.
+
+> **Amendment (2026-09-02)**: the index home supersedes the writing-home experiment.
+> The complete filter island moves intact to `/writing`, and `tag_filter_path*` roots its
+> multi-tag query there (`/writing?q=rust,wasm`). `/posts` now `301`s to `/writing`, with
+> the query preserved; post URLs remain `/posts/{slug}`. `LISTING_PAGES` contains only
+> `/writing`, so its query variants remain under `views`; `/` becomes the deployment-owned
+> home under `site`. The sitemap lists both canonical pages and drops the retired `/about`.

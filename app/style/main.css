@@ -3,6 +3,7 @@
    the shared link and motion primitives. */
 @import "./chrome.css";
 @import "./listing.css";
+@import "./home.css";
 @import "./tags.css";
 @import "./post.css";
 @import "./code-block.css";

@@ -9,7 +9,7 @@ pub mod redirects;
 #[cfg(feature = "ssr")]
 mod server {
     use crate::{cache, feeds, purge, redirects};
-    use app::{app::shell, listing::IndexData, post::PostData};
+    use app::{app::shell, post::PostData, writing::IndexData};
     use authn::verify_bearer;
     use axum::{
         body::Body,
@@ -24,7 +24,7 @@ mod server {
     };
     use content::{
         index_key_at, post_key_at, CurrentPointer, Document, IndexEntry, CURRENT_KEY,
-        LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG, STATIC_PAGES,
+        LISTING_PAGES, POSTS_PATH, RSS_PATH, SITEMAP_PATH, SITE_TAG,
     };
     use leptos::prelude::*;
     use tower_service::Service;
@@ -35,6 +35,9 @@ mod server {
     const VERSION_BINDING: &str = "CF_VERSION_METADATA";
     /// Axum `{param}` form of `content::post_path`.
     const POST_ROUTE: &str = "/posts/{slug}";
+    /// The retired about page. Deliberately not a `content` route: nothing
+    /// may link it; it only answers old bookmarks.
+    const ABOUT_ROUTE: &str = "/about";
     /// The pipeline's purge hook; Workers Cache is private to this worker.
     const PURGE_ROUTE: &str = "/__purge";
     // TODO: evaluate Cloudflare Secrets Store for this cross-worker shared secret.
@@ -103,26 +106,23 @@ mod server {
             .and_then(|value| value.to_str().ok())
             .map(String::from);
 
-        // One handler serves all listing pages and another all static
-        // pages, so a page list and the routes can't diverge; the leptos
-        // router picks the page from the URL.
+        // One handler serves every listing page, so the page list and the
+        // routes can't diverge; the leptos router picks the page from the URL.
         let router = Router::new()
+            .route(content::HOME_PATH, get(home_page))
             .route(POST_ROUTE, get(post_page))
-            .route(POSTS_PATH, get(redirect_home))
+            .route(POSTS_PATH, get(redirect_posts))
             // The trailing-slash twin: axum matches paths exactly, and the
             // retired listing's links exist in both spellings.
-            .route(&format!("{POSTS_PATH}/"), get(redirect_home))
+            .route(&format!("{POSTS_PATH}/"), get(redirect_posts))
+            .route(ABOUT_ROUTE, get(redirect_about))
             .route(RSS_PATH, get(feed_xml))
             .route(SITEMAP_PATH, get(sitemap_xml))
             .route(PURGE_ROUTE, post(purge_route));
         let router = LISTING_PAGES
             .iter()
             .fold(router, |r, path| r.route(path, get(listing_page)));
-        let mut router = STATIC_PAGES
-            .iter()
-            .fold(router, |r, path| r.route(path, get(static_page)))
-            .fallback(not_found_page)
-            .with_state(state);
+        let mut router = router.fallback(not_found_page).with_state(state);
 
         let mut response = router.call(req).await?;
         // No explicit Cache-Control means no-store: drafts, 404s, and errors
@@ -273,22 +273,39 @@ mod server {
         response
     }
 
-    /// The home front door carries the writing listing; the bare `/posts`
-    /// URL — either slash spelling — and any `?q=` deep link redirect there
-    /// permanently. Left no-store: a standing redirect costs nothing to
+    /// The retired `/posts` listing — either slash spelling — and any `?q=`
+    /// deep link redirect permanently to the writing archive. Left no-store: a standing redirect costs nothing to
     /// re-answer and needs no purge handle.
     #[worker::send]
-    async fn redirect_home(req: Request<Body>) -> Response<Body> {
+    async fn redirect_posts(req: Request<Body>) -> Response<Body> {
         let location = redirects::posts_redirect_location(req.uri().query());
         (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
     }
 
-    /// Hardcoded pages, no KV read: nothing to inject and no snapshot sha —
-    /// the version alone is the validator; cached under the site tag alone —
-    /// they change on deploy (which purges `site`), never on publish.
+    /// About's authored content moved to the home; bookmarks land
+    /// permanently on the new canonical location.
     #[worker::send]
-    async fn static_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
-        let mut response = render_page(&state, req, || ()).await;
+    async fn redirect_about() -> Response<Body> {
+        (
+            StatusCode::MOVED_PERMANENTLY,
+            [(LOCATION, content::HOME_PATH)],
+        )
+            .into_response()
+    }
+
+    /// The home owns static authored copy and a four-title index window. It
+    /// reads that window on a miss but deliberately carries only `site`: the
+    /// route changes on deploy and is outside publish's `views` purge scope.
+    #[worker::send]
+    async fn home_page(State(state): State<AppState>, req: Request<Body>) -> Response<Body> {
+        let index = match load_or_500(load_index(&state.env), "the home post index").await {
+            Ok((index, _)) => index,
+            Err(response) => return response,
+        };
+        let mut response = render_page(&state, req, move || {
+            provide_context(IndexData(index.clone()))
+        })
+        .await;
         mark_cacheable(&mut response, None, &state.version, SITE_TAG);
         response
     }
