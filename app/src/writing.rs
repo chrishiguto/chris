@@ -29,7 +29,7 @@ fn listed_posts() -> Vec<ListedPost> {
 /// Shown when the index carries no published post.
 #[component]
 fn NothingPublished() -> impl IntoView {
-    view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
+    view! { <p class="mt-6 text-ink-2">"nothing published yet. check back soon."</p> }
 }
 
 #[component]

@@ -140,9 +140,10 @@ small-caps kind labels; note, tip, and warning use the accent, while danger uses
 hue. Code sits on `paper-2` behind a two-pixel left rule, with its language label and the
 existing copy island.
 
-A `.footnote` keeps the marked phrase, dagger reference, and note in server HTML. At
-72rem and wider CSS moves the note into the right gutter; below that it returns inline in
-italic. Posts end with unboxed tag words and no next/previous or end-of-post navigation.
+A registered `<Footnote note="…">` post component wraps the marked phrase and emits the
+dagger reference and the note, all in server HTML. At 72rem and wider CSS moves the note
+into the right gutter; below that it returns inline in italic. Section signs are a
+pseudo-element, so the kitchen-sink read verifies them rather than the SSR seam. Posts end with unboxed tag words and no next/previous or end-of-post navigation.
 The AST renderer remains unaware of routes.
 
 ### Hidden text
@@ -150,8 +151,11 @@ The AST renderer remains unaware of routes.
 Three treatments let prose be read at different depths:
 
 - A fold is a real button containing an accent ellipsis. Activating it once reveals the
-  already-rendered text in place with a short fade and two-pixel rise. On home it uses a
-  tiny inline script; posts use the children-only registered `Hidden` component.
+  already-rendered text in place with a short fade and two-pixel rise. One shared `Fold`
+  serves the home's career list and, registered as the children-only `Hidden` component,
+  post prose; the app shell's one fold script readies every fold and keeps keyboard focus
+  inside what it reveals. Without JavaScript the button stays hidden and the content is
+  simply visible.
 - Pencil text is quiet ink with a dotted underline and darkens after a short hover delay.
 - An honest edit keeps the struck phrase in flow and positions the candid insertion above
   it. Hover, focus, or touch reveals the insertion without shifting the line.
@@ -167,7 +171,8 @@ same credit.
 Frontmatter remains ISO `YYYY-MM-DD` for validation and sorting. Displayed dates always
 read as words:
 
-- `4 july` inside a year group;
+- `4 july` inside a year group, and on the home's four-title window (the year is implied
+  by recency; see the open question below);
 - `4 july 2026` in standalone post metadata;
 - `since 2022` for an open career range;
 - `2021 to 2022` for a closed career range.
@@ -181,7 +186,9 @@ em dash. The retired tagline stays deleted.
 This is a presentation-layer change. The parser, AST, snapshot layout, coordinator,
 publish flow, cache tags, and purge mechanism do not change. `/` carries `site`;
 `/writing` and feeds carry `views`; posts carry `post:{slug}`. Redirects are uncached route
-responses as specified by the worker.
+responses as specified by the worker. Because `/` carries `site` alone, its four-title
+window and `all writing (N)` count refresh on deploy, not on publish (ADR-0008 as amended);
+tagging the home with `views` too is the one-line change if that trade proves wrong.
 
 The caderno presentation adds no new islands. Its two interactive island types are:
 
@@ -189,9 +196,9 @@ The caderno presentation adds no new islands. Its two interactive island types a
 - `CopyButton`, for code-copy feedback.
 
 The full shipped registry has four island types: those two, the global `Counter`, and the
-co-located counter used by `ci-code-path`. Home folds and honest edits are progressive
-enhancement over server HTML, implemented by the small home-local script. Everything else
-is server-rendered HTML and CSS.
+co-located counter used by `ci-code-path`. Folds and honest edits are progressive
+enhancement over server HTML: one delegated fold script in the shell, and a small home
+script for the honest-edit tap. Everything else is server-rendered HTML and CSS.
 
 ## Success and verification
 
@@ -212,7 +219,8 @@ The following are intentionally retired, with no compatibility layer:
 - the header bar, logo, nav links, theme toggle, stored theme, and pre-paint script;
 - Fraunces and Figtree, display-size type tokens, and the terminal voice;
 - the konami island, toast, footer hint, and footer tagline;
-- the timeline treatment, separate about page, and old writing-as-home layout;
+- the separate about page and the old writing-as-home layout (the card timeline explored
+  on the closed PR #46 never reached main);
 - `/tags` pages, tag cards and pills, the topics rail, reserved search field, and clamp;
 - the breadcrumb and history-based back-link island;
 - filled callout cards, code chrome bar, boxed post tags, and end navigation.
@@ -222,8 +230,8 @@ The following are intentionally retired, with no compatibility layer:
 - Replacing the placeholder introduction, career history, or now paragraph.
 - Text search, pagination, comments, analytics, or a theme override.
 - Self-hosting fonts.
-- Authoring pencil or honest-edit marks from MDX; only `Hidden` joins the component
-  vocabulary.
+- Authoring pencil or honest-edit marks from MDX; `Footnote` and `Hidden` are the only
+  additions to the component vocabulary.
 - Any content-pipeline, KV-schema, publish-flow, or cache-tag redesign.
 
 ## Amendment history

@@ -129,7 +129,8 @@ summary, key topics.
 
 - `CONTENT.md` (repo root) — Spec — the authoring format contract: MDX-syntax subset,
   frontmatter fields, prop literal rules, rejected constructs with reasons, the current
-  component vocabulary (including the children-only `Hidden` prose fold), and how to add a
+  component vocabulary (including the inline `Footnote` and the children-only `Hidden`
+  prose fold), and how to add a
   `#[post_component]`. Topics: authoring, mdx subset, components, hidden text, props,
   validation.
 - `README.md` (repo root) — project introduction in the author's voice: the publish-flow
