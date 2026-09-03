@@ -4,11 +4,14 @@
    error surface. */
 
 @layer components {
-  /* Width/centering come from utilities on the article; only rhythm lives here. */
+  /* The article is the page grid itself so the gutter nav can share its row;
+     the padding sits on the grid, not the column, so both start at one height. */
   .post {
     padding-block: 8rem 5rem;
-    font-size: 1.125rem;
-    line-height: 1.6;
+  }
+
+  .post-content {
+    grid-column: 2;
   }
 
   .post header {
@@ -17,7 +20,6 @@
 
   .post header h1 {
     margin: 0 0 0.75rem;
-    font-family: var(--font-display);
     font-size: 1.875rem;
     font-weight: 500;
     letter-spacing: -0.01em;
@@ -54,12 +56,11 @@
     text-wrap: balance;
   }
 
-  /* Section headings carry the display face; the small ranks stay sans so
+  /* Titling ranks tighten their tracking; the small ranks keep body tracking so
      they read as labels, not titles. */
   .post-body h1,
   .post-body h2,
   .post-body h3 {
-    font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
 
