@@ -287,6 +287,34 @@ fn callout_renders_optional_title_when_given() {
 }
 
 #[test]
+fn hidden_renders_a_server_owned_accessible_fold() {
+    let html = html_of(vec![Node::Component {
+        name: "Hidden".into(),
+        props: BTreeMap::new(),
+        children: vec![Node::Paragraph {
+            children: vec![text("the folded words")],
+        }],
+    }]);
+    assert!(html.contains("class=\"fold\""), "fold root missing: {html}");
+    assert!(
+        html.contains("<button")
+            && html.contains("class=\"fold-trigger\"")
+            && html.contains("aria-expanded=\"false\"")
+            && html.contains("(…)")
+            && html.contains("reveal hidden text"),
+        "accessible ellipsis button missing: {html}"
+    );
+    assert!(
+        html.contains("class=\"fold-content\"><p>the folded words</p>"),
+        "folded prose must ship in the server document: {html}"
+    );
+    assert!(
+        html.contains("document.currentScript") && !html.contains("<leptos-island"),
+        "the fold must enhance without an island: {html}"
+    );
+}
+
+#[test]
 fn counter_island_ssrs_with_initial_value() {
     let html = html_of(vec![Node::Component {
         name: "Counter".into(),
@@ -615,6 +643,9 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<span class=\"code-lang\">rust</span>",
         "<span class=\"code-lang\">code</span>",
         "class=\"code-copy\"",
+        "class=\"fold\"",
+        "class=\"fold-trigger\"",
+        "class=\"fold-content\"",
         "<leptos-island",
     ] {
         assert!(html.contains(needle), "kitchen sink missing {needle}");
