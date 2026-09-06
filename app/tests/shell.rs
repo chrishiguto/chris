@@ -1,9 +1,8 @@
-//! Document-shell contracts: the head loads in no-flash order and the
-//! fonts arrive from the URL the stacks expect. How anything looks is
-//! deliberately untested — that's the kitchen-sink read in both themes.
+//! Document-shell contracts: the two requested font families load and theme
+//! selection remains entirely in system CSS, with no per-visitor script.
 #![cfg(feature = "ssr")]
 
-use app::app::{shell, GOOGLE_FONTS_URL, THEME_SCRIPT, THEME_STORAGE_KEY};
+use app::app::{shell, GOOGLE_FONTS_URL};
 use leptos::prelude::LeptosOptions;
 
 mod common;
@@ -11,7 +10,6 @@ mod common;
 fn shell_html() -> String {
     use leptos::prelude::provide_context;
 
-    // The router needs the RequestUrl leptos_axum would provide per-request.
     let options = LeptosOptions::builder().output_name("chris").build();
     common::ssr(
         || provide_context(leptos_router::location::RequestUrl::new("/")),
@@ -19,61 +17,42 @@ fn shell_html() -> String {
     )
 }
 
-// Fraunces + Figtree + Geist Mono come from Google Fonts with
-// `display=swap`, preconnected and linked in the shell head.
 #[test]
-fn fonts_load_from_google_with_swap() {
+fn newsreader_and_geist_mono_load_with_the_full_axes() {
     for part in [
-        "family=Fraunces",
-        "family=Figtree",
-        "family=Geist+Mono",
+        "family=Geist+Mono:wght@400",
+        "family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700",
         "display=swap",
     ] {
         assert!(
             GOOGLE_FONTS_URL.contains(part),
-            "Google Fonts URL missing `{part}`"
+            "fonts URL missing `{part}`"
         );
     }
-    let html = shell_html();
-    assert!(
-        html.contains("rel=\"preconnect\" href=\"https://fonts.googleapis.com\""),
-        "missing preconnect to fonts.googleapis.com: {html}"
+    assert_eq!(
+        GOOGLE_FONTS_URL.matches("family=").count(),
+        2,
+        "the URL must load exactly two families"
     );
+    assert!(!GOOGLE_FONTS_URL.contains("Fraunces"));
+    assert!(!GOOGLE_FONTS_URL.contains("Figtree"));
+
+    let html = shell_html();
+    assert!(html.contains("rel=\"preconnect\" href=\"https://fonts.googleapis.com\""));
     assert!(
         html.contains("rel=\"preconnect\" href=\"https://fonts.gstatic.com\"")
-            && html.contains("crossorigin"),
-        "missing anonymous preconnect to fonts.gstatic.com: {html}"
+            && html.contains("crossorigin")
     );
-    assert!(
-        // Attribute values render entity-escaped.
-        html.contains(&GOOGLE_FONTS_URL.replace('&', "&amp;")),
-        "the fonts stylesheet must be linked in the head: {html}"
-    );
+    assert!(html.contains(&GOOGLE_FONTS_URL.replace('&', "&amp;")));
 }
 
-// A stored explicit theme is re-applied by a blocking inline script ahead
-// of every stylesheet, so the first paint can't flash the wrong theme — and
-// the script is a constant, so the served HTML never varies.
 #[test]
-fn stored_theme_is_applied_pre_paint() {
-    // The script is a hand-written literal; this pins its key to the
-    // constant the toggle island persists under.
-    let getter = format!("localStorage.getItem(\"{THEME_STORAGE_KEY}\")");
-    for part in [getter.as_str(), "\"light\"", "\"dark\"", "dataset.theme"] {
+fn shell_contains_no_explicit_theme_state_or_prepaint_script() {
+    let html = shell_html();
+    for retired in ["chris-theme", "localStorage", "dataset.theme", "data-theme"] {
         assert!(
-            THEME_SCRIPT.contains(part),
-            "theme script missing `{part}`: {THEME_SCRIPT}"
+            !html.contains(retired),
+            "system-only theming must not ship `{retired}`: {html}"
         );
     }
-    let html = shell_html();
-    let script = html
-        .find(THEME_SCRIPT)
-        .expect("the inline theme script must ship in the shell head");
-    let stylesheet = html
-        .find("rel=\"stylesheet\"")
-        .expect("the shell links stylesheets");
-    assert!(
-        script < stylesheet,
-        "the theme script must run before any stylesheet loads"
-    );
 }

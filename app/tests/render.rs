@@ -462,8 +462,8 @@ fn render_document_wraps_body_in_article_with_header() {
         "expected article root: {html}"
     );
     assert!(
-        tag_containing(&html, "article").contains("page-enter"),
-        "the article mounts under the page-enter stagger: {html}"
+        tag_containing(&html, "post-content").contains("page-enter"),
+        "the middle-column article content mounts under the page-enter stagger: {html}"
     );
     assert!(html.contains("<h1>Hello, KV</h1>"), "title missing: {html}");
     assert!(
@@ -522,33 +522,24 @@ fn post_omits_empty_tag_list() {
     );
 }
 
-// The back control opens the article as an island (`history.back` needs
-// JS), SSR'd as a plain listing link so it stays a way back without
-// hydration. It never names the post's own URL — the renderer stays
-// decoupled from URL knowledge.
+// Post wayfinding is a stable home link in semantic gutter nav. It is plain
+// SSR markup: no history behavior and no island payload.
 #[test]
-fn post_opens_with_a_back_link_island_to_the_listing() {
+fn post_opens_with_gutter_nav_to_home() {
     let doc = doc_with_tags(vec![]);
     let html = strip_markers(render_document(&doc).to_html());
-    let link = tag_containing(&html, "href=\"/\"");
-    assert!(
-        link.starts_with("<a"),
-        "the no-JS fallback must link the writing home: {html}"
-    );
+    let link = tag_containing(&html, "← home");
+    assert!(link.starts_with("<a"), "the way out must link home: {html}");
     let back = html.find("href=\"/\"").unwrap();
     assert!(
-        html[..back].contains("<leptos-island"),
-        "the back link must hydrate as an island: {html}"
+        html[..back].contains("<nav") && !html.contains("<leptos-island"),
+        "the gutter link must be plain semantic navigation: {html}"
     );
     assert!(
         back < html.find("<header").expect("header missing"),
         "the back link must sit above the header: {html}"
     );
-    let arrow = tag_containing(&html, "←");
-    assert!(
-        arrow.contains("aria-hidden=\"true\""),
-        "the arrow is decoration, hidden from readers: {html}"
-    );
+    assert!(html.contains("aria-label=\"back to home\""), "{html}");
 }
 
 // The header meta row is mono chrome (`.post-meta`): formatted date, ink-3

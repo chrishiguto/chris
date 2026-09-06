@@ -25,7 +25,7 @@ All builds route through `just` (wrangler.toml's `[build]` also calls `just buil
 ## Styling
 
 Inline Tailwind utilities in the view are the default. A house class must earn its name —
-multi-state or pseudo-element rules, shared design-system vocabulary (`plink`, `when-*`,
+multi-state or pseudo-element rules, shared design-system vocabulary (`plink`, `page-grid`,
 `page-enter`), or element selectors for markup that carries no classes (prose under
 `.post-body`) — and lives only in its owner's sheet. Never emit markup that needs a class
 or wrapper another component must supply. Looks are verified by the kitchen-sink read in

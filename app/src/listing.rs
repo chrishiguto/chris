@@ -27,8 +27,7 @@ fn NothingPublished() -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
 }
 
-/// The front-door band: greeting, one voice line, external-only contacts. Nav
-/// owns "about", so the masthead carries no in-app links.
+/// The front-door band: greeting, one voice line, external-only contacts.
 #[component]
 fn MastheadBand() -> impl IntoView {
     view! {

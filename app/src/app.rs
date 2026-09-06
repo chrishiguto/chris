@@ -6,26 +6,14 @@ use leptos_router::{
 };
 
 use crate::about::AboutPage;
-use crate::components::{Footer, Header, NotFound};
+use crate::components::{Footer, NotFound};
 use crate::listing::HomePage;
 use crate::post::PostPage;
 
-/// Fraunces (display) + Figtree (body and chrome) + Geist Mono (code only)
-/// from Google Fonts, loaded with `display=swap`. Fraunces' SOFT/WONK axes
-/// are pinned in the URL — the served face is already soft, so retune the
-/// axes here, never via `font-variation-settings`.
-pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..700,75,1&family=Figtree:wght@400..700&family=Geist+Mono:wght@400&display=swap";
-
-/// The localStorage key an explicit theme choice persists under; the toggle
-/// island writes it and [`THEME_SCRIPT`] reads it.
-pub const THEME_STORAGE_KEY: &str = "chris-theme";
-
-/// Re-applies a stored explicit theme before any stylesheet loads, so the
-/// first paint can't flash the wrong theme. A constant: the served HTML is
-/// byte-identical for every visitor, keeping the edge cache one response per
-/// URL. Unknown stored values are ignored — `color-scheme` then keeps
-/// following the system preference.
-pub const THEME_SCRIPT: &str = r#"try{var t=localStorage.getItem("chris-theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}"#;
+/// Newsreader carries every reading voice; Geist Mono is reserved for code.
+/// The variable axes ship in the URL so browsers receive italic, optical-size,
+/// and the complete 300–700 weight range without local axis overrides.
+pub const GOOGLE_FONTS_URL: &str = "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400&family=Newsreader:ital,opsz,wght@0,6..72,300..700;1,6..72,300..700&display=swap";
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     // cargo-leptos targets id="leptos" on the link below for CSS hot-reload.
@@ -36,7 +24,6 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             <head>
                 <meta charset="utf-8" />
                 <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <script inner_html=THEME_SCRIPT></script>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
                 <link rel="stylesheet" href=GOOGLE_FONTS_URL />
@@ -66,8 +53,10 @@ pub fn App() -> impl IntoView {
         <Title text=content::SITE_TITLE />
 
         <Router>
-            <div class="flex min-h-screen flex-col">
-                <Header />
+            <div class="flex min-h-dvh flex-col">
+                // The top edge is a blur-and-paper veil, deliberately inert: it
+                // dissolves scrolling text without becoming a navigation surface.
+                <div class="site-veil" aria-hidden="true"></div>
                 <main class="flex-1">
                     <Routes fallback=|| view! { <NotFound /> }>
                         <Route path=StaticSegment("") view=HomePage />

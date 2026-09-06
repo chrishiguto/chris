@@ -19,9 +19,7 @@ wasm-bindgen = { workspace = true }
 web-sys = { workspace = true, features = [
     "Clipboard",
     "History",
-    "MediaQueryList",
     "Navigator",
-    "Storage",
     "UrlSearchParams",
 ] }
 

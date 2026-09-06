@@ -1,52 +1,47 @@
-# ADR-0011: Client-side theming — `data-theme` + `light-dark()` with zero server variance
+# ADR-0011: System theming via `light-dark()` with zero server variance
 
-**Status**: Accepted (2026-07-09)
-**Related**: PRD `docs/prds/prd-design-system-migration.md`, ADR-0008 (cache and purge)
+**Status**: Accepted (2026-07-09; amended 2026-09-02)
+**Related**: PRD `docs/prds/prd-design-system-migration.md`,
+[caderno specification](https://github.com/chrishiguto/chris/issues/47), ADR-0008 (cache and purge)
 
 ## Context
 
-The design-system migration adds a user-facing light/dark toggle. Every HTML response is
-cached in Workers Cache and shared by all visitors (ADR-0008), so theming must not introduce
-server-side variance — a per-theme cache key space or `Vary` header would fragment or kill
-the cache. Today color flips only on `prefers-color-scheme`; there is no user override and
-no persistence.
+Every HTML response is cached in Workers Cache and shared by all visitors (ADR-0008), so
+theming must not introduce server-side variance. The original decision met that constraint
+with a client-side override: `data-theme`, localStorage, a pre-paint script and a toggle
+island. The caderno design removes visible application chrome and makes system preference
+the complete theme contract; retaining an invisible stored override would make the page
+surprising and leave dead machinery behind.
 
 ## Decision
 
-Theme is a **pure client concern**; the server renders identical HTML for everyone.
+Theme follows the system only, and the server renders identical HTML for everyone.
 
-- Every color token is declared **once** via CSS `light-dark()`; the existing
-  `color-scheme: light dark` declaration makes the unset state follow the system preference.
-- An explicit choice sets `data-theme` on `<html>`, which merely flips `color-scheme` —
-  no duplicated dark token blocks.
-- The choice persists in `localStorage`; a blocking inline `<head>` script (before the
-  stylesheet) re-applies it pre-paint, so there is no flash of the wrong theme.
-- A hand-rolled `ThemeToggle` island flips and persists the attribute. Two-state: unset
-  follows the system until the first explicit toggle. Both glyphs are server-rendered and
-  CSS picks the visible one, so the button cannot flash a stale icon before hydration.
-- Shadow tokens embed their colors through `light-dark()` inside the value.
+- Every color role is declared once via CSS `light-dark()`.
+- `color-scheme: light dark` on the root lets the user agent select the system scheme.
+- There is no `data-theme` override, persisted choice, pre-paint script, or toggle island.
+- Palette-dependent values, including selection, focus, and shadow colors, use the same
+  declared-once mechanism.
+
+This amends the original explicit-override decision. Cache variance remains zero while the
+client code and hydrated-island inventory shrink.
 
 ## Options considered
 
-1. **Client-side `data-theme` + `light-dark()`** — chosen.
-2. **Cookie + server-rendered theme** — no flash by construction, but fragments Workers
-   Cache per theme (or `Vary: Cookie` disables it) and violates ADR-0008's
-   all-dynamism-in-islands rule.
-3. **`prefers-color-scheme` only** (status quo) — zero JS, but no user override; the toggle
-   is a product requirement.
-4. **Design-literal duplicated blocks** (`[data-theme="dark"]` + a `prefers-color-scheme`
-   media query fallback) — same behavior as chosen, but every dark token is declared twice
-   more; `light-dark()` collapses the duplication.
+1. **System preference + `light-dark()`** — chosen; no script, persistence, flash, or cache
+   variance.
+2. **Client override + `light-dark()`** — previously chosen; preserves reader control but
+   conflicts with the no-chrome design and requires persistence plus pre-paint machinery.
+3. **Cookie + server-rendered theme** — fragments Workers Cache per theme (or disables it
+   through `Vary: Cookie`).
+4. **Duplicated `prefers-color-scheme` token blocks** — zero script, but declares every
+   dark token a second time for behavior `light-dark()` already expresses.
 
 ## Consequences
 
-- Good: the caching model is untouched — one cached response per URL, no new variance.
-- Good: each color is declared exactly once; the token file stays half the size of the
-  design source's.
-- Good: system preference is respected until the user opts out, and the choice survives
-  visits.
-- Bad: `light-dark()` needs a modern browser (baseline 2024); older browsers get the light
-  palette. Accepted for a personal blog.
-- Bad: the toggle renders both glyphs into the HTML (CSS picks one) — mild markup
-  duplication bought for zero hydration flicker.
-- Bad: no-JS visitors get the system theme only; the toggle SSRs but is inert. Accepted.
+- Good: one cached response per URL and one declaration per color role remain intact.
+- Good: served markup has no visitor-specific state and cannot flash a stored stale choice.
+- Good: deleting the toggle and its pre-paint path reduces client wasm and chrome.
+- Trade-off: readers cannot override their operating-system preference on this site.
+- Trade-off: browsers without `light-dark()` support receive the light palette; accepted
+  for this personal site.

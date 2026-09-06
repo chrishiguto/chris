@@ -6,7 +6,7 @@
      `overflow: hidden` clips the bar into the rounded corners. */
   .code-block {
     margin-block: 1.5em;
-    background-color: var(--color-surface-2);
+    background-color: var(--color-paper-2);
     border: 1px solid var(--color-line);
     border-radius: 0.5rem;
     overflow: hidden;
@@ -18,14 +18,14 @@
     justify-content: space-between;
     padding: 0.5rem 0.875rem;
     border-bottom: 1px solid var(--color-line);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--color-ink-3);
   }
 
   .code-copy {
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     color: var(--color-ink-3);
     cursor: pointer;
     transition: color 120ms var(--ease-out);
@@ -40,7 +40,7 @@
     padding: 0.875rem 1rem;
     overflow-x: auto;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: 1.65;
   }
 
