@@ -9,9 +9,9 @@ pub(crate) fn page_title(page: &str) -> String {
 }
 
 /// The page frame every route mounts into: a flexible gutter on each side of
-/// the 44rem reading column. The home listing
-/// and the post article compose their own masthead into it directly; [`Page`]
-/// adds the display heading on top for the about and 404 pages.
+/// the 44rem reading column. The home listing and the post article compose
+/// their own masthead into it directly; [`Page`] adds the heading on top for
+/// the about and 404 pages.
 #[component]
 pub(crate) fn PageShell(children: Children) -> impl IntoView {
     view! {
@@ -21,7 +21,7 @@ pub(crate) fn PageShell(children: Children) -> impl IntoView {
     }
 }
 
-/// [`PageShell`] plus a title and the display heading: the about and 404
+/// [`PageShell`] plus a title and the heading: the about and 404
 /// pages render through it. The home listing and post article open with their
 /// own masthead and use the bare shell instead.
 #[component]

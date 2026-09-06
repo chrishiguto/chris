@@ -55,8 +55,8 @@
     text-wrap: balance;
   }
 
-  /* Titling ranks tighten their tracking; the small ranks keep body tracking so
-     they read as labels, not titles. */
+  /* Only the titling ranks tighten: the small ranks keep body tracking so they
+     read as labels, not titles. */
   .post-body h1,
   .post-body h2,
   .post-body h3 {

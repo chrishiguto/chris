@@ -187,8 +187,7 @@ fn WritingHeader(total: usize) -> impl IntoView {
 /// resting and focus affordances — on focus the magnifier warms to accent and
 /// a discrete hairline draws, the global focus ring suppressed — but no
 /// filtering is wired: typing is inert until text search ships as its own
-/// feature. The recessed fill is the second paper step; the magnifier and
-/// placeholder read `ink-2` for contrast.
+/// feature.
 #[component]
 fn SearchField() -> impl IntoView {
     view! {
