@@ -108,9 +108,12 @@
     color: var(--color-accent);
   }
 
+  /* A revealed fold's rows are not focusable — they would be invisible tab
+     stops while clipped — so their dates show outright instead of on focus. */
   .hover-date-row:hover .hover-date-row-date,
   .hover-date-row:focus-within .hover-date-row-date,
-  .hover-date-row:focus .hover-date-row-date {
+  .hover-date-row:focus .hover-date-row-date,
+  .fold.is-open .hover-date-row-date {
     opacity: 1;
     transform: translateX(0);
   }
@@ -142,9 +145,14 @@
     gap: 0.3rem;
   }
 
-  /* Once the script has readied a fold, its content is clipped like
+  /* Focused programmatically when the fold opens, never by tabbing to it. */
+  .fold-content:focus {
+    outline: none;
+  }
+
+  /* Once the island has readied a fold, its content is clipped like
      `sr-only` — still in the accessibility tree, out of sight — until opened.
-     Without the script nothing is clipped, so no-JS readers see it all. */
+     Without JavaScript nothing is clipped, so no-JS readers see it all. */
   .fold.is-ready:not(.is-open) .fold-content {
     position: absolute;
     width: 1px;

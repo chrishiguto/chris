@@ -26,7 +26,6 @@ fn listed_posts() -> Vec<ListedPost> {
         .unwrap_or_default()
 }
 
-/// Shown when the index carries no published post.
 #[component]
 fn NothingPublished() -> impl IntoView {
     view! { <p class="mt-6 text-ink-2">"nothing published yet — check back soon."</p> }
@@ -35,10 +34,12 @@ fn NothingPublished() -> impl IntoView {
 #[component]
 pub fn WritingPage() -> impl IntoView {
     let posts = listed_posts();
-    // A fixed per-request branch — outside islands nothing re-renders
-    // client-side — so no reactive Show, and the island props move instead
-    // of cloning. Type-erased: the island nested into the section overflows
-    // rustc's query depth otherwise.
+    // A fixed per-request branch, not a reactive one: outside islands nothing
+    // re-renders client-side, so `<Show>` would memoize a constant `when` and
+    // — since its children are a `TypedChildrenFn`, callable per render — force
+    // `posts` to be cloned into the closure instead of moved into the island.
+    // Type-erased: the island nested into the section overflows rustc's query
+    // depth otherwise.
     let panel = if posts.is_empty() {
         view! { <NothingPublished /> }.into_any()
     } else {

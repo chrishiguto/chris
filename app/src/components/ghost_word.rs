@@ -4,14 +4,9 @@ use leptos::prelude::*;
 /// heading. `outer` mirrors the mark into a spread's right gutter.
 #[component]
 pub fn GhostWord(label: &'static str, #[prop(default = false)] outer: bool) -> impl IntoView {
-    let class = if outer {
-        "ghost-word ghost-word-outer"
-    } else {
-        "ghost-word"
-    };
     view! {
         <h2 class="sr-only">{label}</h2>
-        <span class=class aria-hidden="true">
+        <span class="ghost-word" class:ghost-word-outer=outer aria-hidden="true">
             {label}
         </span>
     }

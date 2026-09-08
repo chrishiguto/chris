@@ -274,16 +274,17 @@ mod server {
     }
 
     /// The retired `/posts` listing — either slash spelling — and any `?q=`
-    /// deep link redirect permanently to the writing archive. Left no-store: a standing redirect costs nothing to
-    /// re-answer and needs no purge handle.
+    /// deep link redirect permanently to the writing archive. Left no-store:
+    /// a standing redirect costs nothing to re-answer and needs no purge
+    /// handle.
     #[worker::send]
     async fn redirect_posts(req: Request<Body>) -> Response<Body> {
         let location = redirects::posts_redirect_location(req.uri().query());
         (StatusCode::MOVED_PERMANENTLY, [(LOCATION, location)]).into_response()
     }
 
-    /// About's authored content moved to the home; bookmarks land
-    /// permanently on the new canonical location.
+    /// The home carries the authored identity this page used to hold, so old
+    /// bookmarks land there permanently.
     #[worker::send]
     async fn redirect_about() -> Response<Body> {
         (
