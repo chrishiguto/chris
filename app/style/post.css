@@ -206,7 +206,6 @@
     }
   }
 
-  /* The tag words that close the article, over a hairline. */
   .post-tags {
     display: flex;
     flex-wrap: wrap;

@@ -9,7 +9,7 @@ use crate::components::{CodeBlock, GutterNav, PostMeta};
 
 pub fn render_document(doc: &Document) -> impl IntoView {
     // The article ends on its tag words, each landing on the archive
-    // pre-filtered; no tags, no row.
+    // pre-filtered.
     let tags = (!doc.frontmatter.tags.is_empty()).then(|| {
         let words: Vec<_> = doc
             .frontmatter

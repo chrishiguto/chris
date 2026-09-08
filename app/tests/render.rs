@@ -589,8 +589,7 @@ fn post_opens_with_gutter_nav_to_writing() {
     assert!(html.contains("aria-label=\"back to writing\""), "{html}");
 }
 
-// The header meta row is italic reading chrome (`.post-meta`): date in words, ink-3
-// separator span, and a read time computed live from the AST the page holds.
+// Read time is computed live from the AST the page holds, never stored.
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);

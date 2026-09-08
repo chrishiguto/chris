@@ -55,7 +55,6 @@ fn footer_carries_only_the_signature_and_destinations() {
     );
 }
 
-// The copy pass: no em dash anywhere a reader lands, chrome included.
 #[test]
 fn rendered_pages_contain_no_em_dash() {
     for path in ["/", "/writing", "/nowhere"] {

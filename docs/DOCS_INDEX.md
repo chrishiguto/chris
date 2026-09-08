@@ -14,7 +14,7 @@ summary, key topics.
   presentation contract linked to issue #47: warm paper and wine tokens through
   `light-dark()`, system-only themes, Newsreader reading type + Geist Mono code, static
   grain, top veil, three-column page frame, exact four-item footer, index home, filterable
-  `/writing` archive, post presentation, word-form dates, hidden-text behaviour and lineage,
+  `/writing` archive, post presentation, word-form dates, hidden-text behaviour,
   no new caderno islands (two presentation island types, four island types site-wide),
   deliberate deletions, verification, and preserved
   amendment history. Topics: design system, tailwind v4, theming, tokens, newsreader, geist mono,

@@ -93,8 +93,7 @@ Route `/` is deployment-owned and cached under `site`. It renders, in order:
 2. two short introduction paragraphs with inline email and source links;
 3. a two-column `work` and `writing` index;
 4. a dated `now` paragraph;
-5. a quiet colophon line crediting the hidden-text lineage;
-6. the global footer.
+5. the global footer.
 
 The introduction, career, and now copy deliberately remain placeholders for the author
 to replace. They live in code, so editing them is a deploy rather than a content publish.
@@ -163,10 +162,7 @@ Three treatments let prose be read at different depths:
   it. Hover, focus, or touch reveals the insertion without shifting the line.
 
 Folded text remains in the document for assistive technology, buttons carry their
-expanded state, and reduced motion disables reveal transitions. The implementation is
-inspired by [igorbedesqui.com](https://igorbedesqui.com/), whose lineage points to
-[ped.ro](https://ped.ro/) and [lfe.org](https://lfe.org/); the home colophon carries the
-same credit.
+expanded state, and reduced motion disables reveal transitions.
 
 ### Dates and copy
 
