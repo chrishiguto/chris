@@ -24,18 +24,29 @@ pub(crate) fn MetaRow(date: String, minutes: Option<u32>) -> impl IntoView {
         }
     });
     view! {
-        <span>{format_date(&date)}</span>
+        <span class="tabular-nums">{format_post_date(&date, true)}</span>
         {time}
     }
 }
 
 const MONTHS: [&str; 12] = [
-    "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
 ];
 
-/// `YYYY-MM-DD` → `jul 04, 2026`. Anything off-shape passes through
-/// unchanged — display formatting must never panic on stored data.
-fn format_date(iso: &str) -> String {
+/// `YYYY-MM-DD` → `4 july` inside a year group, or `4 july 2026` in
+/// standalone metadata. Anything malformed passes through unchanged.
+pub fn format_post_date(iso: &str, include_year: bool) -> String {
     let parts: Vec<&str> = iso.split('-').collect();
     let [year, month, day] = parts[..] else {
         return iso.to_string();
@@ -43,12 +54,24 @@ fn format_date(iso: &str) -> String {
     if !(digits(year, 4) && digits(month, 2) && digits(day, 2)) {
         return iso.to_string();
     }
+    let Some(day) = day.parse::<u8>().ok().filter(|day| (1..=31).contains(day)) else {
+        return iso.to_string();
+    };
     month
         .parse::<usize>()
         .ok()
         .and_then(|m| m.checked_sub(1))
         .and_then(|m| MONTHS.get(m))
-        .map_or_else(|| iso.to_string(), |name| format!("{name} {day}, {year}"))
+        .map_or_else(
+            || iso.to_string(),
+            |name| {
+                if include_year {
+                    format!("{day} {name} {year}")
+                } else {
+                    format!("{day} {name}")
+                }
+            },
+        )
 }
 
 fn digits(part: &str, len: usize) -> bool {
@@ -57,23 +80,23 @@ fn digits(part: &str, len: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::format_date;
+    use super::format_post_date;
 
     #[test]
     fn dates_format_with_every_english_month_name() {
         for (i, name) in super::MONTHS.iter().enumerate() {
             assert_eq!(
-                format_date(&format!("2026-{:02}-15", i + 1)),
-                format!("{name} 15, 2026")
+                format_post_date(&format!("2026-{:02}-15", i + 1), false),
+                format!("15 {name}")
             );
         }
     }
 
     #[test]
-    fn dates_keep_the_zero_padded_day() {
-        assert_eq!(format_date("2026-07-04"), "jul 04, 2026");
-        assert_eq!(format_date("2026-01-01"), "jan 01, 2026");
-        assert_eq!(format_date("2026-12-31"), "dec 31, 2026");
+    fn standalone_dates_include_the_year_without_zero_padding() {
+        assert_eq!(format_post_date("2026-07-04", true), "4 july 2026");
+        assert_eq!(format_post_date("2026-01-01", true), "1 january 2026");
+        assert_eq!(format_post_date("2026-12-31", true), "31 december 2026");
     }
 
     // Display must never panic on stored data; anything off-shape passes through.
@@ -87,7 +110,7 @@ mod tests {
             "2026-7-4",
             "2026-07",
         ] {
-            assert_eq!(format_date(raw), raw);
+            assert_eq!(format_post_date(raw, true), raw);
         }
     }
 }

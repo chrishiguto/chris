@@ -15,15 +15,16 @@ summary, key topics.
   Mono code, 18/16/14 scale, warm paper and wine tokens declared once via `light-dark()`,
   system-only theming (toggle, stored override, and pre-paint script deleted), paper grain,
   a veil instead of a header (no nav bar, no logo), a three-column page grid, sticky gutter
-  wayfinding on posts, and one footer (name, city, `rss`, `source`). Tags remain an in-page
-  filter island (its `?q=` query state per ADR-0012 as amended); computed read time,
+  wayfinding on inner pages, and one footer (name, city, `rss`, `source`). Tags remain an
+  in-page filter island (its `?q=` query state per ADR-0012 as amended); computed read time,
   formatted dates, two-hue callouts, and the code-copy island stay; two hand-rolled islands
   remain (`WritingIndex`, `CopyButton`), no pipeline invariants disturbed. Amended
-  2026-07-16: writing became the home — `/` is a masthead band over the full listing with a
-  topics rail and a reserved (inert) search slot, the `TagFilter` island grew into
-  `WritingIndex`, `/posts` 301s to `/`. `/about` stays routed but unlinked until the home
-  slice folds it in. Topics: design system, tailwind v4, theming, tokens, newsreader,
-  geist mono, paper, islands, tags, read time, about page, writing home, prd.
+  2026-09-02 by the home slice: `/` is a compact index home with marginal ghost words,
+  hidden-text marks, title-first dated rows, a career fold, four recent titles and a dated
+  now; the full filter island lives at `/writing`, `/posts` redirects there, `/about`
+  redirects home, and inner-page gutter links follow the new hierarchy. Topics: design
+  system, tailwind v4, theming, tokens, newsreader, geist mono, paper, islands, tags,
+  read time, index home, hidden text, writing archive, prd.
 
 ## ADRs
 
@@ -69,7 +70,9 @@ summary, key topics.
   listings and feeds — the purge scope's shape is unchanged; amended 2026-07-12: ETags pair
   the snapshot sha with the deployed version id from the `[version_metadata]` binding so
   code deploys re-send bodies, sha-less static pages validate on the version alone, and dev
-  builds skip cache decoration entirely).
+  builds skip cache decoration entirely; amended 2026-09-02: `views` covers `/writing` and
+  feeds while the index home carries `site` alone, `/posts` redirects to `/writing`, and
+  `/about` redirects to `/`).
   Topics: caching, purge, cache tags, workers cache, deploys, etags, islands.
 - `docs/adrs/adr-0009-snapshot-publish-coordinator.md` — ADR (Accepted) — publishes are
   immutable `snapshot:{sha}:*` sets behind one `current` pointer; the publish operation is a
@@ -100,9 +103,9 @@ summary, key topics.
   with the listed posts as serialized props, filtering by signal instead of DOM attributes;
   amended 2026-07-14: filter state moves from the URL hash to a multi-tag `?q=rust,wasm`
   query — deep links now fragment the cache key per selection, all entries still under
-  `views`; amended 2026-07-16: writing became the home, so the island and its `?q=` root at
-  `/`, `/posts` `301`s to `/`, and `LISTING_PAGES` shrinks to `/`); `views` tag narrows to
-  listings + feeds; revisit when pagination arrives.
+  `views`; amended 2026-09-02: the filter island and its `?q=` root move to `/writing`,
+  `/posts` `301`s there, `/` becomes the deployment-owned index home, and `/about` redirects
+  to `/`); `views` covers the writing listing + feeds; revisit when pagination arrives.
   Topics: tags, islands, query param, sitemap, purge scope, routes.
 
 ## Guides

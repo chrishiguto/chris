@@ -295,6 +295,41 @@ tag routes and their components are deleted.
 > inventory above: it now owns the whole writing-index body (rail, header, search, list), and
 > filtering is one behavior of it rather than its whole job.
 
+> **Amendment (2026-09-02)**: the home is now the caderno index from the settled demo:
+> a two-line name and two short paragraphs (with inline contact/code links, pencil text,
+> and an honest edit), followed by a two-column `work`/`writing` spread, a one-way fold over
+> the three oldest stints, and a dated `now`. Both columns use title-first focusable rows
+> whose in-flow dates reveal without reflow. Decorative ghost words occupy the outer gutters
+> above 64rem and become small italic labels below it; visually hidden headings preserve the
+> document outline. The latest four listed post titles lead to a complete archive at
+> `/writing`, where the existing filter island now lives. `/posts` redirects there and
+> `/about` redirects to `/`; the about component is retired (the timeline home never
+> reached main — it lived on the closed PR #46). Post wayfinding says `← writing`, while
+> the archive says `← home`.
+
+> **Amendment (2026-09-08)**: the home's fold and honest edit are islands, not an inline
+> script. The original slice forbade islands here to keep wasm off the front door, but that
+> economy does not exist: `HydrationScripts` sits in the app shell, and islands mode's
+> bootstrap imports and instantiates the whole client bundle on every page without checking
+> whether the document holds an island at all — so the home already paid in full while
+> hydrating nothing. Measured cost of the two islands: client 166455 → 176160 B gzipped,
+> server 874479 → 914363 B, against a 10 MB limit. `Fold` receives its rows as server
+> children, so the stints are projected as HTML and never serialized — its only prop is the
+> button's label. Progressive enhancement is unchanged and now expressed in signals: an
+> effect that cannot run during SSR flips `is-ready`, so the server ships the content
+> visible and the button `hidden`.
+>
+> Rows inside a fold are no longer focusable. A clipped row keeps its tab stop, and island
+> children are opaque — Leptos bundles them into one `<leptos-children>` element that the
+> island cannot reach into — so the tab order cannot be fixed from inside. Instead those
+> rows drop `tabindex` at render time and an open fold shows their dates outright rather
+> than on focus. This trades uniform hover-reveal for three fewer dead tab stops, which
+> WCAG guidance prefers anyway. The rows outside the fold are unchanged.
+>
+> The "exactly four small islands" count in the approach and the size-gate criterion above
+> therefore reads six: theme toggle, `WritingIndex`, `CopyButton`, the easter egg, `Fold`,
+> and `HonestEdit`.
+
 **Post presentation**: article header shows title, then a mono meta row (formatted date ·
 read time); tag pills move to the bottom of the article and link to `/posts#tag`. Code
 blocks gain the chrome bar (language label or `code`) and a zero-prop `CopyButton` island

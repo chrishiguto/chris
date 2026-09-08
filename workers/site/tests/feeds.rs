@@ -65,6 +65,10 @@ fn feed_is_a_well_formed_atom_document() {
         xml.contains("<link rel=\"self\" href=\"https://example.com/rss.xml\"/>"),
         "{xml}"
     );
+    assert!(
+        xml.contains("<link href=\"https://example.com/writing\"/>"),
+        "the feed points readers at the writing archive: {xml}"
+    );
     // Feed-level updated is the newest published entry's date.
     assert!(
         xml.contains("<updated>2026-03-01T00:00:00Z</updated>"),
@@ -122,11 +126,11 @@ fn empty_index_still_yields_a_valid_feed() {
 }
 
 #[test]
-fn sitemap_lists_home_static_pages_and_posts() {
+fn sitemap_lists_home_writing_and_posts() {
     let xml = feeds::sitemap(ORIGIN, &fixture_index());
     for loc in [
         "<loc>https://example.com/</loc>",
-        "<loc>https://example.com/about</loc>",
+        "<loc>https://example.com/writing</loc>",
         "<loc>https://example.com/posts/newer</loc>",
         "<loc>https://example.com/posts/older</loc>",
     ] {
@@ -139,6 +143,10 @@ fn sitemap_lists_home_static_pages_and_posts() {
         "the redirect stub must not be sitemapped: {xml}"
     );
     assert!(
+        !xml.contains("<loc>https://example.com/about</loc>"),
+        "{xml}"
+    );
+    assert!(
         xml.contains("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"),
         "{xml}"
     );
@@ -148,10 +156,10 @@ fn sitemap_lists_home_static_pages_and_posts() {
 
 // Static pages change on deploy, not publish, so no date is honest as lastmod.
 #[test]
-fn sitemap_lists_static_pages_without_lastmod() {
+fn sitemap_lists_home_without_lastmod() {
     let xml = feeds::sitemap(ORIGIN, &[]);
     assert!(
-        xml.contains("<url><loc>https://example.com/about</loc></url>"),
+        xml.contains("<url><loc>https://example.com/</loc></url>"),
         "{xml}"
     );
 }

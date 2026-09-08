@@ -2,7 +2,9 @@
 //! natively testable. The feed is Atom served at `/rss.xml` (Atom takes
 //! ISO-8601 dates directly, unlike RSS's RFC-822).
 
-use content::{post_path, IndexEntry, LISTING_PAGES, RSS_PATH, SITE_TITLE, STATIC_PAGES};
+use content::{
+    post_path, IndexEntry, LISTING_PAGES, RSS_PATH, SITE_TITLE, STATIC_PAGES, WRITING_PATH,
+};
 
 const AUTHOR: &str = "chris";
 /// Feed-level `updated` when nothing is published yet (Atom requires one).
@@ -65,7 +67,7 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
          <feed xmlns=\"http://www.w3.org/2005/Atom\">\n\
          <title>{title}</title>\
          <id>{origin}/</id>\
-         <link href=\"{origin}/\"/>\
+         <link href=\"{origin}{writing}\"/>\
          <link rel=\"self\" href=\"{origin}{rss}\"/>\
          <updated>{updated}</updated>\
          <author><name>{author}</name></author>\n\
@@ -74,6 +76,7 @@ pub fn atom(origin: &str, index: &[IndexEntry]) -> String {
         updated = atom_timestamp(updated),
         author = xml_escape(AUTHOR),
         rss = RSS_PATH,
+        writing = WRITING_PATH,
     )
 }
 

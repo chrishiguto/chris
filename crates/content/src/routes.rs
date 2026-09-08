@@ -82,14 +82,14 @@ pub fn valid_slug(slug: &str) -> bool {
 }
 
 /// The `/posts` namespace: post pages hang off it (`/posts/{slug}`). The bare
-/// path serves no listing — it redirects to the home front door, which
-/// carries the writing list itself.
+/// path serves no listing — it redirects to the writing archive.
 pub const POSTS_PATH: &str = "/posts";
 
-/// The home listing's public path — the writing front door. The in-page tag
-/// filter's `?q=` selection rides on it, so a filtered view is a plain
-/// shareable URL rooted at `/`.
+/// The static home front door.
 pub const HOME_PATH: &str = "/";
+
+/// The index-backed writing archive and root of shareable tag-filter URLs.
+pub const WRITING_PATH: &str = "/writing";
 
 /// A post's public path (and cache key / purge path).
 pub fn post_path(slug: &str) -> String {
@@ -122,10 +122,10 @@ pub fn tag_filter_path(tag: &str) -> String {
 /// equal selections share one URL however they were clicked together.
 pub fn tag_filter_path_selected(tags: &BTreeSet<String>) -> String {
     if tags.is_empty() {
-        return HOME_PATH.to_string();
+        return WRITING_PATH.to_string();
     }
     let tags: Vec<&str> = tags.iter().map(String::as_str).collect();
-    format!("{HOME_PATH}?{TAG_FILTER_PARAM}={}", tags.join(","))
+    format!("{WRITING_PATH}?{TAG_FILTER_PARAM}={}", tags.join(","))
 }
 
 /// The path builders' inverse, over the filter parameter's already-decoded
@@ -146,15 +146,12 @@ pub fn tag_filter_selection(values: impl IntoIterator<Item = String>) -> BTreeSe
 }
 
 /// Index-backed HTML listing pages: routed, sitemapped, purged on publish.
-/// The home front door alone — the bare `/posts` path redirects there.
-pub const LISTING_PAGES: [&str; 1] = [HOME_PATH];
+/// The writing archive alone. It projects the runtime index under `views`.
+pub const LISTING_PAGES: [&str; 1] = [WRITING_PATH];
 
-/// The about page's public path (and cache key / purge path).
-pub const ABOUT_PATH: &str = "/about";
-
-/// Hardcoded pages with no KV read: routed and sitemapped, but cached under
-/// the site tag alone — they change on deploy, never on publish.
-pub const STATIC_PAGES: [&str; 1] = [ABOUT_PATH];
+/// Deployment-scoped pages: routed and sitemapped under the site tag alone.
+/// The home reads a small index window, but publish does not purge it.
+pub const STATIC_PAGES: [&str; 1] = [HOME_PATH];
 
 /// The Atom feed's public path (and cache key / purge path).
 pub const RSS_PATH: &str = "/rss.xml";
@@ -236,8 +233,8 @@ mod tests {
     }
 
     #[test]
-    fn tag_filter_path_rides_the_listing_query() {
-        assert_eq!(tag_filter_path("rust"), "/?q=rust");
+    fn tag_filter_path_rides_the_writing_query() {
+        assert_eq!(tag_filter_path("rust"), "/writing?q=rust");
     }
 
     #[test]
@@ -253,8 +250,8 @@ mod tests {
     #[test]
     fn tag_filter_path_selected_sorts_tags_and_bares_the_empty_selection() {
         let selected = BTreeSet::from(["wasm".to_string(), "rust".to_string()]);
-        assert_eq!(tag_filter_path_selected(&selected), "/?q=rust,wasm");
-        assert_eq!(tag_filter_path_selected(&BTreeSet::new()), "/");
+        assert_eq!(tag_filter_path_selected(&selected), "/writing?q=rust,wasm");
+        assert_eq!(tag_filter_path_selected(&BTreeSet::new()), "/writing");
     }
 
     #[test]
@@ -280,17 +277,14 @@ mod tests {
         assert_eq!(tag_filter_selection(None::<String>), BTreeSet::new());
     }
 
-    // Writing is the home front door; `/posts` redirects here, so the one
-    // index-backed listing page is `/`.
     #[test]
-    fn listing_pages_are_the_home_front_door() {
-        assert_eq!(LISTING_PAGES, ["/"]);
+    fn writing_is_the_one_listing_page() {
+        assert_eq!(LISTING_PAGES, ["/writing"]);
     }
 
     #[test]
-    fn static_pages_carry_the_about_path() {
-        assert_eq!(ABOUT_PATH, "/about");
-        assert!(STATIC_PAGES.contains(&ABOUT_PATH));
+    fn static_pages_carry_only_home() {
+        assert_eq!(STATIC_PAGES, [HOME_PATH]);
     }
 
     #[test]

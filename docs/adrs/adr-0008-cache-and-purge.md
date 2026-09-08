@@ -135,6 +135,17 @@ render. Every copy carries the `views` tag, so the purge scope is structurally u
 one select still evicts them all. In-page filtering moves the URL by `replaceState` without
 navigating, so only shared or reloaded links mint extra entries.
 
+*Amendment (2026-09-02, index home):* the full listing and its filter island move from `/`
+to `/writing`; `/posts` becomes a permanent redirect to that archive. The `views` scope is
+therefore `/writing` (including its `?q=` variants), `/rss.xml`, and `/sitemap.xml`. The new
+index home is cached under `site` alone: its authored identity, work, and now copy change on
+deploy. It reads the current index on a cache miss only to render a four-title window, but
+does not join the publish purge scope; a deploy refreshes that window. This is a deliberate
+trade against the visible-instantly contract above: a publish can leave the home's four
+titles and its `all writing (N)` count behind until the next deploy or the `s-maxage`
+expiry. `/about` also becomes a permanent redirect to `/` and is no longer cached or
+sitemapped.
+
 *Amendment (2026-07-12, deploy-aware ETags):* the snapshot-sha ETag survived code deploys —
 browsers revalidating at `max-age=0` got a 304 against the unchanged validator and kept HTML
 rendered by the *previous* worker until the next content publish (a presentation-only deploy

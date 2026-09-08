@@ -7,7 +7,7 @@ use site::redirects::posts_redirect_location;
 fn the_filter_query_rides_the_redirect() {
     assert_eq!(
         posts_redirect_location(Some("q=rust,wasm")),
-        "/?q=rust,wasm"
+        "/writing?q=rust,wasm"
     );
 }
 
@@ -15,12 +15,12 @@ fn the_filter_query_rides_the_redirect() {
 fn unrelated_params_ride_verbatim() {
     assert_eq!(
         posts_redirect_location(Some("q=rust&utm_source=x")),
-        "/?q=rust&utm_source=x"
+        "/writing?q=rust&utm_source=x"
     );
 }
 
 #[test]
-fn bare_and_empty_queries_land_on_the_bare_home() {
-    assert_eq!(posts_redirect_location(None), "/");
-    assert_eq!(posts_redirect_location(Some("")), "/");
+fn bare_and_empty_queries_land_on_writing() {
+    assert_eq!(posts_redirect_location(None), "/writing");
+    assert_eq!(posts_redirect_location(Some("")), "/writing");
 }
