@@ -113,7 +113,7 @@ fn home_ships_accessible_ghost_rows_fold_and_prose_marks() {
     let button = tag_containing(&html, "fold-button");
     assert!(
         button.contains("aria-expanded=\"false\"") && button.contains(" hidden"),
-        "the fold button ships hidden until the script readies the fold, so no-JS readers see the content in place: {html}"
+        "the fold button ships hidden until the island hydrates, so no-JS readers see the content in place: {html}"
     );
     assert!(
         html.contains("class=\"fold-content\"") && html.contains("web developer"),
@@ -123,8 +123,21 @@ fn home_ships_accessible_ghost_rows_fold_and_prose_marks() {
         html.contains("class=\"pencil\"") && html.contains("class=\"honest-edit\""),
         "{html}"
     );
+    let fold = tag_containing(&html, "data-component=\"Fold");
     assert!(
-        !html.contains("leptos-island"),
-        "the home adds no island: {html}"
+        fold.contains("&quot;label&quot;:&quot;show earlier work&quot;")
+            && !fold.contains("navalabs"),
+        "the fold island serializes its label and nothing else — the stints are \
+         projected as server HTML, never sent twice: {html}"
+    );
+    let folded = html
+        .split_once("<leptos-children>")
+        .and_then(|(_, rest)| rest.split_once("</leptos-children>"))
+        .map(|(inner, _)| inner)
+        .expect("the fold projects its rows as server children");
+    assert!(
+        folded.contains("web developer") && !folded.contains("tabindex"),
+        "folded rows ship as server HTML and are not focusable, so a clipped \
+         fold adds no invisible tab stops: {html}"
     );
 }

@@ -1,5 +1,5 @@
 /* The fold: one-way progressive disclosure shared by the home's career list
-   and the post `Hidden` component. Without the shell's fold script nothing is
+   and the post `Hidden` component. Until the island hydrates nothing is
    clipped and the button stays hidden, so no-JS readers see it all. */
 
 @layer components {
@@ -12,7 +12,12 @@
     font: inherit;
   }
 
-  /* Once the script has readied a fold, its content is clipped like
+  /* Focused programmatically when the fold opens, never by tabbing to it. */
+  .fold-content:focus {
+    outline: none;
+  }
+
+  /* Once the island has readied a fold, its content is clipped like
      `sr-only` — still in the accessibility tree, out of sight — until opened. */
   .fold.is-ready:not(.is-open) .fold-content {
     position: absolute;

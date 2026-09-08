@@ -8,5 +8,5 @@ use crate::components::Fold;
 #[post_component]
 #[component]
 pub fn Hidden(children: Children) -> impl IntoView {
-    view! { <Fold label="reveal hidden text">{children()}</Fold> }
+    view! { <Fold label="reveal hidden text".to_string()>{children()}</Fold> }
 }

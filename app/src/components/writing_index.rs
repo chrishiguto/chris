@@ -76,11 +76,8 @@ pub fn WritingIndex(posts: Vec<ListedPost>) -> impl IntoView {
         })
         .collect_view();
 
-    // The union semantics live in `hides` alone, applied at every scope: a
-    // row hides when it carries none of the selection, a year when none of
-    // its rows' tags is selected, the page when no listed tag is. The restore
-    // intersection keeps the selection inside the listed tags, so nothing can
-    // empty the list; the page-level guard stays should that loosen.
+    // The restore intersection keeps the selection inside the listed tags, so
+    // this can never fire today; it stays as the guard should that loosen.
     let all_tags: Vec<String> = tags.into_iter().collect();
     let none_visible = move || hides(active, &all_tags);
 

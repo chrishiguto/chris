@@ -108,9 +108,12 @@
     color: var(--color-accent);
   }
 
+  /* A revealed fold's rows are not focusable — they would be invisible tab
+     stops while clipped — so their dates show outright instead of on focus. */
   .hover-date-row:hover .hover-date-row-date,
   .hover-date-row:focus-within .hover-date-row-date,
-  .hover-date-row:focus .hover-date-row-date {
+  .hover-date-row:focus .hover-date-row-date,
+  .fold.is-open .hover-date-row-date {
     opacity: 1;
     transform: translateX(0);
   }

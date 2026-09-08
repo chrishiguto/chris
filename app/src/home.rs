@@ -61,15 +61,6 @@ const STINTS: &[Stint] = &[
     },
 ];
 
-/// The home's only script: a tap toggles the honest edit where hover cannot.
-/// The career fold is the shared [`Fold`], run by the shell's fold script.
-const HOME_SCRIPT: &str = r#"
-document.currentScript.closest('.home-index').addEventListener('click', (event) => {
-  const edit = event.target.closest('.honest-edit');
-  if (edit) edit.classList.toggle('is-revealed');
-});
-"#;
-
 /// Career ranges read as prose: `since 2022` for the open stint, `2019 to
 /// 2020` for a closed one.
 fn format_year_range(start: u16, end: Option<u16>) -> String {
@@ -88,10 +79,19 @@ fn listed_posts() -> Vec<IndexEntry> {
 /// A polite phrase that hover, focus, or a tap strikes through while the
 /// honest one is written above the line. The insertion is decorative for
 /// assistive tech; the polite phrase stays the readable text.
-#[component]
-fn HonestEdit(original: &'static str, honest: &'static str) -> impl IntoView {
+///
+/// Hover and focus are pure CSS. Touch has neither, so the tap toggle is the
+/// island's only job: one signal driving `is-revealed`.
+#[island]
+fn HonestEdit(original: String, honest: String) -> impl IntoView {
+    let (revealed, set_revealed) = signal(false);
     view! {
-        <span class="honest-edit" tabindex="0">
+        <span
+            class="honest-edit"
+            class:is-revealed=move || revealed.get()
+            tabindex="0"
+            on:click=move |_| set_revealed.update(|on| *on = !*on)
+        >
             <span class="honest-original">{original}</span>
             <span class="honest-insertion" aria-hidden="true">
                 {honest}
@@ -101,14 +101,17 @@ fn HonestEdit(original: &'static str, honest: &'static str) -> impl IntoView {
 }
 
 #[component]
-fn WorkRow(stint: &'static Stint) -> impl IntoView {
+fn WorkRow(stint: &'static Stint, #[prop(default = true)] focusable: bool) -> impl IntoView {
     let date = format_year_range(stint.start, stint.end);
     let role = match stint.honest {
-        Some(honest) => view! { <HonestEdit original=stint.role honest=honest /> }.into_any(),
+        Some(honest) => {
+            view! { <HonestEdit original=stint.role.to_string() honest=honest.to_string() /> }
+                .into_any()
+        }
         None => stint.role.into_any(),
     };
     view! {
-        <HoverDateRow date=date current=stint.end.is_none()>
+        <HoverDateRow date=date current=stint.end.is_none() focusable=focusable>
             {role}
             " at "
             {stint.company}
@@ -123,10 +126,11 @@ fn Work() -> impl IntoView {
             <GhostWord label="work" />
             <div class="hover-date-list">
                 {STINTS[..3].iter().map(|stint| view! { <WorkRow stint=stint /> }).collect_view()}
-                <Fold label="show earlier work">
+                <Fold label="show earlier work"
+                    .to_string()>
                     {STINTS[3..]
                         .iter()
-                        .map(|stint| view! { <WorkRow stint=stint /> })
+                        .map(|stint| view! { <WorkRow stint=stint focusable=false /> })
                         .collect_view()}
                 </Fold>
             </div>
@@ -186,8 +190,8 @@ pub fn HomePage() -> impl IntoView {
                         <p>
                             "this is my notebook for code, systems, and "
                             <HonestEdit
-                                original="figuring things out"
-                                honest="getting things wrong in public"
+                                original="figuring things out".to_string()
+                                honest="getting things wrong in public".to_string()
                             /> ", in english e às vezes em português."
                         </p>
                     </div>
@@ -212,7 +216,6 @@ pub fn HomePage() -> impl IntoView {
                         "lfe.org"
                     </a> "."
                 </p>
-                <script>{HOME_SCRIPT}</script>
             </div>
         </div>
     }

@@ -5,9 +5,8 @@ use std::collections::BTreeMap;
 
 use app::post::{PostData, PostPage};
 use app::render::{render_document, render_nodes};
-use common::{ssr, strip_markers, tag_containing};
+use common::{ssr, tag_containing};
 use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
-use leptos::prelude::RenderHtml;
 
 mod common;
 
@@ -17,8 +16,15 @@ fn text(value: &str) -> Node {
     }
 }
 
+/// Renders body nodes under a root owner and shared context: `Hidden` wraps
+/// the `Fold` island, which unwraps that context to serialize its slot.
 fn html_of(nodes: Vec<Node>) -> String {
-    strip_markers(render_nodes(&nodes).to_html())
+    ssr(|| {}, || render_nodes(&nodes))
+}
+
+/// A whole document under the same harness, for the same reason.
+fn document_html(doc: &Document) -> String {
+    ssr(|| {}, || render_document(doc))
 }
 
 #[test]
@@ -287,7 +293,7 @@ fn callout_renders_optional_title_when_given() {
 }
 
 #[test]
-fn hidden_renders_a_server_owned_accessible_fold() {
+fn hidden_renders_an_accessible_fold_over_server_prose() {
     let html = html_of(vec![Node::Component {
         name: "Hidden".into(),
         props: BTreeMap::new(),
@@ -303,15 +309,16 @@ fn hidden_renders_a_server_owned_accessible_fold() {
             && button.contains(" hidden")
             && html.contains("(…)")
             && html.contains("reveal hidden text"),
-        "accessible ellipsis button, hidden until the shell's fold script readies it: {html}"
+        "accessible ellipsis button, hidden until the island hydrates: {html}"
     );
     assert!(
-        html.contains("class=\"fold-content\"><p>the folded words</p>"),
+        html.contains("<p>the folded words</p>"),
         "folded prose must ship in the server document: {html}"
     );
     assert!(
-        !html.contains("<script") && !html.contains("<leptos-island"),
-        "the fold is server markup the shell script enhances — no island, no inline script: {html}"
+        !html.contains("<script") && !html.contains("the folded words&quot;"),
+        "the fold projects its prose as server children — no inline script, nothing \
+         serialized into the island: {html}"
     );
 }
 
@@ -382,7 +389,7 @@ fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("fixture post must validate against the live manifest");
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.contains("class=\"callout callout-warning\""),
         "Callout missing: {html}"
@@ -485,7 +492,7 @@ fn render_document_wraps_body_in_article_with_header() {
             children: vec![text("body text")],
         }],
     };
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.starts_with("<article"),
         "expected article root: {html}"
@@ -521,7 +528,7 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         tag_containing(&html, "post-tags").starts_with("<ul"),
         "tag list missing: {html}"
@@ -552,7 +559,7 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
 #[test]
 fn post_omits_empty_tag_list() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         !html.contains("post-tags"),
         "untagged post must not render an empty list: {html}"
@@ -564,7 +571,7 @@ fn post_omits_empty_tag_list() {
 #[test]
 fn post_opens_with_gutter_nav_to_writing() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     let link = tag_containing(&html, "← writing");
     assert!(
         link.starts_with("<a"),
@@ -587,7 +594,7 @@ fn post_opens_with_gutter_nav_to_writing() {
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.contains("<p class=\"post-meta\"><span class=\"tabular-nums\">4 july 2026</span>")
             && html.contains("<span>1 min</span>"),
@@ -612,7 +619,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     for needle in [
         "<h2",
         "<h3",

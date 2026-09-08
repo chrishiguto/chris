@@ -11,7 +11,7 @@ pub(crate) fn page_title(page: &str) -> String {
 /// The page frame every route mounts into: a flexible gutter on each side of
 /// the 44rem reading column. The home, the writing archive, and the post
 /// article compose their own opening into it directly; [`Page`] adds the
-/// display heading on top for the 404.
+/// heading on top for the 404.
 #[component]
 pub(crate) fn PageShell(children: Children) -> impl IntoView {
     view! {
@@ -21,9 +21,9 @@ pub(crate) fn PageShell(children: Children) -> impl IntoView {
     }
 }
 
-/// [`PageShell`] plus a title and the display heading: the 404 renders
-/// through it. The home, the writing archive, and the post article open
-/// with their own masthead and use the bare shell instead.
+/// [`PageShell`] plus a title and the heading: the 404 renders through it.
+/// The home, the writing archive, and the post article open with their own
+/// masthead and use the bare shell instead.
 #[component]
 pub(crate) fn Page(title: String, heading: &'static str, children: Children) -> impl IntoView {
     view! {

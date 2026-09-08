@@ -101,7 +101,8 @@ to replace. They live in code, so editing them is a deploy rather than a content
 The work column shows role and company only until a row is hovered or focused. It keeps
 the date in flow and reveals it with opacity and an eight-pixel slide, so nothing else
 moves. The present stint uses the accent. A one-way fold contains the three oldest
-entries. The writing column lists the latest four published titles and ends with
+entries; those rows are not focusable — clipped, they would be invisible tab stops — so
+an open fold shows their dates outright instead of on focus. The writing column lists the latest four published titles and ends with
 `all writing (N)`; it never includes descriptions or cards.
 
 Each home section has a real visually hidden heading plus a decorative ghost word. At
@@ -153,9 +154,10 @@ Three treatments let prose be read at different depths:
 - A fold is a real button containing an accent ellipsis. Activating it once reveals the
   already-rendered text in place with a short fade and two-pixel rise. One shared `Fold`
   serves the home's career list and, registered as the children-only `Hidden` component,
-  post prose; the app shell's one fold script readies every fold and keeps keyboard focus
-  inside what it reveals. Without JavaScript the button stays hidden and the content is
-  simply visible.
+  post prose. It is one island taking its content as server children, so the folded text
+  is projected as HTML and never serialized; hydration is what readies the fold, and
+  opening it moves keyboard focus into what it reveals. Without JavaScript the button
+  stays hidden and the content is simply visible.
 - Pencil text is quiet ink with a dotted underline and darkens after a short hover delay.
 - An honest edit keeps the struck phrase in flow and positions the candid insertion above
   it. Hover, focus, or touch reveals the insertion without shifting the line.
@@ -190,15 +192,18 @@ responses as specified by the worker. Because `/` carries `site` alone, its four
 window and `all writing (N)` count refresh on deploy, not on publish (ADR-0008 as amended);
 tagging the home with `views` too is the one-line change if that trade proves wrong.
 
-The caderno presentation adds no new islands. Its two interactive island types are:
+The caderno presentation's interactive island types are:
 
 - `WritingIndex`, for archive filtering and URL state;
-- `CopyButton`, for code-copy feedback.
+- `CopyButton`, for code-copy feedback;
+- `Fold`, for one-way disclosure over server children;
+- `HonestEdit`, for the tap toggle hover cannot serve.
 
-The full shipped registry has four island types: those two, the global `Counter`, and the
-co-located counter used by `ci-code-path`. Folds and honest edits are progressive
-enhancement over server HTML: one delegated fold script in the shell, and a small home
-script for the honest-edit tap. Everything else is server-rendered HTML and CSS.
+The full shipped registry has six island types: those four, the global `Counter`, and the
+co-located counter used by `ci-code-path`. Islands mode loads the client bundle from the
+app shell on every page regardless, so hand-rolled scripts bought nothing and none remain;
+progressive enhancement is expressed in signals instead, since effects never run during
+SSR. Everything else is server-rendered HTML and CSS.
 
 ## Success and verification
 
@@ -267,6 +272,13 @@ and screenshots differ from the shipped contract.
 - **2026-09-02, writing and post:** the archive dropped its search and topics structures
   for plain tag words and year groups. Posts adopted the caderno title, meta, section sign,
   hairline callout, ruled code, margin-footnote, and tag-ending treatments.
+- **2026-09-08, home islands:** the home's fold and honest edit became islands, retiring
+  the delegated fold script and the home tap script. The economy they were protecting did
+  not exist — islands mode's bootstrap instantiates the whole client bundle on every page
+  whether or not the document holds an island — and the two islands cost client 166455 →
+  176160 B gzipped and server 874479 → 914363 B against a 10 MB limit. `Fold` takes its
+  rows as server children, so only the button label is serialized, and folded rows traded
+  hover-reveal for three fewer dead tab stops.
 - **2026-09-02, authoring:** the registered children-only `Hidden` component brought the
   fold to post prose and the kitchen-sink fixture. System-only theming amended ADR-0011;
   the final route/filter shape amended ADR-0012; the home/archive cache split amended

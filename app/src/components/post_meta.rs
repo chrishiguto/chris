@@ -1,8 +1,8 @@
 use leptos::prelude::*;
 
 /// The article header's meta line: the date in words, then `· N min` when
-/// the read time is known — absent minutes render the date alone. The
-/// separator reads a step quieter than either side.
+/// the read time is known. The separator reads a step quieter than either
+/// side.
 #[component]
 pub(crate) fn PostMeta(date: String, minutes: Option<u32>) -> impl IntoView {
     let time = minutes.map(|minutes| {
