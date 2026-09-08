@@ -14,9 +14,7 @@ use leptos::prelude::*;
 /// so the server ships the content visible and the button `hidden`; only once
 /// the island hydrates does CSS clip the content like `sr-only` — still in the
 /// accessibility tree, out of sight — and reveal the button. No JavaScript, no
-/// fold: the reader simply sees everything. The `.fold*` rules, including the
-/// `is-ready`/`is-open` states this markup only names, live in
-/// `app/style/home.css`.
+/// fold: the reader simply sees everything.
 #[island]
 pub fn Fold(label: String, children: Children) -> impl IntoView {
     let (open, set_open) = signal(false);

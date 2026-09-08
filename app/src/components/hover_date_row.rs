@@ -2,7 +2,6 @@ use leptos::prelude::*;
 
 /// A title-first row whose already-reserved date slides into view on hover
 /// or keyboard focus. Keeping the date in flow prevents interaction reflow.
-/// Styled by `.hover-date-row` in `app/style/home.css`.
 ///
 /// A row without an `href` is a focusable span, since focus is the only way a
 /// keyboard reader reveals its date. Inside a [`Fold`](crate::components::Fold)

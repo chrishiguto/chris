@@ -167,7 +167,6 @@ fn writing_writing_header_counts_the_listed_archive() {
     );
 }
 
-// The dedicated archive keeps the complete list.
 #[test]
 fn writing_lists_every_listed_post() {
     let index: Vec<_> = (0..5)

@@ -61,8 +61,6 @@ const STINTS: &[Stint] = &[
     },
 ];
 
-/// Career ranges read as prose: `since 2022` for the open stint, `2019 to
-/// 2020` for a closed one.
 fn format_year_range(start: u16, end: Option<u16>) -> String {
     match end {
         Some(end) => format!("{start} to {end}"),
@@ -80,9 +78,8 @@ fn listed_posts() -> Vec<IndexEntry> {
 /// honest one is written above the line. The insertion is decorative for
 /// assistive tech; the polite phrase stays the readable text.
 ///
-/// Hover and focus are pure CSS (`app/style/home.css`). Touch has neither, so
-/// the tap toggle is the island's only job: one signal driving `is-revealed`,
-/// the third selector in those same rules.
+/// Hover and focus are pure CSS. Touch has neither, so the tap toggle is the
+/// island's only job: one signal driving `is-revealed`.
 #[island]
 fn HonestEdit(original: String, honest: String) -> impl IntoView {
     let (revealed, set_revealed) = signal(false);
