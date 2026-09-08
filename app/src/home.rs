@@ -61,6 +61,8 @@ const STINTS: &[Stint] = &[
     },
 ];
 
+/// Career ranges read as prose: `since 2022` for the open stint, `2019 to
+/// 2020` for a closed one.
 fn format_year_range(start: u16, end: Option<u16>) -> String {
     match end {
         Some(end) => format!("{start} to {end}"),

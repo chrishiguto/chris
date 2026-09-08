@@ -232,6 +232,17 @@ fn children_on_childless_component_are_rejected() {
 }
 
 #[test]
+fn required_children_cannot_be_empty() {
+    let diags = diagnostics("<Callout kind=\"note\" />");
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.message.contains("`<Callout>` requires children")),
+        "diagnostics: {diags:?}"
+    );
+}
+
+#[test]
 fn nested_components_are_validated_too() {
     let diags = diagnostics("<Callout kind=\"note\">\n  <Zorp />\n</Callout>");
     assert_eq!(diags.len(), 1);

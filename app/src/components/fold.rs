@@ -1,7 +1,8 @@
 use leptos::html::Div;
 use leptos::prelude::*;
 
-/// One-way progressive disclosure over server-rendered children.
+/// One-way progressive disclosure over server-rendered children, shared by
+/// the home's career fold and the post `Hidden` component.
 ///
 /// `children` stay a server `#[component]` blob — Leptos projects them into
 /// the island as a single opaque `<leptos-children>`, so the rows never reach

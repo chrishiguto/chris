@@ -5,9 +5,8 @@ use std::collections::BTreeMap;
 
 use app::post::{PostData, PostPage};
 use app::render::{render_document, render_nodes};
-use common::{ssr, strip_markers, tag_containing};
+use common::{ssr, tag_containing};
 use content::{Document, Frontmatter, ListItem, Node, PropValue, SCHEMA_VERSION};
-use leptos::prelude::RenderHtml;
 
 mod common;
 
@@ -17,8 +16,15 @@ fn text(value: &str) -> Node {
     }
 }
 
+/// Renders body nodes under a root owner and shared context: `Hidden` wraps
+/// the `Fold` island, which unwraps that context to serialize its slot.
 fn html_of(nodes: Vec<Node>) -> String {
-    strip_markers(render_nodes(&nodes).to_html())
+    ssr(|| {}, || render_nodes(&nodes))
+}
+
+/// A whole document under the same harness, for the same reason.
+fn document_html(doc: &Document) -> String {
+    ssr(|| {}, || render_document(doc))
 }
 
 #[test]
@@ -287,6 +293,36 @@ fn callout_renders_optional_title_when_given() {
 }
 
 #[test]
+fn hidden_renders_an_accessible_fold_over_server_prose() {
+    let html = html_of(vec![Node::Component {
+        name: "Hidden".into(),
+        props: BTreeMap::new(),
+        children: vec![Node::Paragraph {
+            children: vec![text("the folded words")],
+        }],
+    }]);
+    assert!(html.contains("class=\"fold\""), "fold root missing: {html}");
+    let button = tag_containing(&html, "fold-button");
+    assert!(
+        button.starts_with("<button")
+            && button.contains("aria-expanded=\"false\"")
+            && button.contains(" hidden")
+            && html.contains("(…)")
+            && html.contains("reveal hidden text"),
+        "accessible ellipsis button, hidden until the island hydrates: {html}"
+    );
+    assert!(
+        html.contains("<p>the folded words</p>"),
+        "folded prose must ship in the server document: {html}"
+    );
+    assert!(
+        !html.contains("<script") && !html.contains("the folded words&quot;"),
+        "the fold projects its prose as server children — no inline script, nothing \
+         serialized into the island: {html}"
+    );
+}
+
+#[test]
 fn counter_island_ssrs_with_initial_value() {
     let html = html_of(vec![Node::Component {
         name: "Counter".into(),
@@ -353,7 +389,7 @@ fn fixture_post_renders_end_to_end() {
     let source = include_str!("../../content/blog/ci-code-path/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("fixture post must validate against the live manifest");
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.contains("class=\"callout callout-warning\""),
         "Callout missing: {html}"
@@ -456,7 +492,7 @@ fn render_document_wraps_body_in_article_with_header() {
             children: vec![text("body text")],
         }],
     };
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.starts_with("<article"),
         "expected article root: {html}"
@@ -487,22 +523,30 @@ fn doc_with_tags(tags: Vec<String>) -> Document {
     }
 }
 
-// Tag pills sit at the article bottom and land on the pre-filtered
-// listing via the `?q=` filter query.
+// Tag words sit at the article bottom as plain links — no pill chrome, no
+// hash — and land on the pre-filtered listing via the `?q=` filter query.
 #[test]
 fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
     let doc = doc_with_tags(vec!["rust".into(), "wasm".into()]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
-        html.contains("<ul class=\"post-tags\">"),
+        tag_containing(&html, "post-tags").starts_with("<ul"),
         "tag list missing: {html}"
     );
     for tag in ["rust", "wasm"] {
+        let link = tag_containing(
+            &html,
+            &format!("href=\"{}\"", content::tag_filter_path(tag)),
+        );
         assert!(
-            html.contains(&format!("<a href=\"/writing?q={tag}\" class=\"tag\">")),
-            "`{tag}` pill must link to the filtered listing: {html}"
+            link.starts_with("<a") && !link.contains("class=\"tag\""),
+            "`{tag}` must be a plain word linking the filtered listing: {html}"
         );
     }
+    assert!(
+        !html.contains("tag-hash"),
+        "post tag words carry no hash: {html}"
+    );
     let body = html.find("post-body").expect("post body missing");
     let tags = html.find("post-tags").expect("tag list missing");
     assert!(tags > body, "tags must follow the article body: {html}");
@@ -515,7 +559,7 @@ fn post_tags_render_at_the_bottom_linking_the_filtered_listing() {
 #[test]
 fn post_omits_empty_tag_list() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         !html.contains("post-tags"),
         "untagged post must not render an empty list: {html}"
@@ -527,7 +571,7 @@ fn post_omits_empty_tag_list() {
 #[test]
 fn post_opens_with_gutter_nav_to_writing() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     let link = tag_containing(&html, "← writing");
     assert!(
         link.starts_with("<a"),
@@ -545,12 +589,11 @@ fn post_opens_with_gutter_nav_to_writing() {
     assert!(html.contains("aria-label=\"back to writing\""), "{html}");
 }
 
-// The header meta row is mono chrome (`.post-meta`): formatted date, ink-3
-// separator span, and a read time computed live from the AST the page holds.
+// Read time is computed live from the AST the page holds, never stored.
 #[test]
 fn post_header_renders_formatted_date_and_read_time() {
     let doc = doc_with_tags(vec![]);
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     assert!(
         html.contains("<p class=\"post-meta\"><span class=\"tabular-nums\">4 july 2026</span>")
             && html.contains("<span>1 min</span>"),
@@ -575,7 +618,7 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     let source = include_str!("../../content/blog/kitchen-sink/index.mdx");
     let doc = content::parse_validated(source, "test.mdx", &registry::manifest())
         .expect("kitchen-sink post must validate against the live manifest");
-    let html = strip_markers(render_document(&doc).to_html());
+    let html = document_html(&doc);
     for needle in [
         "<h2",
         "<h3",
@@ -594,6 +637,10 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<hr",
         "<br",
         "<kbd>",
+        "class=\"footnote-ref\"",
+        "aria-label=\"footnote\"",
+        "†</sup>",
+        "class=\"footnote-note\">On narrower pages",
         "class=\"post-tags\"",
         "callout callout-note",
         "callout callout-tip",
@@ -606,6 +653,9 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
         "<span class=\"code-lang\">rust</span>",
         "<span class=\"code-lang\">code</span>",
         "class=\"code-copy\"",
+        "class=\"fold\"",
+        "class=\"fold-button\"",
+        "class=\"fold-content\"",
         "<leptos-island",
     ] {
         assert!(html.contains(needle), "kitchen sink missing {needle}");
@@ -613,5 +663,12 @@ fn kitchen_sink_fixture_exercises_every_node_type() {
     assert!(
         !html.contains("component-error"),
         "no component may fail dispatch: {html}"
+    );
+    // The post ends on its tag words: the tag row closes the content column,
+    // so any end-of-post navigation would have to follow it.
+    assert!(
+        html.trim_end().ends_with("</ul></div></article>")
+            && html.rfind("post-tags").unwrap() > html.rfind("post-body").unwrap(),
+        "the tag row must be the article's last block: {html}"
     );
 }

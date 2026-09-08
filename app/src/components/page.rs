@@ -3,9 +3,9 @@ use leptos_meta::Title;
 
 use super::Heading;
 
-/// `{page} — ~/chris`: every non-home tab title hangs off the site title.
+/// `{page} · ~/chris`: every non-home tab title hangs off the site title.
 pub(crate) fn page_title(page: &str) -> String {
-    format!("{page} — {}", content::SITE_TITLE)
+    format!("{page} · {}", content::SITE_TITLE)
 }
 
 /// The page frame every route mounts into: a flexible gutter on each side of
@@ -43,6 +43,6 @@ mod tests {
     // structural through `content::SITE_TITLE`.
     #[test]
     fn page_titles_hang_off_the_site_title() {
-        assert_eq!(page_title("posts"), "posts — ~/chris");
+        assert_eq!(page_title("posts"), "posts · ~/chris");
     }
 }

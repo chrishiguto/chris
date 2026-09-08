@@ -33,6 +33,8 @@ sharpens on hover.
 A hard\
 break splits a line inside one paragraph.
 
+A margin note can stay beside <Footnote note="On narrower pages this note returns to the sentence, in italic.">the phrase it belongs to</Footnote> without leaving the reading flow.
+
 Press <kbd>ctrl</kbd>+<kbd>c</kbd> to copy, and lowercase tags such as
 <abbr title="Abstract Syntax Tree">AST</abbr> pass straight through with
 their children still parsed as markdown.
@@ -119,6 +121,11 @@ two callouts up top — to prove the count is bounded only by the prose, never b
 a rebuild:
 
 <Counter initial={256} />
+
+<Hidden>
+  This aside starts folded, but its complete prose ships in the server document.
+  Open it once and it fades into the reading flow without an island.
+</Hidden>
 
 ## An image
 

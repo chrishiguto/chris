@@ -22,6 +22,13 @@ components in the app crate (available to every post) and per-post co-located fi
 (ADR-0004) — through the same macro, manifest, and dispatch path. v1 macro scope is deliberately bounded: scalar props + children +
 manifest emission; richer prop types come later.
 
+*Amendment (2026-09-02, Hidden authoring vocabulary):* a plain Leptos `Children`
+parameter is required, so a component that accepts children requires them; the
+publish validator now rejects an empty invocation of any such component before it
+reaches render dispatch. Children cardinality stays derived from the Rust
+signature alongside prop cardinality — one manifest flag, no component-name-specific
+validation.
+
 The DX ladder this enables: `.mdx` editor highlighting (free) → `xtask check` pre-commit (v1) →
 diagnostics/autocomplete LSP fed by the manifest (v2; rust-analyzer can never see into
 markdown, so the manifest is the only road to editor intelligence).

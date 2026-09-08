@@ -2,14 +2,11 @@
    Only the code itself is mono; the bar reads as interface. */
 
 @layer components {
-  /* Chromed code panel: the wrapper owns fill, border and radius;
-     `overflow: hidden` clips the bar into the rounded corners. */
+  /* Code is another step in the paper, held by one firm left rule. */
   .code-block {
     margin-block: 1.5em;
     background-color: var(--color-paper-2);
-    border: 1px solid var(--color-line);
-    border-radius: 0.5rem;
-    overflow: hidden;
+    border-inline-start: 2px solid var(--color-line);
   }
 
   .code-bar {
