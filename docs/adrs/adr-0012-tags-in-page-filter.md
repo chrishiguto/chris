@@ -93,3 +93,11 @@ feeds only (there are no tag pages left to project the index).
 > the query preserved; post URLs remain `/posts/{slug}`. `LISTING_PAGES` contains only
 > `/writing`, so its query variants remain under `views`; `/` becomes the deployment-owned
 > home under `site`. The sitemap lists both canonical pages and drops the retired `/about`.
+
+> **Amendment (2026-09-02)**: the archive presentation now matches the caderno index.
+> The reserved search slot and topics rail are deleted; tags render as plain words above
+> the archive. Posts are grouped newest-first under year labels, with the same title-first
+> hover-date rows as the home. Filtering still uses a union of the selected tags, but now
+> hides an emptied year group along with its rows. The island continues to own the rendered
+> region and serialized listed-post props; its `?q=`/`replaceState`, deep-link restoration,
+> unknown-tag intersection, full no-JS baseline, and cache behavior do not change.
